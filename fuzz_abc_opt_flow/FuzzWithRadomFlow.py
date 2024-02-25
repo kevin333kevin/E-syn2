@@ -4,7 +4,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 # Function to execute a single ABC flow
 def execute_flow(flow):
     # Prepare the command with the given flow
-    command = "../abc/abc -c \"abcrc; read_eqn ../abc/ori.eqn; strash; {} ;read_lib ../abc/asap7_clean.lib ; map ; topo; upsize; dnsize; stime\"".format(flow)
+    command = "../abc/abc -c \"abcrc; read_eqn ../abc/ori.eqn; strash; {} ;read_lib ../abc/asap7_clean.lib ; map ; topo; upsize; dnsize; stime -d\"".format(flow)
     # Execute the command
     os.system(command)
     
@@ -12,7 +12,7 @@ def execute_flow(flow):
 
 def main():
     # Load the flows from file
-    with open('res.txt', 'r') as file:
+    with open('GeneratedFlows.txt', 'r') as file:
         flows = [line.strip() for line in file]
     
     # Number of parallel processes (up to the number of cores/cpus you have)

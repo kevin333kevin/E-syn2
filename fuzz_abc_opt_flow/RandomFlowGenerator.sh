@@ -30,7 +30,7 @@ num_flows=$1
 lengths=(10 15 20 25)
 
 # Output file
-output_file="res.txt"
+output_file="GeneratedFlows.txt"
 
 # Make sure the output file is empty
 > "$output_file"
