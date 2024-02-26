@@ -15,7 +15,6 @@ use serde::__private::fmt::Display;
 
 
 
-
 // parse equation 2 to change the variables' names avoid of The variables of the nodes in equation 1 duplicated in the hash table
 pub fn process_text(file_content: &str) -> String {
     let mut processed_content = String::new();
@@ -352,6 +351,10 @@ where
     }
     out
 }
+
+
+
+
 
 
 pub fn process_file_1file(file_name: &str) -> (egg::Id){

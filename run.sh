@@ -57,7 +57,7 @@ end_time_process2=$(date +%s.%N)
 #cd ..
 start_time_process2_2=$(date +%s.%N)
 cp e-rewriter/result.json extraction-gym/out_json/my_data
-cd process_json/ && target/debug/process_json
+cd process_json/ && target/release/process_json
 cd ..
 #cp -r process_json/out_process_result extraction-gym/  && cp -r process_json/out_process_dag_result extraction-gym/
 #----------------select&test extract alogrithm---------------------
@@ -85,7 +85,7 @@ echo "-----------------------------Process 3: Evaluate--------------------------
 # cd abc/ && ./abc -c "read_eqn op.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 # cd ..
 cp e-rewriter/circuit0.eqn abc/ori.eqn
-cd abc/ && ./abc -c "read_eqn ori.eqn;st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+cd abc/ && ./abc -c "read_eqn ori.eqn;st; dch -f; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 cd ..
 # cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_bottom-up.json
 # cd ..
@@ -97,7 +97,7 @@ cd graph2eqn/ && target/release/graph2eqn result.json
 cd ..
 cp graph2eqn/circuit0.eqn abc/op2.eqn
 rm graph2eqn/circuit0.eqn
-cd abc/ && ./abc -c "read_eqn op2.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+cd abc/ && ./abc -c "read_eqn op2.eqn; st; dch -f; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 cd ..
 
 

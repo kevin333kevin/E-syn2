@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Commands array
-cmds=("rw" "rwz" "rf" "rfz" "balance" "resub" "resub -z")
+cmds=("rw" "rwz" "rf" "rfz" "balance" "resub" "resub -z" "dch ; strash")
 
 # Function to generate a random sequence
 generate_sequence() {

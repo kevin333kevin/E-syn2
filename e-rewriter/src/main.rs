@@ -1,20 +1,73 @@
-use egg::*;
+use egg::*; 
+use rayon::iter::ParallelDrainRange;
 use serde::Serialize;
+use std::fs;
+use std::io;
+// use sprs::io;
+// use crate::io;
+use std::fs::{File, OpenOptions};
+use std::io::{BufRead, BufReader, Write, BufWriter};
 use std::env;
-use std::fs::File;
 use std::io::prelude::*;
-use std::io::Write;
 use std::time::Instant;
 use std::path::Path;
 mod utils;
-use std::fs;
-use std::usize;
-use utils::{language::*,preprocess::*,extract_new::*};
+use utils::{language::*, preprocess::*, extract_new::*};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use std::io::BufWriter;
 
+pub fn preprocess_file(file_name: &str) -> Result<(), io::Error> {
+    // Open the file for reading
+    let file = File::open(file_name)?;
+    let reader = BufReader::new(file);
+
+    // Prepare a string to hold the new contents of the file
+    let mut new_contents = String::new();
+
+    // Flags to detect INORDER and OUTORDER sections
+    let mut in_inorder_section = false;
+    let mut in_outorder_section = false;
+
+    for line in reader.lines() {
+        let line = line?;
+
+        // Check if we're entering the INORDER or OUTORDER sections
+        if line.trim().starts_with("INORDER") {
+            in_inorder_section = true;
+            new_contents.push_str(&line.trim());
+            new_contents.push(' ');
+        } else if line.trim().starts_with("OUTORDER") {
+            in_outorder_section = true;
+            new_contents.push_str(&line.trim());
+            new_contents.push(' ');
+        } else if in_inorder_section || in_outorder_section {
+            new_contents.push_str(&line.trim());
+            if line.trim().ends_with(";") {
+                // End of section, reset flags
+                in_inorder_section = false;
+                in_outorder_section = false;
+                // if this line end with ;, push \n to new_contents
+                new_contents.push('\n');
+                // continue to next line
+                continue;
+            }
+            new_contents.push(' ');
+
+        } else {
+            new_contents.push_str(&line);
+            new_contents.push('\n');
+        }
+    }
+
+    // Open the same file for writing
+    let mut file = OpenOptions::new().write(true).truncate(true).open(file_name)?;
+
+    // Write the new contents to the file
+    file.write_all(new_contents.as_bytes())?;
+
+    Ok(())
+}
 
 
 fn main() ->Result<(), Box<dyn std::error::Error>> {
@@ -24,9 +77,13 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
     let input_path1 = &args[1];
 
+    // preprocess input file
+    preprocess_file(&input_path1)?;
+    println!("Finished preprocessing input file");
+
     //-----------------------------------------------------------------------------------------------------   
     //2.transfer eqn file into egraph format in egg
-    let root_id0=process_file_1file(&input_path1);
+    let root_id0 = process_file_1file(input_path1);
     println!("root: {:?}", root_id0);
     let mut root_ids: Vec<usize> = Vec::new();
     root_ids.push(root_id0.into());
@@ -159,7 +216,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
 
     // -------------------------------------------------------------
     // egg extraction
-    let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstDepth);
+    let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
    // let extractor_base_1  = Extractor2::new(&runner.egraph, egg::AstDepth);
     let (best_cost_base_0,best_base_0 )=extractor_base_0.find_best(root);
    // let (best_cost_base_1,best_base_1 )=extractor_base_1.find_best(root);
