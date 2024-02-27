@@ -93,11 +93,18 @@ cd ..
 # rm graph2eqn/circuit0.eqn
 # cd abc/ && ./abc -c "read_eqn op1.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 # cd ..
+# echo the current directory
+pwd
 cd graph2eqn/ && target/release/graph2eqn result.json
 cd ..
 cp graph2eqn/circuit0.eqn abc/op2.eqn
-rm graph2eqn/circuit0.eqn
+# rm graph2eqn/circuit0.eqn
 cd abc/ && ./abc -c "read_eqn op2.eqn; st; dch -f; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+
+# echo cec
+echo "-----------------------------CEC of original circuit and optimized circuit-----------------------------"
+./abc -c "cec ori.eqn op2.eqn"
+
 cd ..
 
 

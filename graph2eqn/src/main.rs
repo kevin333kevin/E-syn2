@@ -1,8 +1,9 @@
-use serde::{Deserialize};
-use std::collections::{HashMap, HashSet};
+use serde::Deserialize;
+use std::collections::HashMap;
 use std::fs::File;
-use std::io::{self, Write, Read};
+use std::io::{Write, Read, BufRead, BufReader};
 use std::env;
+use std::path::Path;
 
 // Define Data Structures
 #[derive(Deserialize, Debug)]
@@ -79,35 +80,55 @@ fn format_synopsys_single(equation: &str) -> Vec<String> {
     equation.split('&').map(|part| part.trim().to_string()).collect()
 }
 
- // Function to write Synopsys format to a file
- fn write_to_file(
+// Function to read the mapping from the reference file
+fn read_prefix_mapping(file_path: &str) -> HashMap<String, String> {
+    let file = File::open(file_path).expect("Unable to open file");
+    let reader = BufReader::new(file);
+    let mut mapping = HashMap::new();
+
+    for line in reader.lines() {
+        let line = line.expect("Unable to read line");
+        if line.starts_with("OUTORDER = ") {
+            let parts: Vec<&str> = line.trim_start_matches("OUTORDER = ").trim_end_matches(';').split_whitespace().collect();
+            for (index, part) in parts.iter().enumerate() {
+                mapping.insert(format!("p[{}]", index), part.to_string());
+            }
+            break;
+        }
+    }
+
+    mapping
+}
+
+// Function to write Synopsys format to a file with updated prefix mapping
+fn write_to_file(
     variables: &Vec<String>,
     parts: Vec<String>,
     file_name: &str,
     f_prefix: &str,
     visited: HashMap<String, String>,
+    prefix_mapping: &HashMap<String, String>,
 ) {
     let mut file = File::create(file_name).expect("Unable to create file");
 
     writeln!(file, "INORDER = {};", variables.join(" ")).expect("Unable to write to file");
     
-    let mut f_counter: usize = 0;
-    for part in parts {
-        let f_number = format!("{:02}", f_counter);
-        writeln!(file, "{}{} = {};", f_prefix, f_number, part).expect("Unable to write to file");
-        f_counter += 1;
+    for (index, part) in parts.iter().enumerate() {
+        let f_number = format!("{}[{}]", f_prefix, index);
+        let mapped_prefix = prefix_mapping.get(&f_number).unwrap_or(&f_number);
+        writeln!(file, "{} = {};", mapped_prefix, part).expect("Unable to write to file");
     }
 
-    writeln!(file, "OUTORDER = {};", (0..f_counter)
-        .map(|i| format!("{}{:02}", f_prefix, i))
-        .collect::<Vec<String>>()
-        .join(" ")).expect("Unable to write to file");
+    let outorder: Vec<String> = (0..parts.len())
+        .map(|i| format!("{}[{}]", f_prefix, i))
+        .map(|f_number| prefix_mapping.get(&f_number).unwrap_or(&f_number).to_string())
+        .collect();
+
+    writeln!(file, "OUTORDER = {};", outorder.join(" ")).expect("Unable to write to file");
 
     for (node_id, expr) in visited.iter() {
         writeln!(file, "new_n_{} = {};", node_id, expr).expect("Unable to write to file");
     }
-
-  //  println!("Equation written to {}", file_name);
 }
 
 
@@ -134,6 +155,9 @@ fn main() {
 
     // Print the root nodes
    // println!("Root nodes: {:?}", root_nodes);
+
+   // Format and write each Circuit to a file
+   let prefix_mapping = read_prefix_mapping("../e-rewriter/circuit0.eqn");
 
     // Process each identified root node
     for (i, root) in root_nodes.iter().enumerate() {
@@ -173,7 +197,9 @@ fn main() {
         // }
         // println!();
 
-        // Format and write each Circuit to a file
-        write_to_file(&variables, parts, &format!("circuit{}.eqn", i), "po", visited);
+        
+        write_to_file(&variables, parts, &format!("circuit{}.eqn", i), "p", visited, &prefix_mapping);
+        //post_process_eqn(&format!("circuit{}.eqn", i));
+        println!("Finished graph to equation conversion")
     }
 }

@@ -32,29 +32,45 @@ pub fn preprocess_file(file_name: &str) -> Result<(), io::Error> {
     for line in reader.lines() {
         let line = line?;
 
-        // Check if we're entering the INORDER or OUTORDER sections
+        // Check if we're entering the INORDER section
         if line.trim().starts_with("INORDER") {
             in_inorder_section = true;
-            new_contents.push_str(&line.trim());
-            new_contents.push(' ');
+            if line.trim().ends_with(";") {
+                // Skip this function if INORDER is one line and ends with ;
+                in_inorder_section = false;
+                new_contents.push_str(&line);
+                new_contents.push('\n');
+                continue;
+            } else {
+                new_contents.push_str(&line.trim());
+                new_contents.push(' ');
+            }
+        // Check if we're entering the OUTORDER section
         } else if line.trim().starts_with("OUTORDER") {
             in_outorder_section = true;
-            new_contents.push_str(&line.trim());
-            new_contents.push(' ');
+            if line.trim().ends_with(";") {
+                // Skip this function if OUTORDER is one line and ends with ;
+                in_outorder_section = false;
+                new_contents.push_str(&line);
+                new_contents.push('\n');
+                continue;
+            } else {
+                new_contents.push_str(&line.trim());
+                new_contents.push(' ');
+            }
         } else if in_inorder_section || in_outorder_section {
+            // Continue appending lines that are part of INORDER or OUTORDER sections
             new_contents.push_str(&line.trim());
             if line.trim().ends_with(";") {
                 // End of section, reset flags
                 in_inorder_section = false;
                 in_outorder_section = false;
-                // if this line end with ;, push \n to new_contents
                 new_contents.push('\n');
-                // continue to next line
-                continue;
+            } else {
+                new_contents.push(' ');
             }
-            new_contents.push(' ');
-
         } else {
+            // Append lines that are not part of INORDER or OUTORDER sections
             new_contents.push_str(&line);
             new_contents.push('\n');
         }
@@ -68,6 +84,7 @@ pub fn preprocess_file(file_name: &str) -> Result<(), io::Error> {
 
     Ok(())
 }
+
 
 
 fn main() ->Result<(), Box<dyn std::error::Error>> {
