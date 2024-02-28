@@ -47,6 +47,9 @@ serde-1 = [
 ]
 wasm-bindgen = ["instant/wasm-bindgen"]
 graphviz = ["dep:graphviz-rust"]
+default = []  # 默认 feature
+feature1 = []  # Feature 1
+
 
 [dependencies.graphviz-rust]
 optional = true

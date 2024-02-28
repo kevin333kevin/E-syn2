@@ -472,3 +472,26 @@ pub fn process_file_1file(file_name: &str) -> (egg::Id){
     fs::write(output_path, json_str).expect("Failed to write JSON file");
     last_element
 }
+
+
+pub fn process_json_prop_cost(json_str: &str) -> String {
+    let mut data: Value = serde_json::from_str(&json_str).unwrap();
+
+    if let Some(nodes) = data.get_mut("nodes").and_then(|nodes| nodes.as_object_mut()) {
+        for node in nodes.values_mut() {
+            let op = node["op"].as_str().unwrap();
+            let cost = node["cost"].as_f64().unwrap();
+
+            let new_cost = match op {
+                "+" => 6.0,
+                "!" => 2.0,
+                "*" => 4.0,
+                _ => cost,
+            };
+
+            node["cost"] = serde_json::to_value(new_cost).unwrap();
+        }
+    }
+
+    serde_json::to_string_pretty(&data).unwrap()
+}

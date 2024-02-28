@@ -1,18 +1,17 @@
-FEATURES ?=
-FLAGS=--release --features=$(FEATURES)
+FLAGS =
+FLAGS += --features=$(FEATURES)
 
-EXTRACTORS=$(shell cargo run -q $(FLAGS) -- --extractor=print)
+EXTRACTORS = $(shell cargo run -q $(FLAGS) -- --extractor=print)
 
-PROGRAM=target/release/extraction-gym
+PROGRAM = target/debug/extraction-gym
 
-SRC=$(shell find . -name '.rs') Cargo.toml Cargo.lock
-DATA=$(shell find data -name '*.json')
+SRC = $(shell find . -name '*.rs') Cargo.toml Cargo.lock
+DATA = $(shell find data -name '*.json')
 
-TARGETS=
+TARGETS =
 
 .PHONY: all
-all:  nits bench 
-#process_out_json
+all: nits bench
 
 define run-extraction
 TARGETS += $(1:data/%=output/%)-$(2).json
@@ -33,13 +32,7 @@ bench: $(TARGETS)
 $(PROGRAM): $(SRC)
 	cargo build $(FLAGS)
 
-
 .PHONY: nits
 nits:
 	rustup component add rustfmt clippy
 	cargo clean --doc
-
-
-#.PHONY: process_out_json
-#process_out_json:
-#	python process_out_json.py

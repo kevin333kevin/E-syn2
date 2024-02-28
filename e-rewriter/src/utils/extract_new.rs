@@ -89,11 +89,23 @@ where
     
     pub fn record_costs(&self) {
         let mut result: HashMap<String, String> = HashMap::new();
-    
+       
         for (id, (_, index, _)) in self.costs.iter() {
             let value = format!("{}.{}", id, index);
+            
             result.insert(id.to_string(), value);
         }
+
+        // print the element of results
+        // for (key, value) in result.iter() {
+        //     println!("key: {}, value: {}", key, value);
+        // }
+        
+
+        // println!("Costs: {:?}", self.costs.iter());
+        // for (id, (cost, index, l)) in self.costs.iter() {
+        //     println!("Id: {}, Cost: {:?}, Index: {}, L: {:?}", id, cost, index, l);
+        // }
         let choices = Choices { choices: result };
 
     if let Ok(mut file) = File::create("result.json") {

@@ -1,10 +1,10 @@
 
 use egg::*;
 use crate::utils::{language::*};
-pub struct Mixcost;
+pub struct wight_size;
+pub struct wight_depth;
 
-
-
+use crate::Prop::*;
 
 
 // impl CostFunction<Prop> for Mixcost{        
@@ -55,7 +55,7 @@ pub struct Mixcost;
 //         }
 
 
-impl CostFunction<Prop> for Mixcost{        
+impl CostFunction<Prop> for wight_size{        
     type Cost = usize;
     fn cost<C>(&mut self, enode: &Prop, mut costs: C) -> Self::Cost
     where
@@ -63,9 +63,9 @@ impl CostFunction<Prop> for Mixcost{
     {   
         let op = enode.to_string();
         let op_cost   = match op.as_str() {
-            "!" => 9 ,
-            "+" => 26 ,
-            "*"=> 22 ,
+            "!" => 1 ,
+            "+" => 3,
+            "*"=> 5,
             //"&" => 0.0 as  f32,
             _=> 0 
         };
@@ -85,6 +85,36 @@ impl CostFunction<Prop> for Mixcost{
     }
     
 }
+
+impl CostFunction<Prop> for wight_depth{        
+    type Cost = usize;
+    fn cost<C>(&mut self, enode: &Prop, mut costs: C) -> Self::Cost
+    where
+        C: FnMut(Id) -> Self::Cost,
+    {   
+        // let c = match enode {
+        //     Not(a) => 1 + enode.fold(op_cost, |max, id| max.max(costs(id))),  // 将常量改为浮点数
+        //     And([a,b]) => 2  + enode.fold(op_cost, |max, id| max.max(costs(id))),  // 将常量改为浮点数
+        //     Or([a,b]) => 3  + enode.fold(op_cost, |max, id| max.max(costs(id))),  // 将常量改为浮点数
+        //     _=>0  + enode.fold(op_cost, |max, id| max.max(costs(id))),  
+
+
+        // };
+        let c = match enode {
+            Not(a) => 1 + enode.fold(0, |max, id| max.max(costs(id))),  // 将常量改为浮点数
+            And([a,b]) => 3  + enode.fold(0, |max, id| max.max(costs(id))),  // 将常量改为浮点数
+            Or([a,b]) => 10  + enode.fold(0, |max, id| max.max(costs(id))),  // 将常量改为浮点数
+            _=>0  + enode.fold(0, |max, id| max.max(costs(id))),  
+
+
+        };
+        c
+       
+    }
+    
+}
+
+
 pub struct AstSize;
 impl<L: Language> CostFunction<L> for AstSize {
     type Cost = usize;

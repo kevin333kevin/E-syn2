@@ -18,7 +18,43 @@ pub const INFINITY: Cost = unsafe { NotNan::new_unchecked(std::f64::INFINITY) };
 
 fn main() {
     env_logger::init();
-   let extractors: IndexMap<&str, Box<dyn Extractor>> = [
+
+
+
+
+
+
+
+
+    
+//    let extractors: IndexMap<&str, Box<dyn Extractor>> = [
+        // ("bottom-up", extract::bottom_up::BottomUpExtractor.boxed()),
+        // (
+            // "faster-bottom-up",
+            // extract::faster_bottom_up::FasterBottomUpExtractor.boxed(),
+        // ),
+        // (
+            // "greedy-dag",
+            // extract::greedy_dag::GreedyDagExtractor.boxed(),
+        // ),
+        // (
+            // "faster-greedy-dag",
+            // extract::faster_greedy_dag::FasterGreedyDagExtractor.boxed(),
+        // ),
+        // (
+            // "global-greedy-dag",
+            // extract::global_greedy_dag::GlobalGreedyDagExtractor.boxed(),
+        // ),
+    // ]
+    // .into_iter()
+    // .enumerate()
+    // .filter(|(index, _)| *index == 0)
+    // .map(|(_, item)| item)
+    // .collect();
+
+
+
+    let extractors: IndexMap<&str, Box<dyn Extractor>> = [
         ("bottom-up", extract::bottom_up::BottomUpExtractor.boxed()),
         (
             "faster-bottom-up",
@@ -38,34 +74,7 @@ fn main() {
         ),
     ]
     .into_iter()
-    .enumerate()
-    .filter(|(index, _)| *index == 0)
-    .map(|(_, item)| item)
-    .collect();
-
-
-
-    // let extractors: IndexMap<&str, Box<dyn Extractor>> = [
-    //     ("bottom-up", extract::bottom_up::BottomUpExtractor.boxed()),
-    //     (
-    //         "faster-bottom-up",
-    //         extract::faster_bottom_up::FasterBottomUpExtractor.boxed(),
-    //     ),
-    //     (
-    //         "greedy-dag",
-    //         extract::greedy_dag::GreedyDagExtractor.boxed(),
-    //     ),
-    //     (
-    //         "faster-greedy-dag",
-    //         extract::faster_greedy_dag::FasterGreedyDagExtractor.boxed(),
-    //     ),
-    //     (
-    //         "global-greedy-dag",
-    //         extract::global_greedy_dag::GlobalGreedyDagExtractor.boxed(),
-    //     ),
-    // ]
-    // .into_iter()
-    // .collect();
+     .collect();
 
     let mut args = pico_args::Arguments::from_env();
 

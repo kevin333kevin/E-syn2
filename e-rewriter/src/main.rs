@@ -1,6 +1,7 @@
 use egg::*; 
 use rayon::iter::ParallelDrainRange;
 use serde::Serialize;
+use std::f32::consts::E;
 use std::fs;
 use std::io;
 // use sprs::io;
@@ -16,6 +17,7 @@ use utils::{language::*, preprocess::*, extract_new::*};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use crate::utils::cost::*;
 
 pub fn preprocess_file(file_name: &str) -> Result<(), io::Error> {
     // Open the file for reading
@@ -177,24 +179,27 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
 
     //-----------------------------------------------------------------------------------------------------   
     //7.ruuner configure
-    let runner_iteration_limit = 10000000;
+    #[cfg(not(feature = "feature1"))]{
+    let runner_iteration_limit = 40;
     let egraph_node_limit = 200000000;
   //  let egraph_node_limit = 10 *egraph_new_test.total_size();
     let start = Instant::now();
     let mut runner1 = Runner::default()
         .with_explanations_enabled()
-        .with_egraph(egraph_new_test)
-        .with_time_limit(std::time::Duration::from_secs(50))
+        .with_egraph(egraph_new_test.clone())
+        .with_time_limit(std::time::Duration::from_secs(100))
         .with_iter_limit(runner_iteration_limit)
         .with_node_limit(egraph_node_limit);
 
     runner1.roots = root_ids.iter().cloned().map(Id::from).collect();
     let runner =runner1.run(&make_rules());
+
     let duration= start.elapsed();
     println!("Runner stopped: {:?}. Time take for runner: {:?}, Classes: {}, Nodes: {}, Size: {} \n\n",
             runner.stop_reason, duration, runner.egraph.number_of_classes(),
             runner.egraph.total_number_of_nodes(), runner.egraph.total_size());
     println!("root{:?}", runner.roots);
+    runner.print_report();
     let root = runner.roots[0];
 
 
@@ -228,12 +233,36 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     let file = File::create(&file_path_1)?;
     let writer = BufWriter::new(file);
     serde_json::to_writer_pretty(writer, &json_data)?;
+
+    println!("------------------assign cost of enode-----------------");
+    let json_rep_test_egraph_serd = egg_to_serialized_egraph(&runner.egraph);
+    let json_string = serde_json::to_string(&json_rep_test_egraph_serd).unwrap();
+    let cost_string = process_json_prop_cost(&json_string);
+  //  println!("Cost String: {}", cost_string);
+    
+    let base_path = env::current_dir().expect("Failed to get current directory");
+    let file_path_2 = base_path.join("dot_graph/graph_cost_serd.json");
+    
+    let root_eclasses_value: serde_json::Value = root_ids
+        .clone()
+        .into_iter()
+        .map(|id| serde_json::Value::String(id.to_string())) // 将整数转换为字符串
+        .collect();
+    
+    let mut json_data: serde_json::Value = serde_json::from_str(&cost_string)?;
+    json_data["root_eclasses"] = root_eclasses_value;
+    let file = File::create(&file_path_2)?;
+    let writer = BufWriter::new(file);
+    serde_json::to_writer_pretty(writer, &json_data)?;
+    
     println!("done");
 
 
     // -------------------------------------------------------------
     // egg extraction
-    let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
+   // let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
+    let extractor_base_0  = Extractor2::new(&runner.egraph, wight_depth);
+   // let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
    // let extractor_base_1  = Extractor2::new(&runner.egraph, egg::AstDepth);
     let (best_cost_base_0,best_base_0 )=extractor_base_0.find_best(root);
    // let (best_cost_base_1,best_base_1 )=extractor_base_1.find_best(root);
@@ -242,6 +271,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     
     let mut results: BTreeMap<i32, RecExpr<Prop>> = BTreeMap::new();
     results.insert(0, best_base_0.clone());
+    }
 //    results.insert(1, best_base_1.clone()); 
 
     // let min_keys: Vec<i32> = vec![0, 1];
@@ -261,8 +291,160 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     //     count += 1;
     // }
     //---------------------------------------------------
+    #[cfg(feature = "feature1")] 
+   
+    {   println!("\n");
+        println!("Enable Heuristic Search");
+        let runner_iteration_limit = 5;
+        let egraph_node_limit = 200000000;
+      //  let egraph_node_limit = 10 *egraph_new_test.total_size();
+        let start = Instant::now();
+        let mut runner1 = Runner::default()
+            .with_explanations_enabled()
+            .with_egraph(egraph_new_test.clone())
+            .with_iter_limit(runner_iteration_limit)
+            .with_node_limit(egraph_node_limit);
+    
+        runner1.roots = root_ids.iter().cloned().map(Id::from).collect();
+        let runner =runner1.run(&make_rules());
+    
+        let duration= start.elapsed();
+        println!("Runner stopped: {:?}. Time take for runner: {:?}, Classes: {}, Nodes: {}, Size: {} \n\n",
+                runner.stop_reason, duration, runner.egraph.number_of_classes(),
+                runner.egraph.total_number_of_nodes(), runner.egraph.total_size());
+        println!("root{:?}", runner.roots);
+        runner.print_report();
+        let root = runner.roots[0];
+        // create a new empty vector to store root ids
+        let mut root_id_vec: Vec<usize> = Vec::new();
+        // create a new empty vector to store Egraph
+        let mut egraph_vec: Vec<EGraph<Prop, ()>> = Vec::new();
+        let mut results: BTreeMap<i32, RecExpr<Prop>> = BTreeMap::new();
+        let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstDepth);
+       // let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
+       // let extractor_base_1  = Extractor2::new(&runner.egraph, egg::AstDepth);
+        let (best_cost_base_0,best_base_0 )=extractor_base_0.find_best(root);
+       // let (best_cost_base_1,best_base_1 )=extractor_base_1.find_best(root);
+        println!("best{}",best_cost_base_0);
 
+        let mut expr = best_base_0.clone();
+        
+    
+            // define extra rules for some configurations
+            // 1. pushdown
+            let mut best_cost = best_cost_base_0;
+            // to prune costy nodes, we iterate multiple times and only keep the best one for each run.
+            for i in 0..3 {
+                println!("----------round{:?}------------",i );
+                let egraph_node_limit = 200000000;
+                let runner =  Runner::default()
+                    .with_expr(&expr)
+                    .with_iter_limit(10)
+                    .with_node_limit(egraph_node_limit)
+                    .run(&make_rules());
+                let extractor = Extractor2::new(&runner.egraph, egg::AstDepth);
+                let cost;
 
+                (cost, expr) = extractor.find_best(runner.roots[0]);
+                println!("Runner stopped: {:?}. Time take for runner: {:?}, Classes: {}, Nodes: {}, Size: {} \n\n",
+                runner.stop_reason, duration, runner.egraph.number_of_classes(),
+                runner.egraph.total_number_of_nodes(), runner.egraph.total_size());
+                println!("root{:?}", runner.roots);
+                runner.print_report();
+                
+                if cost > best_cost {
+                    println!("break!");
+                    println!("best{}",cost);
+                    break;
+                }
+                best_cost = cost;
+                println!("best{}",best_cost);
+                // store root id for later use in root_id_vec
+                root_id_vec.push(runner.roots[0].into());
+                // store the egraph for later use in egraph_vec
+                egraph_vec.push(runner.egraph.clone());
+            }
+        let mut results: BTreeMap<i32, RecExpr<Prop>> = BTreeMap::new();
+        results.insert(0, expr.clone());
+
+        //save output egraph from runner (input for extraction gym)
+        //let json_rep_test_egraph = serde_json::to_string_pretty(&runner.egraph).unwrap();
+        // use last element of egraph_vec as input for extraction gym
+        let json_rep_test_egraph = serde_json::to_string_pretty(&egraph_vec.last().unwrap()).unwrap();
+        //let json_rep_test_egraph_serd = egg_to_serialized_egraph(&runner.egraph);
+        let json_rep_test_egraph_serd = egg_to_serialized_egraph(&egraph_vec.last().unwrap());
+        
+    
+    
+        println!("egraph after runner");
+        println!("egraph node{}", runner.egraph.total_size());
+        println!("egraph class{}", runner.egraph.number_of_classes());
+        let base_path = env::current_dir().expect("Failed to get current directory");
+        let file_path = base_path.join("dot_graph/graph_internal.json");
+        fs::write(&file_path, json_rep_test_egraph.clone()).expect("Failed to write JSON to file");
+    
+        //add root nodes into json
+        println!("write root");
+        let file_path_1 = base_path.join("dot_graph/graph_internal_serd.json");
+        let mut root_ids: Vec<usize> = Vec::new();
+        //root_ids.push(runner.roots[0].into());
+        // convert runner.roots to usize and use it as root_ids
+        for id in runner.roots {
+            //print the root id
+            println!("root id: {}", id);
+            //root_ids.push(id.into());
+        }
+        // update root_ids with root_id_vec last element
+        root_ids.push(root_id_vec.last().unwrap().clone());
+        // print root id
+        println!("Final print: root id: {}", root_ids[0]);
+        let root_eclasses_value: serde_json::Value = root_ids
+        .clone()
+        .into_iter()
+        .map(|id| serde_json::Value::String(id.to_string())) // 将整数转换为字符串
+        .collect();
+        let file = File::create(&file_path_1)?;
+        let writer = BufWriter::new(file);
+        serde_json::to_writer_pretty(writer, &json_rep_test_egraph_serd)?;
+        let json_string = std::fs::read_to_string(&file_path_1)?;
+        let mut json_data: serde_json::Value = serde_json::from_str(&json_string)?;
+        json_data["root_eclasses"] = root_eclasses_value;
+        let file = File::create(&file_path_1)?;
+        let writer = BufWriter::new(file);
+        serde_json::to_writer_pretty(writer, &json_data)?;
+    
+        println!("------------------assign cost of enode-----------------");
+        let json_rep_test_egraph_serd = egg_to_serialized_egraph(&runner.egraph);
+        let json_string = serde_json::to_string(&json_rep_test_egraph_serd).unwrap();
+        let cost_string = process_json_prop_cost(&json_string);
+      //  println!("Cost String: {}", cost_string);
+        
+        let base_path = env::current_dir().expect("Failed to get current directory");
+        let file_path_2 = base_path.join("dot_graph/graph_cost_serd.json");
+        
+        let root_eclasses_value: serde_json::Value = root_ids
+            .clone()
+            .into_iter()
+            .map(|id| serde_json::Value::String(id.to_string())) // 将整数转换为字符串
+            .collect();
+        
+        let mut json_data: serde_json::Value = serde_json::from_str(&cost_string)?;
+        json_data["root_eclasses"] = root_eclasses_value;
+        let file = File::create(&file_path_2)?;
+        let writer = BufWriter::new(file);
+        serde_json::to_writer_pretty(writer, &json_data)?;
+        
+        println!("done");
+    
+    
+        // -------------------------------------------------------------
+        // egg extraction
+       // let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
+
+        //println!("test_expr{}",best_base_0);
+        
+
+        }
 
 
 

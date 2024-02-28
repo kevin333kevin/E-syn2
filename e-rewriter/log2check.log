@@ -1,0 +1,83 @@
+Finished preprocessing input file
+root: 2547
+total
+input node2548
+input class2548
+root_eclasses_value["2547"]
+
+Enable Heuristic Search
+Runner stopped: Some(IterationLimit(5)). Time take for runner: 523.737143ms, Classes: 6739, Nodes: 10933, Size: 10933 
+
+
+root[2547]
+Runner report
+=============
+  Stop reason: IterationLimit(5)
+  Iterations: 5
+  Egraph size: 10933 nodes, 6739 classes, 10933 memo
+  Rebuilds: 0
+  Total time: 0.5144373790000001
+    Search:  (0.70) 0.35872394800000007
+    Apply:   (0.09) 0.045199080999999995
+    Rebuild: (0.21) 0.11048681899999999
+
+best451
+----------round0------------
+Runner stopped: Some(IterationLimit(10)). Time take for runner: 523.737143ms, Classes: 9280, Nodes: 24314, Size: 30267 
+
+
+root[3508]
+Runner report
+=============
+  Stop reason: IterationLimit(10)
+  Iterations: 10
+  Egraph size: 24314 nodes, 9280 classes, 30267 memo
+  Rebuilds: 1036
+  Total time: 1.761961812
+    Search:  (0.78) 1.36573075
+    Apply:   (0.07) 0.11954942399999999
+    Rebuild: (0.16) 0.27664478
+
+best135
+----------round1------------
+Runner stopped: Some(IterationLimit(10)). Time take for runner: 523.737143ms, Classes: 8325, Nodes: 18621, Size: 20153 
+
+
+root[2651]
+Runner report
+=============
+  Stop reason: IterationLimit(10)
+  Iterations: 10
+  Egraph size: 18621 nodes, 8325 classes, 20153 memo
+  Rebuilds: 39
+  Total time: 1.4206005
+    Search:  (0.76) 1.085206456
+    Apply:   (0.06) 0.084585802
+    Rebuild: (0.18) 0.250787945
+
+best134
+----------round2------------
+Runner stopped: Some(IterationLimit(10)). Time take for runner: 523.737143ms, Classes: 10783, Nodes: 21703, Size: 22868 
+
+
+root[3028]
+Runner report
+=============
+  Stop reason: IterationLimit(10)
+  Iterations: 10
+  Egraph size: 21703 nodes, 10783 classes, 22868 memo
+  Rebuilds: 89
+  Total time: 1.449280347
+    Search:  (0.75) 1.0936071250000001
+    Apply:   (0.05) 0.079073507
+    Rebuild: (0.19) 0.276569742
+
+best134
+egraph after runner
+egraph node10933
+egraph class6739
+write root
+root id: 2547
+Final print: root id: 3028
+------------------assign cost of enode-----------------
+done
