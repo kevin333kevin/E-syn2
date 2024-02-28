@@ -261,18 +261,36 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     // -------------------------------------------------------------
     // egg extraction
    // let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
-    let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
-   // let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
-   // let extractor_base_1  = Extractor2::new(&runner.egraph, egg::AstDepth);
-    let (best_cost_base_0,best_base_0 )=extractor_base_0.find_best(root);
-    extractor_base_0. record_costs();
-    
+
+
+
+
+     println!("------------------extract-----------------");
+     let start_time = Instant::now();
+     let extractor_base_0 = Extractor2::new(&runner.egraph, egg::AstSize);
+     let elapsed_time = start_time.elapsed();
+     println!("find_costs: {:?}", elapsed_time);
+
+     let start_time = Instant::now();
+     let (best_cost_base_0) = extractor_base_0.find_best_no_expr(root);
+     let elapsed_time = start_time.elapsed();
+     println!("find_best_no_expr took: {:?}", elapsed_time);
+
+    //  let start_time = Instant::now();
+    //  let (best_cost_base_0,best_base_0 )=extractor_base_0.find_best(root);
+    //  let elapsed_time = start_time.elapsed();
+    //  println!("find_best: {:?}", elapsed_time);
+     println!("------------------done----------------");
+    // extractor_base_0. record_costs();
+   println!("------------------random extract-----------------");
+    extractor_base_0.record_costs_random(20,20.0);
+    println!("------------------done----------------");
    // let (best_cost_base_1,best_base_1 )=extractor_base_1.find_best(root);
     println!("best{}",best_cost_base_0);
     //println!("test_expr{}",best_base_0);
     
-    let mut results: BTreeMap<i32, RecExpr<Prop>> = BTreeMap::new();
-    results.insert(0, best_base_0.clone());
+    // let mut results: BTreeMap<i32, RecExpr<Prop>> = BTreeMap::new();
+    // results.insert(0, best_base_0.clone());
     }
 //    results.insert(1, best_base_1.clone()); 
 

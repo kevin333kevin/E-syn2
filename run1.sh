@@ -37,6 +37,8 @@ fi
 echo "-----------------------------Process 1: Rewrite the circuit-----------------------------"
 start_time_process1=$(date +%s.%N)
 cd e-rewriter/ && cargo run circuit0.eqn 
+cd ..
+cp e-rewriter/random_result/result10.json e-rewriter/result.json
 # Execute the steps
 #if [ "$display" -eq 0 ]; then
     #cd e-rewriter/ && target/release/e-rewriter circuit0.eqn circuit1.eqn
@@ -44,7 +46,7 @@ cd e-rewriter/ && cargo run circuit0.eqn
 #    cd e-rewriter/ && target/release/e-rewriter --features display circuit0.eqn circuit1.eqn
 #fi
 
-cd ..
+
 cp e-rewriter/dot_graph/graph_internal_serd.json extraction-gym/data/my_data/
 end_time_process1=$(date +%s.%N)
 runtime_process1=$(echo "$end_time_process1 - $start_time_process1" | bc)
