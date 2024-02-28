@@ -89,7 +89,7 @@ echo "-----------------------------Process 3: Evaluate--------------------------
 # cp graph2eqn/circuit0.eqn abc/op1.eqn
 # rm graph2eqn/circuit0.eqn
 echo "-----------------------------original-----------------------------"
-cd abc/ && ./abc -c "read_eqn ori.eqn; st; dch;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+cd abc/ && ./abc -c "read_eqn ori.eqn; st; compress2rs; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 cd ..
 # cd abc/ && ./abc -c "read_eqn ori.eqn;st; dch; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 
@@ -100,7 +100,7 @@ cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_bottom-up.json
 cd ..
 cp graph2eqn/circuit0.eqn abc/op1.eqn
 rm graph2eqn/circuit0.eqn
-cd abc/ && ./abc -c "read_eqn op1.eqn; st; dch;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+cd abc/ && ./abc -c "read_eqn op1.eqn; st; compress2rs; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 cd ..
 end_time_process2_3=$(date +%s.%N)
 
@@ -114,7 +114,7 @@ cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_faster-greedy-dag.
 cd ..
 cp graph2eqn/circuit0.eqn abc/op2.eqn
 rm graph2eqn/circuit0.eqn
-cd abc/ && ./abc -c "read_eqn op2.eqn; st; dch;st;print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+cd abc/ && ./abc -c "read_eqn op2.eqn; st; compress2rs;print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 cd ..
 end_time_process2_3=$(date +%s.%N)
 
@@ -123,7 +123,7 @@ cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_global-greedy-dag.
 cd ..
 cp graph2eqn/circuit0.eqn abc/op3.eqn
 rm graph2eqn/circuit0.eqn
-cd abc/ && ./abc -c "read_eqn op3.eqn; st; dch;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+cd abc/ && ./abc -c "read_eqn op3.eqn; st; compress2rs; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 cd ..
 
 
@@ -133,7 +133,7 @@ cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_greedy-dag.json
 cd ..
 cp graph2eqn/circuit0.eqn abc/op4.eqn
 rm graph2eqn/circuit0.eqn
-cd abc/ && ./abc -c "read_eqn op4.eqn; st; dch;st;print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+cd abc/ && ./abc -c "read_eqn op4.eqn; st; compress2rs;print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 cd ..
 
 echo "-----------------------------graph_internal_serd_faster-bottom-up-----------------------------"
@@ -141,7 +141,7 @@ cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_faster-bottom-up.j
 cd ..
 cp graph2eqn/circuit0.eqn abc/op5.eqn
 rm graph2eqn/circuit0.eqn
-cd abc/ && ./abc -c "read_eqn op5.eqn; st; dch;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+cd abc/ && ./abc -c "read_eqn op5.eqn; st; compress2rs; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 cd ..
 end_time_process2_3=$(date +%s.%N)
 

@@ -76,7 +76,7 @@ where
     pub fn find_best(&self, eclass: Id) -> (CF::Cost, RecExpr<L>) {
         let (cost,index, root) = self.costs[&self.egraph.find(eclass)].clone();
         let expr = root.build_recexpr(|id| self.find_best_node(id).clone());
-        let result = self.record_costs();
+        //let result = self.record_costs();
         
         (cost, expr)
     }

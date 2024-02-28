@@ -101,9 +101,9 @@ impl CostFunction<Prop> for wight_depth{
 
         // };
         let c = match enode {
-            Not(a) => 1 + enode.fold(0, |max, id| max.max(costs(id))),  // 将常量改为浮点数
-            And([a,b]) => 3  + enode.fold(0, |max, id| max.max(costs(id))),  // 将常量改为浮点数
-            Or([a,b]) => 10  + enode.fold(0, |max, id| max.max(costs(id))),  // 将常量改为浮点数
+            Not(a) => 2 + enode.fold(0, |max, id| max.max(costs(id))),  // 将常量改为浮点数
+            And([a,b]) => 4  + enode.fold(0, |max, id| max.max(costs(id))),  // 将常量改为浮点数
+            Or([a,b]) =>  6 + enode.fold(0, |max, id| max.max(costs(id))),  // 将常量改为浮点数
             _=>0  + enode.fold(0, |max, id| max.max(costs(id))),  
 
 

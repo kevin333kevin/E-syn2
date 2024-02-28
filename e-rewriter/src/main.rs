@@ -261,10 +261,12 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     // -------------------------------------------------------------
     // egg extraction
    // let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
-    let extractor_base_0  = Extractor2::new(&runner.egraph, wight_depth);
+    let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
    // let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
    // let extractor_base_1  = Extractor2::new(&runner.egraph, egg::AstDepth);
     let (best_cost_base_0,best_base_0 )=extractor_base_0.find_best(root);
+    extractor_base_0. record_costs();
+    
    // let (best_cost_base_1,best_base_1 )=extractor_base_1.find_best(root);
     println!("best{}",best_cost_base_0);
     //println!("test_expr{}",best_base_0);
@@ -295,7 +297,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
    
     {   println!("\n");
         println!("Enable Heuristic Search");
-        let runner_iteration_limit = 5;
+        let runner_iteration_limit = 10;
         let egraph_node_limit = 200000000;
       //  let egraph_node_limit = 10 *egraph_new_test.total_size();
         let start = Instant::now();
@@ -318,12 +320,17 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
         // create a new empty vector to store root ids
         let mut root_id_vec: Vec<usize> = Vec::new();
         // create a new empty vector to store Egraph
-        let mut egraph_vec: Vec<EGraph<Prop, ()>> = Vec::new();
+        let mut egraph_bak: EGraph<Prop, ()>= runner.egraph.clone();
+        let mut root_id_bak =root;
         let mut results: BTreeMap<i32, RecExpr<Prop>> = BTreeMap::new();
-        let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstDepth);
+        let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
        // let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
        // let extractor_base_1  = Extractor2::new(&runner.egraph, egg::AstDepth);
         let (best_cost_base_0,best_base_0 )=extractor_base_0.find_best(root);
+        extractor_base_0. record_costs();
+
+      //  root_id_vec.push(runner.roots[0].into());
+      //  egraph_vec.push(runner.egraph.clone());
        // let (best_cost_base_1,best_base_1 )=extractor_base_1.find_best(root);
         println!("best{}",best_cost_base_0);
 
@@ -342,7 +349,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
                     .with_iter_limit(10)
                     .with_node_limit(egraph_node_limit)
                     .run(&make_rules());
-                let extractor = Extractor2::new(&runner.egraph, egg::AstDepth);
+                let extractor = Extractor2::new(&runner.egraph, egg::AstSize);
                 let cost;
 
                 (cost, expr) = extractor.find_best(runner.roots[0]);
@@ -352,17 +359,20 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
                 println!("root{:?}", runner.roots);
                 runner.print_report();
                 
-                if cost > best_cost {
+                if cost >= best_cost {
                     println!("break!");
-                    println!("best{}",cost);
+                   // println!("best{}",cost);
                     break;
                 }
                 best_cost = cost;
                 println!("best{}",best_cost);
+                extractor. record_costs();
+                egraph_bak = runner.egraph.clone();
+                root_id_bak = runner.roots[0].into();
                 // store root id for later use in root_id_vec
-                root_id_vec.push(runner.roots[0].into());
+                //root_id_vec.push(runner.roots[0].into());
                 // store the egraph for later use in egraph_vec
-                egraph_vec.push(runner.egraph.clone());
+                //egraph_vec.push(runner.egraph.clone());
             }
         let mut results: BTreeMap<i32, RecExpr<Prop>> = BTreeMap::new();
         results.insert(0, expr.clone());
@@ -370,10 +380,11 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
         //save output egraph from runner (input for extraction gym)
         //let json_rep_test_egraph = serde_json::to_string_pretty(&runner.egraph).unwrap();
         // use last element of egraph_vec as input for extraction gym
-        let json_rep_test_egraph = serde_json::to_string_pretty(&egraph_vec.last().unwrap()).unwrap();
+       // let json_rep_test_egraph = serde_json::to_string_pretty(&egraph_vec.last().unwrap()).unwrap();
+        let json_rep_test_egraph = serde_json::to_string_pretty(&egraph_bak).unwrap();
         //let json_rep_test_egraph_serd = egg_to_serialized_egraph(&runner.egraph);
-        let json_rep_test_egraph_serd = egg_to_serialized_egraph(&egraph_vec.last().unwrap());
-        
+        //let json_rep_test_egraph_serd = egg_to_serialized_egraph(&egraph_vec.last().unwrap());
+        let json_rep_test_egraph_serd = egg_to_serialized_egraph(&egraph_bak);
     
     
         println!("egraph after runner");
@@ -389,13 +400,12 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
         let mut root_ids: Vec<usize> = Vec::new();
         //root_ids.push(runner.roots[0].into());
         // convert runner.roots to usize and use it as root_ids
-        for id in runner.roots {
-            //print the root id
-            println!("root id: {}", id);
-            //root_ids.push(id.into());
-        }
+
         // update root_ids with root_id_vec last element
-        root_ids.push(root_id_vec.last().unwrap().clone());
+      //  root_ids.push(root_id_vec.last().unwrap().clone());
+      let mut root_ids: Vec<usize> = Vec::new();
+        root_ids.push(root_id_bak.into());
+        
         // print root id
         println!("Final print: root id: {}", root_ids[0]);
         let root_eclasses_value: serde_json::Value = root_ids
