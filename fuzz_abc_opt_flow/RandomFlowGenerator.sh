@@ -13,6 +13,8 @@ generate_sequence() {
         # Append command to the sequence
         seq+="$cmd; "
     done
+    # add one more strash
+    seq+="strash; "
     # Print the generated sequence
     echo "${seq%??}"  # remove the last "; "
 }

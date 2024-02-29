@@ -20,6 +20,43 @@ struct Graph {
     root_eclasses: Vec<String>,
 }
 
+fn is_cyclic_graph(nodes: &HashMap<String, Node>) -> bool {
+    let mut visited = HashMap::new();
+    let mut rec_stack = HashMap::new();
+
+    for node_id in nodes.keys() {
+        if !visited.contains_key(node_id) {
+            if is_cyclic_util(nodes, node_id, &mut visited, &mut rec_stack) {
+                return true; // Cycle found
+            }
+        }
+    }
+
+    false // No cycles found
+}
+
+fn is_cyclic_util(
+    nodes: &HashMap<String, Node>,
+    node_id: &str,
+    visited: &mut HashMap<String, bool>,
+    rec_stack: &mut HashMap<String, bool>,
+) -> bool {
+    visited.insert(node_id.to_string(), true);
+    rec_stack.insert(node_id.to_string(), true);
+
+    if let Some(node) = nodes.get(node_id) {
+        for child_id in &node.children {
+            if !visited.get(child_id).unwrap_or(&false) && is_cyclic_util(nodes, child_id, visited, rec_stack) {
+                return true; // Cycle found
+            } else if *rec_stack.get(child_id).unwrap_or(&false) {
+                return true; // Back edge found, indicating a cycle
+            }
+        }
+    }
+
+    rec_stack.insert(node_id.to_string(), false); // Remove the node from recursion stack before returning
+    false // No cycles found from this node
+}
 
 // Parse json
 fn parse_json(json_str: &str) -> Graph {
@@ -148,6 +185,13 @@ fn main() {
 
     // Parse the JSON string
     let graph = parse_json(&json_str);
+
+    // Check if the graph is cyclic
+    if is_cyclic_graph(&graph.nodes) {
+        println!("Error: The graph is cyclic.");
+        return; // Exit the program or handle the error as needed
+    }
+
 
     // Determine the nodes that are not children of any other nodes
     // Use the root_eclasses as root nodes
