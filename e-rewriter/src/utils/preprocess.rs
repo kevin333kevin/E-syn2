@@ -357,7 +357,7 @@ where
 
 
 
-pub fn process_file_1file(file_name: &str) -> (egg::Id){
+pub fn process_file_1file(file_name: &str) -> (egg::Id,Vec<Id>){
     let file = File::open(file_name).expect("Unable to open the eqn file");
     let reader = BufReader::new(file);
     let mut egraph:egg::EGraph<SymbolLang,()> = EGraph::default();
@@ -365,7 +365,7 @@ pub fn process_file_1file(file_name: &str) -> (egg::Id){
     let mut out = HashMap::new();
     let mut count_out = 0;
     let mut id2concat = Vec::new();
-
+    let mut input_id:Vec<Id> = Vec::new();
     fn string_to_unique_id(s: &str) -> u64 {
         let mut hasher = DefaultHasher::new();
         s.hash(&mut hasher);
@@ -387,7 +387,9 @@ pub fn process_file_1file(file_name: &str) -> (egg::Id){
             for input in inputs {
                 let id = egraph.add(SymbolLang::leaf(input)); // 将 "NOT" 替换为每个输入的字符串
                 vars.insert(input.to_string(), id);
+                input_id.push(id);
             }
+            
         } else if line.starts_with("OUTORDER") {
             let output = line.trim_start_matches("OUTORDER = ").trim();
             for output in output.split_whitespace() {
@@ -470,7 +472,7 @@ pub fn process_file_1file(file_name: &str) -> (egg::Id){
     let output_file = format!("{}.json", PathBuf::from(file_name).file_name().unwrap().to_string_lossy());
     let output_path = output_dir.join(output_file);
     fs::write(output_path, json_str).expect("Failed to write JSON file");
-    last_element
+    (last_element,input_id)
 }
 
 

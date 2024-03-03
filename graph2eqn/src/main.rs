@@ -20,6 +20,58 @@ struct Graph {
     root_eclasses: Vec<String>,
 }
 
+fn is_cyclic_graph(nodes: &HashMap<String, Node>) -> bool {
+    let mut visited = HashMap::new();
+    let mut rec_stack = HashMap::new();
+
+    for node_id in nodes.keys() {
+        if !visited.contains_key(node_id) {
+            let cyclic_nodes = is_cyclic_util(nodes, node_id, &mut visited, &mut rec_stack);
+            if !cyclic_nodes.is_empty() {
+                // 打印包含环的节点
+                for node in cyclic_nodes {
+                    println!("{}", node);
+                }
+                return true; // 找到环
+            }
+        }
+    }
+
+    false // 没有找到环
+}
+
+fn is_cyclic_util(
+    nodes: &HashMap<String, Node>,
+    node_id: &str,
+    visited: &mut HashMap<String, bool>,
+    rec_stack: &mut HashMap<String, bool>,
+) -> Vec<String> {
+    visited.insert(node_id.to_string(), true);
+    rec_stack.insert(node_id.to_string(), true);
+
+    let mut cyclic_nodes = Vec::new();
+
+    if let Some(node) = nodes.get(node_id) {
+        for child_id in &node.children {
+            if !visited.get(child_id).unwrap_or(&false) {
+                let mut child_cyclic_nodes = is_cyclic_util(nodes, child_id, visited, rec_stack);
+                if !child_cyclic_nodes.is_empty() {
+                    // 找到环，将节点添加到包含环的节点列表中
+                    cyclic_nodes.push(child_id.to_string());
+                    cyclic_nodes.append(&mut child_cyclic_nodes);
+                    return cyclic_nodes;
+                }
+            } else if *rec_stack.get(child_id).unwrap_or(&false) {
+                // 找到环，将节点添加到包含环的节点列表中
+                cyclic_nodes.push(child_id.to_string());
+                return cyclic_nodes;
+            }
+        }
+    }
+
+    rec_stack.remove(node_id);
+    cyclic_nodes // 返回包含环的节点列表
+}
 
 // Parse json
 fn parse_json(json_str: &str) -> Graph {
@@ -41,8 +93,6 @@ fn dag_to_equations(
     if visited.contains_key(node_id) {
         return format!("new_n_{}", node_id); // Return the modified key value if already recorded.
     }
-
-    //println!("node id:{}",node_id);
 
     let node = nodes.get(node_id).unwrap();
   //  println!("Node ID: {:?}", node_id); // 添加这行
@@ -150,6 +200,13 @@ fn main() {
 
     // Parse the JSON string
     let graph = parse_json(&json_str);
+
+    // Check if the graph is cyclic
+    if is_cyclic_graph(&graph.nodes) {
+        println!("Error: The graph is cyclic.");
+        return; // Exit the program or handle the error as needed
+    }
+
 
     // Determine the nodes that are not children of any other nodes
     // Use the root_eclasses as root nodes

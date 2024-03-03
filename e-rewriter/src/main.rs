@@ -102,7 +102,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
 
     //-----------------------------------------------------------------------------------------------------   
     //2.transfer eqn file into egraph format in egg
-    let root_id0 = process_file_1file(input_path1);
+    let (root_id0,input_vec_id) = process_file_1file(input_path1);
     println!("root: {:?}", root_id0);
     let mut root_ids: Vec<usize> = Vec::new();
     root_ids.push(root_id0.into());
@@ -180,14 +180,14 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     //-----------------------------------------------------------------------------------------------------   
     //7.ruuner configure
     #[cfg(not(feature = "feature1"))]{
-    let runner_iteration_limit = 40;
+    let runner_iteration_limit = 5;
     let egraph_node_limit = 200000000;
   //  let egraph_node_limit = 10 *egraph_new_test.total_size();
     let start = Instant::now();
     let mut runner1 = Runner::default()
         .with_explanations_enabled()
         .with_egraph(egraph_new_test.clone())
-        .with_time_limit(std::time::Duration::from_secs(100))
+        .with_time_limit(std::time::Duration::from_secs(10))
         .with_iter_limit(runner_iteration_limit)
         .with_node_limit(egraph_node_limit);
 
@@ -267,7 +267,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
 
      println!("------------------extract-----------------");
      let start_time = Instant::now();
-     let extractor_base_0 = Extractor2::new(&runner.egraph, egg::AstSize);
+     let extractor_base_0 = Extractor2::new_random(&runner.egraph, egg::AstDepth);
      let elapsed_time = start_time.elapsed();
      println!("find_costs: {:?}", elapsed_time);
 
@@ -280,13 +280,16 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     //  let (best_cost_base_0,best_base_0 )=extractor_base_0.find_best(root);
     //  let elapsed_time = start_time.elapsed();
     //  println!("find_best: {:?}", elapsed_time);
+    let start_time = Instant::now();
      println!("------------------done----------------");
-    // extractor_base_0. record_costs();
+     extractor_base_0. record_costs();
    println!("------------------random extract-----------------");
-    extractor_base_0.record_costs_random(20,20.0);
+   // extractor_base_0.record_costs_random(100,0.2,input_vec_id);
     println!("------------------done----------------");
    // let (best_cost_base_1,best_base_1 )=extractor_base_1.find_best(root);
     println!("best{}",best_cost_base_0);
+    let elapsed_time = start_time.elapsed();
+    println!("generate random extract took: {:?}", elapsed_time);
     //println!("test_expr{}",best_base_0);
     
     // let mut results: BTreeMap<i32, RecExpr<Prop>> = BTreeMap::new();
