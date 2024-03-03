@@ -284,7 +284,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
      println!("------------------done----------------");
      extractor_base_0. record_costs();
    println!("------------------random extract-----------------");
-   // extractor_base_0.record_costs_random(100,0.2,input_vec_id);
+    extractor_base_0.record_costs_random(100,0.2,input_vec_id);
     println!("------------------done----------------");
    // let (best_cost_base_1,best_base_1 )=extractor_base_1.find_best(root);
     println!("best{}",best_cost_base_0);
