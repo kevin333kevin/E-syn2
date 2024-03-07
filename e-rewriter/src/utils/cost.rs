@@ -67,7 +67,7 @@ impl CostFunction<Prop> for wight_size{
             "+" => 3,
             "*"=> 5,
             //"&" => 0.0 as  f32,
-            _=> 0 
+            _=> 1 
         };
         //let alpha = generate_random_float();
         //let costsize = (enode.fold(1, |sum, id: Id| sum + f64::from(costs(id))));
