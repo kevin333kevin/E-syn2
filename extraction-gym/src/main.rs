@@ -14,67 +14,57 @@ use std::io::Read;
 use std::io::Write;
 use std::path::PathBuf;
 pub type Cost = NotNan<f64>;
+
 pub const INFINITY: Cost = unsafe { NotNan::new_unchecked(std::f64::INFINITY) };
 
 fn main() {
     env_logger::init();
-
-
-
-
-
-
-
-
-    
-//    let extractors: IndexMap<&str, Box<dyn Extractor>> = [
-        // ("bottom-up", extract::bottom_up::BottomUpExtractor.boxed()),
-        // (
-            // "faster-bottom-up",
-            // extract::faster_bottom_up::FasterBottomUpExtractor.boxed(),
-        // ),
-        // (
-            // "greedy-dag",
-            // extract::greedy_dag::GreedyDagExtractor.boxed(),
-        // ),
-        // (
-            // "faster-greedy-dag",
-            // extract::faster_greedy_dag::FasterGreedyDagExtractor.boxed(),
-        // ),
-        // (
-            // "global-greedy-dag",
-            // extract::global_greedy_dag::GlobalGreedyDagExtractor.boxed(),
-        // ),
+    let extractors: IndexMap<&str, Box<dyn Extractor>> = [
+         ("bottom-up", extract::bottom_up::BottomUpExtractor.boxed()),
+         (
+             "faster-bottom-up",
+             extract::faster_bottom_up::FasterBottomUpExtractor.boxed(),
+         ),
+         (
+             "greedy-dag",
+             extract::greedy_dag::GreedyDagExtractor.boxed(),
+         ),
+         (
+             "faster-greedy-dag",
+             extract::faster_greedy_dag::FasterGreedyDagExtractor.boxed(),
+         ),
+         (
+             "global-greedy-dag",
+             extract::global_greedy_dag::GlobalGreedyDagExtractor.boxed(),
+         ),
+     ]
+     .into_iter()
+     .enumerate()
+     .filter(|(index, _)| *index == 1)
+     .map(|(_, item)| item)
+     .collect();
+ 
+    // let extractors: IndexMap<&str, Box<dyn Extractor>> = [
+    //     ("bottom-up", extract::bottom_up::BottomUpExtractor.boxed()),
+    //     (
+    //         "faster-bottom-up",
+    //         extract::faster_bottom_up::FasterBottomUpExtractor.boxed(),
+    //     ),
+    //     (
+    //         "greedy-dag",
+    //         extract::greedy_dag::GreedyDagExtractor.boxed(),
+    //     ),
+    //     (
+    //         "faster-greedy-dag",
+    //         extract::faster_greedy_dag::FasterGreedyDagExtractor.boxed(),
+    //     ),
+    //     (
+    //         "global-greedy-dag",
+    //         extract::global_greedy_dag::GlobalGreedyDagExtractor.boxed(),
+    //     ),
     // ]
     // .into_iter()
-    // .enumerate()
-    // .filter(|(index, _)| *index == 0)
-    // .map(|(_, item)| item)
     // .collect();
-
-
-
-    let extractors: IndexMap<&str, Box<dyn Extractor>> = [
-        ("bottom-up", extract::bottom_up::BottomUpExtractor.boxed()),
-        (
-            "faster-bottom-up",
-            extract::faster_bottom_up::FasterBottomUpExtractor.boxed(),
-        ),
-        (
-            "greedy-dag",
-            extract::greedy_dag::GreedyDagExtractor.boxed(),
-        ),
-        (
-            "faster-greedy-dag",
-            extract::faster_greedy_dag::FasterGreedyDagExtractor.boxed(),
-        ),
-        (
-            "global-greedy-dag",
-            extract::global_greedy_dag::GlobalGreedyDagExtractor.boxed(),
-        ),
-    ]
-    .into_iter()
-     .collect();
 
     let mut args = pico_args::Arguments::from_env();
 
@@ -100,7 +90,7 @@ fn main() {
     let filename: String = args.free_from_str().unwrap();
     let modified_filename = filename.replacen("data/", "out_json/", 1);
     let modified_filename1 = filename.replacen("data/", "out_dag_json/", 1);
-    println!("{}", modified_filename);
+    //println!("{}", modified_filename);
     // println!("{}", filename);
     let rest = args.finish();
     if !rest.is_empty() {
@@ -135,11 +125,18 @@ fn main() {
     assert!(result
         .find_cycles(&egraph, &egraph.root_eclasses)
         .is_empty());
-   // let tree = result.tree_cost(&egraph, &egraph.root_eclasses);
+    //let tree = result.tree_cost(&egraph, &egraph.root_eclasses);
     let dag = result.dag_cost(&egraph, &egraph.root_eclasses);
+
+         //help me print dag cost
+    print!("-------------------------------------------\n");
+    print!("dag cost: {}\n", dag);
+    print!("-------------------------------------------\n");
     let (cost, dag_cost_with_extraction_result) =
         result.dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
-
+        print!("-------------------------------------------\n");
+        print!("dag cost: {}\n", cost);
+        print!("-------------------------------------------\n");
     let json_result = to_string_pretty(&result).unwrap();
     let _ = fs::create_dir_all("out_json/my_data");
     let __ = fs::write(&modified_name, json_result);
@@ -153,7 +150,7 @@ fn main() {
         out_file,
         r#"{{ 
     "name": "{filename}",
-    "md_name": "{modified_name}",
+    "md_name": "{modified_name1}",
     "extractor": "{extractor_name}", 
     "dag": {dag}, 
     "micros": {us}

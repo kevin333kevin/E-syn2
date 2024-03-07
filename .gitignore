@@ -17,3 +17,8 @@ process_json/out_process_result/result.json
 graph2eqn/result.json
 extraction-gym/out_json/my_data/result.json
 e-rewriter/random_result/
+e-rewriter/random_result/
+*.csv
+graph2eqn/*.json
+graph2eqn/*.eqn
+*.txt

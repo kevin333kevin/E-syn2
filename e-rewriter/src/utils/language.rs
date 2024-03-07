@@ -76,7 +76,6 @@ define_language! {
 //    let mut rws: Vec<Rewrite<Prop, ConstantFold>> = vec![
     pub fn make_rules() -> Vec<Rewrite<Prop, ()>> {
         let mut rws: Vec<Rewrite<Prop, ()>> = vec![
-// Boolean theorems of one variable (Table 2.2 pg 62)
         rewrite!("null-element1"; "(* ?b 0)" => "0"),
         rewrite!("null-element2"; "(+ ?b 1)" => "1"),
         rewrite!("complements1"; "(* ?b (! ?b))" => "0"),
@@ -99,41 +98,6 @@ define_language! {
         rewrite!("distributivity1"; "(+ (* ?b ?c) (* ?b ?d))" => "(* ?b (+ ?c ?d))"),
         rewrite!("distributivity2"; "(* (+ ?b ?c) (+ ?b ?d))" => "(+ ?b (* ?c ?d))"),
         rewrite!("distributivity3"; "(* ?a (+ ?b ?c))" => "(+ (* ?a ?b) (* ?a ?c))"),
-        //rewrite!("distributivity4"; "(+ ?a (* ?b ?c))" => "(* (+ ?a ?b) (+ ?a ?c))"),
-        
-
-
-
-
-
-
-        //rewrite!("q"; "(+ ?a (! ?a))"   =>    "1"                   ) ,
-        //rewrite!("null-element1"; "(* ?b 0)" => "0"),
-        //rewrite!("null-element2"; "(+ ?b 1)" => "1"),
-        //rewrite!("complements1"; "(* ?b (! ?b))" => "0"),
-        //rewrite!("identity1"; "(* ?b 1)" => "?b"),
-        //rewrite!("identity2'"; "(+ ?b 0)" => "?b"),
-        //rewrite!("involution1"; "(! (! ?a))"      =>       "?a"                     ),
-        //rewrite!("associativity2"; "(+ ?a (+ ?b ?c))"=> "(+ (+ ?a ?b) ?c)"       ),
-        // rewrite!("d"; "(* ?a (+ ?b ?c))"=> "(+ (* ?a ?b) (* ?a ?c))"),
-        // rewrite!("e"; "(+ ?a (* ?b ?c))"=> "(* (+ ?a ?b) (+ ?a ?c))"),
-        // //rewrite!("f"; "(+ ?a ?b)"       =>        "(+ ?b ?a)"              ),
-        // // rewrite!("r"; "(* ?a ?b)"       =>        "(* ?b ?a)"              ),
-        // rewrite!("th1"; "(+ ?x (* ?x ?y))" => "?x"),
-        // // Theorem 2: X + !X · Y = X + Y
-        // rewrite!("th2"; "(+ ?x (* (! ?x) ?y))" => "(+ ?x ?y)"),
-        // // Theorem 3: X · Y + !X · Z + Y · Z = X · Y + !X · Z
-        // rewrite!("th3"; "(+ (* ?x ?y) (+ (* (! ?x) ?z) (* ?y ?z)))" => "(+ (* ?x ?y) (* (! ?x) ?z))"),
-        // // Theorem 4: X(X + Y) = X
-        // rewrite!("th4"; "(* ?x (+ ?x ?y))" => "?x"),
-        // // Theorem 5: X(!X + Y) = X · Y
-        // rewrite!("th5"; "(* ?x (+ (! ?x) ?y))" => "(* ?x ?y)"),
-        // // Theorem 6: (X + Y)(X + !Y) = X
-        // rewrite!("th6"; "(* (+ ?x ?y) (+ ?x (! ?y)))" => "?x"),
-        // // Theorem 7: (X + Y)(!X + Z) = X · Z + !X · Y
-        // rewrite!("th7"; "(* (+ ?x ?y) (+ (! ?x) ?z))" => "(+ (* ?x ?z) (* (! ?x) ?y))"),
-        // // Theorem 8: (X + Y)(!X + Z)(Y + Z) = (X + Y)(!X + Z)
-        // rewrite!("th8"; "(* (+ ?x ?y) (* (+ (! ?x) ?z) (+ ?y ?z)))" => "(* (+ ?x ?y) (+ (! ?x) ?z))"),
     ];
 
 
@@ -144,6 +108,46 @@ define_language! {
     rws.extend(rewrite!("de-morgan1"; "(! (* ?b ?c))" <=> "(+ (! ?b) (! ?c))"));
     rws.extend(rewrite!("de-morgan2"; "(! (+ ?b ?c))" <=> "(* (! ?b) (! ?c))"));
     rws
+}
+
+
+
+pub fn make_rules_simplify() -> Vec<Rewrite<Prop, ()>> {
+    vec![
+        //version 1
+        //rewrite!("a"; "(-> ?a ?b)"      =>       "(+ (! ?a) ?b)"          ),
+        rewrite!("q"; "(+ ?a (! ?a))"   =>    "1"                   ) ,
+        rewrite!("null-element1"; "(* ?b 0)" => "0"),
+        rewrite!("null-element2"; "(+ ?b 1)" => "1"),
+        rewrite!("complements1"; "(* ?b (! ?b))" => "0"),
+        rewrite!("identity1"; "(* ?b 1)" => "?b"),
+        rewrite!("identity2'"; "(+ ?b 0)" => "?b"),
+
+
+        rewrite!("involution1"; "(! (! ?a))"      =>       "?a"                     ),
+        rewrite!("associativity2"; "(+ ?a (+ ?b ?c))"=> "(+ (+ ?a ?b) ?c)"       ),
+        rewrite!("d"; "(* ?a (+ ?b ?c))"=> "(+ (* ?a ?b) (* ?a ?c))"),
+        rewrite!("e"; "(+ ?a (* ?b ?c))"=> "(* (+ ?a ?b) (+ ?a ?c))"),
+        rewrite!("f"; "(+ ?a ?b)"       =>        "(+ ?b ?a)"              ),
+        rewrite!("r"; "(* ?a ?b)"       =>        "(* ?b ?a)"              ),
+
+
+        rewrite!("th1"; "(+ ?x (* ?x ?y))" => "?x"),
+        // Theorem 2: X + !X · Y = X + Y
+        rewrite!("th2"; "(+ ?x (* (! ?x) ?y))" => "(+ ?x ?y)"),
+        // Theorem 3: X · Y + !X · Z + Y · Z = X · Y + !X · Z
+        rewrite!("th3"; "(+ (* ?x ?y) (+ (* (! ?x) ?z) (* ?y ?z)))" => "(+ (* ?x ?y) (* (! ?x) ?z))"),
+        // Theorem 4: X(X + Y) = X
+        rewrite!("th4"; "(* ?x (+ ?x ?y))" => "?x"),
+        // Theorem 5: X(!X + Y) = X · Y
+        rewrite!("th5"; "(* ?x (+ (! ?x) ?y))" => "(* ?x ?y)"),
+        // Theorem 6: (X + Y)(X + !Y) = X
+        rewrite!("th6"; "(* (+ ?x ?y) (+ ?x (! ?y)))" => "?x"),
+        // Theorem 7: (X + Y)(!X + Z) = X · Z + !X · Y
+        rewrite!("th7"; "(* (+ ?x ?y) (+ (! ?x) ?z))" => "(+ (* ?x ?z) (* (! ?x) ?y))"),
+        // Theorem 8: (X + Y)(!X + Z)(Y + Z) = (X + Y)(!X + Z)
+        rewrite!("th8"; "(* (+ ?x ?y) (* (+ (! ?x) ?z) (+ ?y ?z)))" => "(* (+ ?x ?y) (+ (! ?x) ?z))"),
+]
 }
 // pub fn make_rules() -> Vec<Rewrite<Prop, ConstantFold>> {
 //     let mut rws: Vec<Rewrite<Prop, ConstantFold>> = vec![
