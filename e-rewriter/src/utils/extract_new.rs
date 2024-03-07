@@ -6,7 +6,7 @@ use rand::Rng;
 use serde::{Serialize, Deserialize};
 use std::fs::File;
 use std::io::Write;
-
+use std::fs::{self};
 
 pub struct Extractor2<'a, CF: CostFunction<L>, L: Language, N: Analysis<L>> {
     cost_function: CF,
@@ -76,24 +76,78 @@ where
     pub fn find_best(&self, eclass: Id) -> (CF::Cost, RecExpr<L>) {
         let (cost,index, root) = self.costs[&self.egraph.find(eclass)].clone();
         let expr = root.build_recexpr(|id| self.find_best_node(id).clone());
-        let result = self.record_costs();
+        //let result = self.record_costs();
         
         (cost, expr)
+    }
+
+
+    pub fn find_best_no_expr(&self, eclass: Id) -> (CF::Cost) {
+        let (cost,index, root) = self.costs[&self.egraph.find(eclass)].clone();
+        //let expr = root.build_recexpr(|id| self.find_best_node(id).clone());
+        //let result = self.record_costs();
+        
+        (cost)
     }
     /// Find the cheapest e-node in the given e-class.
     pub fn find_best_node(&self, eclass: Id) -> &L {
         &self.costs[&self.egraph.find(eclass)].2
     }
 
-
+    pub fn record_costs_random(&self, num_runs: u32, random_ratio: f64) {
+        for num in 0..num_runs {
+            let mut result: HashMap<String, String> = HashMap::new();
     
+            for (id, (_, index, _)) in self.costs.iter() {
+                let eclass = &self.egraph[*id];
+                let nodes: Vec<&L> = eclass.iter().collect();
+                let mut rng = rand::thread_rng();
+    
+                if rng.gen::<f64>() < random_ratio {
+                    let random_index = rng.gen_range(0..nodes.len());
+                    let value = format!("{}.{}", id, random_index);
+                    result.insert(id.to_string(), value);
+                } else {
+                    let value = format!("{}.{}", id, index);
+                    result.insert(id.to_string(), value);
+                }
+            }
+    
+            let filename = format!("result{}.json", num);
+            let path = format!("random_result/{}", filename);
+    
+            if let Ok(mut file) = File::create(path) {
+                if let Ok(json) = serde_json::to_string_pretty(&Choices { choices: result }) {
+                    if let Err(err) = write!(file, "{}", json) {
+                        eprintln!("Failed to write to file: {}", err);
+                    }
+                } else {
+                    eprintln!("Failed to serialize to JSON");
+                }
+            } else {
+                eprintln!("Failed to create file");
+            }
+        }
+    }
     pub fn record_costs(&self) {
         let mut result: HashMap<String, String> = HashMap::new();
-    
+       
         for (id, (_, index, _)) in self.costs.iter() {
             let value = format!("{}.{}", id, index);
+            
             result.insert(id.to_string(), value);
         }
+
+        // print the element of results
+        // for (key, value) in result.iter() {
+        //     println!("key: {}, value: {}", key, value);
+        // }
+        
+
+        // println!("Costs: {:?}", self.costs.iter());
+        // for (id, (cost, index, l)) in self.costs.iter() {
+        //     println!("Id: {}, Cost: {:?}, Index: {}, L: {:?}", id, cost, index, l);
+        // }
         let choices = Choices { choices: result };
 
     if let Ok(mut file) = File::create("result.json") {

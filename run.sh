@@ -52,21 +52,20 @@ runtime_process1=$(echo "$end_time_process1 - $start_time_process1" | bc)
 
 echo "-----------------------------Process 2: Extract the DAG-----------------------------"
 start_time_process2=$(date +%s.%N)
-#cd extraction-gym/ && make
+cd extraction-gym/ && make
 end_time_process2=$(date +%s.%N)
-#cd ..
+cd ..
 start_time_process2_2=$(date +%s.%N)
-cp e-rewriter/result.json extraction-gym/out_json/my_data
-cd process_json/ && target/release/process_json
+
+cd process_json/ && target/debug/process_json
 cd ..
 #cp -r process_json/out_process_result extraction-gym/  && cp -r process_json/out_process_dag_result extraction-gym/
 #----------------select&test extract alogrithm---------------------
-#cp process_json/out_process_dag_result/graph_internal_serd_bottom-up.json graph2eqn/graph_internal_serd_bottom-up.json
-cp process_json/out_process_result/result.json graph2eqn/result.json
-#cp process_json/out_process_dag_result/graph_internal_serd_faster-bottom-up.json graph2eqn/graph_internal_serd_faster-bottom-up.json
-# cp process_json/out_process_dag_result/graph_internal_serd_faster-greedy-dag.json graph2eqn/graph_internal_serd_faster-greedy-dag.json
-# cp process_json/out_process_dag_result/graph_internal_serd_global-greedy-dag.json graph2eqn/graph_internal_serd_global-greedy-dag.json
-#cp process_json/out_process_dag_result/graph_internal_serd_greedy-dag.json graph2eqn/graph_internal_serd_greedy-dag.json
+cp process_json/out_process_dag_result/graph_internal_serd_bottom-up.json graph2eqn/graph_internal_serd_bottom-up.json
+cp process_json/out_process_dag_result/graph_internal_serd_faster-bottom-up.json graph2eqn/graph_internal_serd_faster-bottom-up.json
+cp process_json/out_process_dag_result/graph_internal_serd_faster-greedy-dag.json graph2eqn/graph_internal_serd_faster-greedy-dag.json
+cp process_json/out_process_dag_result/graph_internal_serd_global-greedy-dag.json graph2eqn/graph_internal_serd_global-greedy-dag.json
+cp process_json/out_process_dag_result/graph_internal_serd_greedy-dag.json graph2eqn/graph_internal_serd_greedy-dag.json
 end_time_process2_2=$(date +%s.%N)
 echo "-----------------------------Process 3: graph to eqn-----------------------------"
  start_time_process2_3=$(date +%s.%N)
@@ -74,7 +73,7 @@ echo "-----------------------------Process 3: graph to eqn----------------------
 # 
 # cd ..
 # cp graph2eqn/circuit0.eqn abc/op.eqn
-# cp e-rewriter/circuit0.eqn abc/ori.eqn
+cp e-rewriter/circuit0.eqn abc/ori.eqn
 
 echo "-----------------------------Process 3: Evaluate-----------------------------"
 
@@ -84,62 +83,90 @@ echo "-----------------------------Process 3: Evaluate--------------------------
 # cd ..
 # cd abc/ && ./abc -c "read_eqn op.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 # cd ..
-cp e-rewriter/circuit0.eqn abc/ori.eqn
-cd abc/ && ./abc -c "read_eqn ori.eqn;st; dch -f; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-cd ..
+
 # cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_bottom-up.json
 # cd ..
 # cp graph2eqn/circuit0.eqn abc/op1.eqn
 # rm graph2eqn/circuit0.eqn
-# cd abc/ && ./abc -c "read_eqn op1.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-# cd ..
-# echo the current directory
-pwd
-cd graph2eqn/ && target/release/graph2eqn result.json
+echo "-----------------------------original-----------------------------"
+cd abc/ && ./abc -c "read_eqn ori.eqn; st; compress2rs; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 cd ..
-cp graph2eqn/circuit0.eqn abc/op2.eqn
-# rm graph2eqn/circuit0.eqn
-cd abc/ && ./abc -c "read_eqn op2.eqn; st; dch -f; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+# cd abc/ && ./abc -c "read_eqn ori.eqn;st; dch; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 
-# echo cec
-echo "-----------------------------CEC of original circuit and optimized circuit-----------------------------"
-./abc -c "cec ori.eqn op2.eqn"
+# end_time_process2_3=$(date +%s.%N)
 
+echo "-----------------------------graph_internal_serd_bottom-up-----------------------------"
+cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_bottom-up.json
 cd ..
-
-
-
+cp graph2eqn/circuit0.eqn abc/op1.eqn
+rm graph2eqn/circuit0.eqn
+cd abc/ && ./abc -c "read_eqn op1.eqn; st; compress2rs; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+cd ..
 end_time_process2_3=$(date +%s.%N)
 
 
-# cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_faster-bottom-up.json
-# cd ..
-# cp graph2eqn/circuit0.eqn abc/op1.eqn
-# rm graph2eqn/circuit0.eqn
-# cd abc/ && ./abc -c "read_eqn op1.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-# cd ..
-# end_time_process2_3=$(date +%s.%N)
-# cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_faster-greedy-dag.json
-# cd ..
-# cp graph2eqn/circuit0.eqn abc/op2.eqn
-# rm graph2eqn/circuit0.eqn
-# cd abc/ && ./abc -c "read_eqn op2.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-# cd ..
-#end_time_process2_3=$(date +%s.%N)
-# cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_global-greedy-dag.json
-# cd ..
-# cp graph2eqn/circuit0.eqn abc/op3.eqn
-# rm graph2eqn/circuit0.eqn
-# cd abc/ && ./abc -c "read_eqn op3.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-# cd ..
-# cd graph2eqn/ && target/release/graph2eqn graph2eqn/graph_internal_serd_greedy-dag.json
-# cd ..
-# cp graph2eqn/circuit0.eqn abc/op4.eqn
-# rm graph2eqn/circuit0.eqn
-# cd abc/ && ./abc -c "read_eqn op4.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-# cd ..
 
 
+
+
+echo "-----------------------------graph_internal_serd_faster-greedy-dag-----------------------------"
+cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_faster-greedy-dag.json
+cd ..
+cp graph2eqn/circuit0.eqn abc/op2.eqn
+rm graph2eqn/circuit0.eqn
+cd abc/ && ./abc -c "read_eqn op2.eqn; st; compress2rs;print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+cd ..
+end_time_process2_3=$(date +%s.%N)
+
+echo "-----------------------------graph_internal_serd_global-greedy-dag-----------------------------"
+cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_global-greedy-dag.json
+cd ..
+cp graph2eqn/circuit0.eqn abc/op3.eqn
+rm graph2eqn/circuit0.eqn
+cd abc/ && ./abc -c "read_eqn op3.eqn; st; compress2rs; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+cd ..
+
+
+
+echo "-----------------------------graph_internal_serd_greedy-dag.json-----------------------------"
+cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_greedy-dag.json
+cd ..
+cp graph2eqn/circuit0.eqn abc/op4.eqn
+rm graph2eqn/circuit0.eqn
+cd abc/ && ./abc -c "read_eqn op4.eqn; st; compress2rs;print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+cd ..
+
+echo "-----------------------------graph_internal_serd_faster-bottom-up-----------------------------"
+cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_faster-bottom-up.json
+cd ..
+cp graph2eqn/circuit0.eqn abc/op5.eqn
+rm graph2eqn/circuit0.eqn
+cd abc/ && ./abc -c "read_eqn op5.eqn; st; compress2rs; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+cd ..
+end_time_process2_3=$(date +%s.%N)
+
+
+
+echo "-----------------------------CEC of original circuit and optimized circuit-----------------------------"
+cd abc/ &&./abc -c "cec ori.eqn op1.eqn"
+
+cd ..
+
+cd abc/ &&./abc -c "cec ori.eqn op2.eqn"
+
+cd ..
+
+cd abc/ &&./abc -c "cec ori.eqn op3.eqn"
+
+cd ..
+
+cd abc/ &&./abc -c "cec ori.eqn op4.eqn"
+
+cd ..
+
+cd abc/ &&./abc -c "cec ori.eqn op5.eqn"
+
+cd ..
 
 # Return to the original directory
 

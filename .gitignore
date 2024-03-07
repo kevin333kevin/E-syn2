@@ -16,3 +16,4 @@ graph2eqn/circuit0.eqn
 process_json/out_process_result/result.json
 graph2eqn/result.json
 extraction-gym/out_json/my_data/result.json
+e-rewriter/random_result/
