@@ -10,3 +10,9 @@ e-rewriter/circuit0.eqn.json
 fuzz_abc_opt_flow/*.txt
 fuzz_abc_opt_flow/*.log
 fuzz_abc_opt_flow/*.eqn
+e-rewriter/circuit0_bak.eqn
+extraction-gym/data/my_data/graph_internal_serd.json
+graph2eqn/circuit0.eqn
+process_json/out_process_result/result.json
+graph2eqn/result.json
+extraction-gym/out_json/my_data/result.json
