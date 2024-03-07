@@ -10,3 +10,7 @@ e-rewriter/circuit0.eqn.json
 fuzz_abc_opt_flow/*.txt
 fuzz_abc_opt_flow/*.log
 e-rewriter/random_result/
+*.csv
+graph2eqn/*.json
+graph2eqn/*.eqn
+*.txt
