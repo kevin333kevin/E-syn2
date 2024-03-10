@@ -1,4 +1,5 @@
 use egg::*;
+use serde::de::value;
 use std::collections::HashMap;
 use crate::utils::{random_gen::*};
 use rand::prelude::SliceRandom;
@@ -7,7 +8,10 @@ use serde::{Serialize, Deserialize};
 use std::fs::File;
 use std::io::Write;
 use std::fs::{self};
+use std::path::Path;
+use crate::utils::{language::*};
 use std::collections::HashSet;
+use std::collections::BTreeMap;
 pub struct Extractor2<'a, CF: CostFunction<L>, L: Language, N: Analysis<L>> {
     cost_function: CF,
     costs: HashMap<Id, (CF::Cost, usize, L)>,
@@ -99,24 +103,26 @@ where
     }
 
 
-    pub fn find_best_no_expr(&self, eclass: Id) -> (CF::Cost) {
+    pub fn find_best_no_expr(&self, eclass: Id) -> (CF::Cost,L) {
         let (cost,index, root) = self.costs[&self.egraph.find(eclass)].clone();
         //let expr = root.build_recexpr(|id| self.find_best_node(id).clone());
         //let result = self.record_costs();
         
-        (cost)
+        (cost,root)
     }
     /// Find the cheapest e-node in the given e-class.
     pub fn find_best_node(&self, eclass: Id) -> &L {
         &self.costs[&self.egraph.find(eclass)].2
     }
 
-    pub fn record_costs_random(&self, num_runs: u32, random_ratio: f64,input_vec_id:Vec<Id>) {
+    pub fn record_costs_random(&self, num_runs: u32, random_ratio: f64,input_vec_id:Vec<Id>,root:L) -> BTreeMap<u32, RecExpr<L>> {
+        let mut  rec_expr_map: BTreeMap<u32, RecExpr<L>> = BTreeMap::new();
         for num in 0..num_runs {
             
             let mut result: HashMap<String, String> = HashMap::new();
+            let mut result1: HashMap<String, L> = HashMap::new();
             let mut selected_ids: HashSet<Id> = HashSet::new(); // 用于跟踪已选择的节点 Id
-
+            
             for (id, (_, index, _)) in self.costs.iter() {
                 let eclass = &self.egraph[*id];
                 let nodes: Vec<&L> = eclass.iter().collect();
@@ -126,7 +132,9 @@ where
             
               if input_vec_id.contains(id) {
                 let value = format!("{}.{}", id, index);
+                let value1 = &eclass.nodes[*index];
                 result.insert(id.to_string(), value);
+                result1.insert(id.to_string(), value1.clone());
                 selected_ids.insert(*id);}
 
                 else if !selected_ids.contains(id) && rng.gen::<f64>() <= random_ratio && nodes.len() > 1 && nodes.iter().all(|node| {
@@ -134,14 +142,18 @@ where
                 }) {
                     let random_index = rng.gen_range(0..nodes.len());
                     let value = format!("{}.{}", id, random_index);
+                    let value1 = &eclass.nodes[random_index];
                     result.insert(id.to_string(), value);
+                    result1.insert(id.to_string(), value1.clone());
                 
                     // Add the selected node ID to the set
                     selected_ids.insert(*id);
                 }
                  else {
                 let value = format!("{}.{}", id, index);
+                let value1 = &eclass.nodes[*index];
                 result.insert(id.to_string(), value);
+                result1.insert(id.to_string(), value1.clone());
             }
         }
         // fn has_self_loop<L>(eclass: &Vec<L>) -> bool {
@@ -173,11 +185,31 @@ where
             } else {
                 eprintln!("Failed to create file");
             }
+
+
+
+
+            let filename = format!("result{}.json", num);
+            let path = format!("random_dot/{}", filename);
+            if let Err(err) = fs::create_dir_all("random_dot") {
+                eprintln!("Failed to create directory: {}", err);
+                continue; // Skip current iteration if directory creation fails
+            }
+            let expr = root.build_recexpr(|child| self.get_value_by_id(child,&result1).clone());
+            rec_expr_map.insert(num, expr.clone());
+
+            
         }
+        rec_expr_map
+
     }
 
 
 
+
+    pub fn get_value_by_id(&self, eclass: Id, map: &HashMap<String, L>) -> L {
+        map.get(&eclass.to_string()).cloned().unwrap()
+    }
     
     pub fn record_costs(&self) {
         let mut result: HashMap<String, String> = HashMap::new();

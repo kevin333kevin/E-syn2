@@ -1,12 +1,33 @@
 import csv
 import re
+import sys
 
-headers = ['WireLoad', 'Gates', 'Cap', 'Area', 'Delay', 'IterationLimit', 'Classes', 'Nodes', 'Rebuilds']
+if len(sys.argv) != 3:
+    print("Usage: python script.py input_filename output_filename")
+    sys.exit(1)
+
+input_filename = sys.argv[1]
+output_filename = sys.argv[2]
+
+headers = ['WireLoad','iteration', 'Gates', 'Cap', 'Area', 'Delay', 'time','Classes', 'Nodes','cost_time','best', 'Rebuilds','and','lev']
 
 table = []
+i = 0
+with open(input_filename, 'r') as f:
+    lines = f.readlines()
+    for line in lines:
+        if 'iteration set' in line:
+            row = []
+            i += 1
+            row.append("op" + str(i - 1))
+            iteration_set_match = re.search(r'iteration set = (\d+)', line)
+            if iteration_set_match:
+                iteration_set = iteration_set_match.group(1)
+                row.append(iteration_set)
+            table.append(row)
 
 i = 0
-with open('log_adder.txt', 'r') as f:
+with open(input_filename, 'r') as f:
     lines = f.readlines()
     for line in lines:
         if 'WireLoad' in line:
@@ -32,8 +53,8 @@ with open('log_adder.txt', 'r') as f:
 
             table.append(row)
 
-i=0
-with open('log_adder.txt', 'r') as f:
+i = 0
+with open(input_filename, 'r') as f:
     lines = f.readlines()
     for line in lines:
         if 'Time take for runner:' in line:
@@ -54,8 +75,37 @@ with open('log_adder.txt', 'r') as f:
                     row.append(nodes)
                 table.append(row)
 
-i=0
-with open('log_adder.txt', 'r') as f:
+i = 0
+with open(input_filename, 'r') as f:
+    lines = f.readlines()
+    for line in lines:
+        if line.startswith('find_costs:'):
+            row = []
+            i += 1
+            row.append("op" + str(i - 1))
+            cost_match = re.search(r'find_costs:\s*(\d+\.?\d*)', line)
+            if cost_match:
+                time = cost_match.group(1)
+                row.append(time)
+            table.append(row)
+
+i = 0
+with open(input_filename, 'r') as f:
+    lines = f.readlines()
+    for line in lines:
+        if re.match(r'^best\d+', line):
+            row = []
+            i += 1
+            row.append("op" + str(i - 1))
+            cost_match = re.search(r'best(\d+)', line)
+            if cost_match:
+                time = cost_match.group(1)
+                row.append(time)
+            table.append(row)
+
+
+i = 0
+with open(input_filename, 'r') as f:
     lines = f.readlines()
     for line in lines:
         if 'Rebuilds:' in line:
@@ -64,11 +114,38 @@ with open('log_adder.txt', 'r') as f:
             row.append("op" + str(i - 1))
             rebuilds_match = re.search(r'Rebuilds:\s+(\d+)', line)
             if rebuilds_match:
-                    rebuilds = rebuilds_match.group(1)
-                    row.append(rebuilds)
+                rebuilds = rebuilds_match.group(1)
+                row.append(rebuilds)
             table.append(row)
 
-with open('res_var1.csv', 'w', newline='') as csvfile:
+i = 0
+
+
+
+
+with open(input_filename, 'r') as f:
+    lines = f.readlines()
+    for line in lines:
+
+            and_match = re.search(r'and =\s+(\d+)', line)
+            lev_match = re.search(r'lev =\s*(\d+)', line)
+          
+            if and_match and lev_match:
+                row = []
+                i += 1
+                row.append("op" + str(i - 1))
+                
+                ands = and_match.group(1)
+                row.append(ands)
+                levs = lev_match.group(1)
+                row.append(levs)
+                table.append(row)
+
+
+
+
+
+with open(output_filename, 'w', newline='') as csvfile:
     writer = csv.writer(csvfile)
-    writer.writerow(headers)  
-    writer.writerows(table)  
+    writer.writerow(headers)
+    writer.writerows(table)

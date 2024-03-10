@@ -1,9 +1,12 @@
 import csv
+import sys
 
+input_filename1 = sys.argv[1]
+output_filename = sys.argv[2]
 existing_table = {}
 
-# 读取现有的CSV文件
-with open('res_var1.csv', 'r') as csvfile:
+# 读取第一个输入的CSV文件
+with open(input_filename1, 'r') as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
         op = row[0]
@@ -13,12 +16,15 @@ with open('res_var1.csv', 'r') as csvfile:
         else:
             existing_table[op] = data
 
+
 # 将字典转换为列表
 merged_table = [[op, *data] for op, data in existing_table.items()]
-
+merged_table[-1].insert(1, '0')
+merged_table[-1].insert(6, '0')
+merged_table[-1].insert(7, '0')
+merged_table[-1].insert(8, '0')
+merged_table[-1].insert(9, '0')
 # 写入新的CSV文件
-with open('res_var2.csv', 'w', newline='') as csvfile:
+with open(output_filename, 'w', newline='') as csvfile:
     writer = csv.writer(csvfile)
-    writer.writerows(merged_table)
-
-    
+    writer.writerows(merged_table)    
