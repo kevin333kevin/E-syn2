@@ -6,6 +6,9 @@ use std::fs;
 use std::io;
 // use sprs::io;
 // use crate::io;
+use rayon::iter::ParallelIterator;
+use rayon::iter::IntoParallelIterator;
+use rayon::prelude::*;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write, BufWriter};
 use std::env;
@@ -190,7 +193,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     let mut runner1 = Runner::default()
         .with_explanations_enabled()
         .with_egraph(egraph_new_test.clone())
-        .with_time_limit(std::time::Duration::from_secs(1000))
+        .with_time_limit(std::time::Duration::from_secs(1500))
         .with_iter_limit(runner_iteration_limit)
         .with_node_limit(egraph_node_limit);
 
@@ -276,7 +279,10 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
      println!("find_costs: {:?}", elapsed_time);
 
      let start_time = Instant::now();
-     let (best_cost_base_0) = extractor_base_0.find_best_no_expr(root);
+     let (best_cost_base_0,root) = extractor_base_0.find_best_no_expr(root);
+
+
+
      let elapsed_time = start_time.elapsed();
      println!("find_best_no_expr took: {:?}", elapsed_time);
 
@@ -287,8 +293,39 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     let start_time = Instant::now();
      println!("------------------done----------------");
      extractor_base_0. record_costs();
+     let expr_Rec=extractor_base_0.record_costs_random(100,0.2,input_vec_id,root);
+     let results_vec: Vec<(&u32, &RecExpr<Prop>)> = expr_Rec.iter().collect();
+     results_vec.par_iter().enumerate().for_each(|(count, (key, best))| {
+         let result_string = best.to_string();
+         let expr: RecExpr<Prop> = result_string.parse().unwrap();
+         let mut egraphout = EGraph::new(());
+         egraphout.add_expr(&expr);
+         
+         print!("count: {}, key: {}", count, key);
+         let output_directory1 = "out_dot/";
+         let output_file_name1 = format!("out_graph_dot{}.dot", count);
+         let output_file_path1 = Path::new(output_directory1).join(output_file_name1);
+         let _ = egraphout.dot().to_dot(output_file_path1);
+         // let output_directory2 = "dot_graph/";
+         // let output_file_name2 = format!("out_graph_dot{}.pdf", count);
+         // let output_file_path2 = Path::new(output_directory2).join(output_file_name2);
+         // let output_file_name3 = format!("out_graph_dot{}.png", count);
+         // let output_file_path3 = Path::new(output_directory2).join(output_file_name3);       
+         // egraphout.dot().to_png(output_file_path3.clone()).unwrap();
+         // egraphout.dot().to_pdf(output_file_path2.clone()).unwrap();
+     });
+ 
+     results_vec.par_iter().enumerate().for_each(|(count, (key, best))| {
+         let result_string = best.to_string();
+ 
+     
+     });
    println!("------------------random extract-----------------");
-  //   extractor_base_0.record_costs_random(100,0.2,input_vec_id);
+
+
+
+
+
     println!("------------------done----------------");
    // let (best_cost_base_1,best_base_1 )=extractor_base_1.find_best(root);
     println!("best{}",best_cost_base_0);
@@ -322,7 +359,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
    
     {   println!("\n");
         println!("Enable Heuristic Search");
-        let runner_iteration_limit = 20;
+        let runner_iteration_limit = 50;
         let egraph_node_limit = 200000000;
       //  let egraph_node_limit = 10 *egraph_new_test.total_size();
         let start = Instant::now();
@@ -369,12 +406,12 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
             let mut best_cost = best_cost_base_0;
             let mut counter=0;
             // to prune costy nodes, we iterate multiple times and only keep the best one for each run.
-            for i in 0..5 {
+            for i in 0..10 {
                 println!("----------round{:?}------------",i );
                 let egraph_node_limit = 200000000;
                 let runner =  Runner::default()
                     .with_expr(&expr)
-                    .with_iter_limit(100)
+                    .with_iter_limit(50)
                     .with_time_limit(std::time::Duration::from_secs(100))
                     .with_node_limit(egraph_node_limit)
                     .run(&make_rules());

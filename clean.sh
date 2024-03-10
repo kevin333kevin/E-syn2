@@ -1,7 +1,10 @@
 # clean the output folder
 if [ -d "e-rewriter/random_result" ]; then rm -rf e-rewriter/random_result
 fi
-
+if [ -d "e-rewriter/dot_graph" ]; then rm -rf e-rewriter/dot_graph
+fi
+if [ -d "extraction-gym/data/my_data" ]; then rm -rf extraction-gym/data/my_data
+fi
 
 if [ -d "extraction-gym/out_json" ]; then rm -rf extraction-gym/out_json 
 fi

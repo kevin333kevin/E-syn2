@@ -32,7 +32,8 @@ if [ ! -d "extraction-gym/output" ]; then
     mkdir -p extraction-gym/output/my_data
 fi
 
-for ((i=10; i<=80; i+=10)); do
+for ((i=10; i<=60; i+=5)); do
+echo "iteration set = $i"
 # print the process - rewrite - process
 echo "-----------------------------Process 1: Rewrite the circuit-----------------------------"
 start_time_process1=$(date +%s.%N)
