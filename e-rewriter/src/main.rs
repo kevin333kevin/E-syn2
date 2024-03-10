@@ -293,7 +293,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     let start_time = Instant::now();
      println!("------------------done----------------");
      extractor_base_0. record_costs();
-     let expr_Rec=extractor_base_0.record_costs_random(100,0.2,input_vec_id,root);
+     let expr_Rec=extractor_base_0.record_costs_random(100,0.2,input_vec_id,root); // switch for random extract
      let results_vec: Vec<(&u32, &RecExpr<Prop>)> = expr_Rec.iter().collect();
      results_vec.par_iter().enumerate().for_each(|(count, (key, best))| {
          let result_string = best.to_string();
