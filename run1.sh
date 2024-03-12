@@ -1,158 +1,114 @@
 #!/bin/bash
+RED="\e[31m"
+GREEN="\e[32m"
+YELLOW="\e[1;33m"
+RESET="\e[0m"
 
-# Check if the dot_graph directory exists under e-rewriter; if not, create it
-if [ ! -d "e-rewriter/dot_graph" ]; then
-    mkdir -p e-rewriter/dot_graph
+# Utility function for creating directories if they do not exist
+ensure_dir() {
+    if [ ! -d "$1" ]; then
+        mkdir -p "$1" || { echo -e "${RED}Failed to create directory $1${RESET}"; exit 1; }
+    fi
+}
+
+# Utility function for changing directories safely
+change_dir() {
+    cd "$1" || { echo -e "${RED}Failed to change directory to $1${RESET}"; exit 1; }
+}
+
+# Utility function for copying files safely
+copy_file() {
+    cp "$1" "$2" || { echo -e "${RED}Failed to copy $1 to $2${RESET}"; exit 1; }
+}
+
+# Utility function to execute a command and handle failure
+execute_command() {
+    eval "$1" || { echo -e "${RED}Failed to execute command: $1${RESET}"; exit 1; }
+}
+
+echo -e "${GREEN}Setting up required directories...${RESET}"
+
+# Setup directories
+ensure_dir "e-rewriter/dot_graph"
+ensure_dir "extraction-gym/data/my_data"
+ensure_dir "extraction-gym/data/egg"
+ensure_dir "extraction-gym/out_dag_json/my_data"
+ensure_dir "extraction-gym/out_json/my_data"
+ensure_dir "extraction-gym/output/egg"
+ensure_dir "extraction-gym/output/my_data"
+
+echo -e "${GREEN}Setup complete.${RESET}\n"
+
+# Get user input for iteration times and feature label
+read -p "Enter the number of iteration times: " iteration_times
+read -p "Enter the feature label (optional): " feature
+
+# Helper info for user input
+if [ -z "$feature" ]; then
+    echo -e "${YELLOW}Feature label not provided, proceeding without it.${RESET}"
+    feature_cmd=""
+else
+    feature_cmd="--features ${feature}"
+    echo -e "${YELLOW}Using feature label: ${feature}${RESET}"
 fi
 
-# Check if the required folders exist under extraction-gym; if not, create them
-if [ ! -d "extraction-gym/data" ]; then
-    mkdir -p extraction-gym/data/my_data
-    mkdir -p extraction-gym/data/egg
-fi
 
-if [ ! -d "extraction-gym/out_dag_json" ]; then
-    mkdir -p extraction-gym/out_dag_json/my_data
-fi
+# Process 1: Rewrite the circuit
+echo -e "${YELLOW}<-----------------------------Process 1: Rewrite the Circuit----------------------------->${RESET}"
+start_time_process_rw=$(date +%s.%N)
+change_dir "e-rewriter/"
+execute_command "RUSTFLAGS=\"-A warnings\" cargo run --quiet circuit0.eqn 10"
+change_dir ".."
+copy_file "e-rewriter/dot_graph/graph_internal_serd.json" "extraction-gym/data/my_data/"
+end_time_process_rw=$(date +%s.%N)
+runtime_process_rw=$(echo "$end_time_process_rw - $start_time_process_rw" | bc)
+echo -e "${GREEN}Process 1 - Rewrite circuit completed.${RESET}"
 
-# if [ ! -d "extraction-gym/out_process_result" ]; then
-#     mkdir -p extraction-gym/out_process_result
-# fi
+# Process 2: Extract the DAG and Process JSON
+echo -e "${YELLOW}<-----------------------------Process 2: Extract the DAG and Process JSON----------------------------->${RESET}"
+start_time_process_process_json=$(date +%s.%N)
+copy_file "e-rewriter/result.json" "extraction-gym/out_json/my_data"
+change_dir "process_json/"
+execute_command "target/release/process_json"
+change_dir ".."
+copy_file "process_json/out_process_result/result.json" "graph2eqn/result.json"
+end_time_process_process_json=$(date +%s.%N)
+runtime_process_process_json=$(echo "$end_time_process_process_json - $start_time_process_process_json" | bc)
+echo -e "${GREEN}Process 2 - Extract DAG and Process JSON completed.${RESET}"
 
-if [ ! -d "extraction-gym/out_json" ]; then
-    mkdir -p extraction-gym/out_json/my_data
-fi
+# Process 3: Convert Graph to Equation and Evaluate
+echo -e "${YELLOW}<-----------------------------Process 3: Graph to Equation ----------------------------------------------->${RESET}"
+start_time_process_graph2eqn=$(date +%s.%N)
+change_dir "graph2eqn/"
+execute_command "target/release/graph2eqn result.json"
+change_dir ".."
+copy_file "graph2eqn/circuit0.eqn" "abc/op2.eqn"
+end_time_process_graph2eqn=$(date +%s.%N)
+runtime_process_graph2eqn=$(echo "$end_time_process_graph2eqn - $start_time_process_graph2eqn" | bc)
+echo -e "${GREEN}Process 3 - Graph to Equation completed.${RESET}"
 
-# if [ ! -d "extraction-gym/out_process_dag_result" ]; then
-#     mkdir -p extraction-gym/out_process_dag_result
-# fi
+# Process 4: Run ABC on the original and optimized circuit
+echo -e "${YELLOW}<------------------------------Process 4: Run ABC on the original and optimized circuit, and conduct equivalent checking------------------->${RESET}"
+start_time_process_abc=$(date +%s.%N)
+change_dir "abc/"
+execute_command "./abc -c \"read_eqn ori.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
+execute_command "./abc -c \"read_eqn op2.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
 
-if [ ! -d "extraction-gym/output" ]; then
-    mkdir -p extraction-gym/output/egg
-    mkdir -p extraction-gym/output/my_data
-fi
+end_time_process_abc=$(date +%s.%N)
+runtime_process_abc=$(echo "$end_time_process_abc - $start_time_process_abc" | bc)
+echo -e "${GREEN}Process 4 - Run ABC on the original and optimized circuit completed.${RESET}"
 
+# Final Step: Compare Original and Optimized Circuit
+echo -e "${YELLOW}<-----------------------------Final Step: Comparing Original and Optimized Circuit----------------------------->${RESET}"
+execute_command "./abc -c \"cec ori.eqn op2.eqn\""
 
-# print the process - rewrite - process
-echo "-----------------------------Process 1: Rewrite the circuit-----------------------------"
-start_time_process1=$(date +%s.%N)
-cd e-rewriter/ && cargo run circuit0.eqn 10000
-cd ..
+change_dir ".."
 
-#cp e-rewriter/random_result/result10.json e-rewriter/result.json
-# Execute the steps
-#if [ "$display" -eq 0 ]; then
-    #cd e-rewriter/ && target/release/e-rewriter circuit0.eqn circuit1.eqn
-#else
-#    cd e-rewriter/ && target/release/e-rewriter --features display circuit0.eqn circuit1.eqn
-#fi
+# Report total runtime
+echo -e "${GREEN}All processes completed successfully.${RESET}"
 
-
-cp e-rewriter/dot_graph/graph_internal_serd.json extraction-gym/data/my_data/
-end_time_process1=$(date +%s.%N)
-runtime_process1=$(echo "$end_time_process1 - $start_time_process1" | bc)
-
-
-echo "-----------------------------Process 2: Extract the DAG-----------------------------"
-start_time_process2=$(date +%s.%N)
-#cd extraction-gym/ && make
-end_time_process2=$(date +%s.%N)
-#cd ..
-start_time_process2_2=$(date +%s.%N)
-cp e-rewriter/result.json extraction-gym/out_json/my_data
-cd process_json/ && target/release/process_json
-cd ..
-#cp -r process_json/out_process_result extraction-gym/  && cp -r process_json/out_process_dag_result extraction-gym/
-#----------------select&test extract alogrithm---------------------
-#cp process_json/out_process_dag_result/graph_internal_serd_bottom-up.json graph2eqn/graph_internal_serd_bottom-up.json
-cp process_json/out_process_result/result.json graph2eqn/result.json
-#cp process_json/out_process_dag_result/graph_internal_serd_faster-bottom-up.json graph2eqn/graph_internal_serd_faster-bottom-up.json
-# cp process_json/out_process_dag_result/graph_internal_serd_faster-greedy-dag.json graph2eqn/graph_internal_serd_faster-greedy-dag.json
-# cp process_json/out_process_dag_result/graph_internal_serd_global-greedy-dag.json graph2eqn/graph_internal_serd_global-greedy-dag.json
-#cp process_json/out_process_dag_result/graph_internal_serd_greedy-dag.json graph2eqn/graph_internal_serd_greedy-dag.json
-end_time_process2_2=$(date +%s.%N)
-echo "-----------------------------Process 3: graph to eqn-----------------------------"
- start_time_process2_3=$(date +%s.%N)
-#cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_faster-bottom-up.json
-# 
-# cd ..
-# cp graph2eqn/circuit0.eqn abc/op.eqn
-# cp e-rewriter/circuit0.eqn abc/ori.eqn
-
-echo "-----------------------------Process 3: Evaluate-----------------------------"
-
-# cd abc/ && ./abc -c "cec ori.eqn op.eqn"
-# cd ..
-# cd abc/ && ./abc -c "read_eqn ori.eqn;st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-# cd ..
-# cd abc/ && ./abc -c "read_eqn op.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-# cd ..
-cp e-rewriter/circuit0.eqn abc/ori.eqn
-cd abc/ && ./abc -c "read_eqn ori.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-cd ..
-# cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_bottom-up.json
-# cd ..
-# cp graph2eqn/circuit0.eqn abc/op1.eqn
-# rm graph2eqn/circuit0.eqn
-# cd abc/ && ./abc -c "read_eqn op1.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-# cd ..
-# echo the current directory
-pwd
-cd graph2eqn/ && target/release/graph2eqn result.json
-cd ..
-cp graph2eqn/circuit0.eqn abc/op2.eqn
-# rm graph2eqn/circuit0.eqn
-cd abc/ && ./abc -c "read_eqn op2.eqn; st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-
-# echo cec
-echo "-----------------------------CEC of original circuit and optimized circuit-----------------------------"
-./abc -c "cec ori.eqn op2.eqn"
-
-cd ..
-
-
-
-end_time_process2_3=$(date +%s.%N)
-
-
-# cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_faster-bottom-up.json
-# cd ..
-# cp graph2eqn/circuit0.eqn abc/op1.eqn
-# rm graph2eqn/circuit0.eqn
-# cd abc/ && ./abc -c "read_eqn op1.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-# cd ..
-# end_time_process2_3=$(date +%s.%N)
-# cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_faster-greedy-dag.json
-# cd ..
-# cp graph2eqn/circuit0.eqn abc/op2.eqn
-# rm graph2eqn/circuit0.eqn
-# cd abc/ && ./abc -c "read_eqn op2.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-# cd ..
-#end_time_process2_3=$(date +%s.%N)
-# cd graph2eqn/ && target/release/graph2eqn graph_internal_serd_global-greedy-dag.json
-# cd ..
-# cp graph2eqn/circuit0.eqn abc/op3.eqn
-# rm graph2eqn/circuit0.eqn
-# cd abc/ && ./abc -c "read_eqn op3.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-# cd ..
-# cd graph2eqn/ && target/release/graph2eqn graph2eqn/graph_internal_serd_greedy-dag.json
-# cd ..
-# cp graph2eqn/circuit0.eqn abc/op4.eqn
-# rm graph2eqn/circuit0.eqn
-# cd abc/ && ./abc -c "read_eqn op4.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-# cd ..
-
-
-
-# Return to the original directory
-
-
-runtime_process2=$(echo "$end_time_process2 - $start_time_process2" | bc)
-runtime_process2_2=$(echo "$end_time_process2_2 - $start_time_process2_2" | bc)
-runtime_process2_3=$(echo "$end_time_process2_3 - $start_time_process2_3" | bc)
-runtime_process3_1=$(echo "$runtime_process1 + $runtime_process2 +$runtime_process2_2 +$runtime_process2_3   " | bc)
-echo "Process 1 Rewrite the circuit runtime: $runtime_process1 seconds"
-echo "Process 2.1 Extract the DAG runtime: $runtime_process2 seconds"
-echo "Process 2.2 Process json runtime: $runtime_process2_2 seconds"
-echo "Process 2.3 graph2eqn: $runtime_process2_3 seconds"
-echo "Process 3.1 total_time rw+extract: $runtime_process3_1 seconds"
+echo -e "${GREEN}Rewrite circuit completed in $runtime_process_rw seconds.${RESET}"
+echo -e "${GREEN}Extract DAG and Process JSON completed in $runtime_process_process_json seconds.${RESET}"
+echo -e "${GREEN}Graph to Equation in $runtime_process_graph2eqn seconds.${RESET}"
+echo -e "${GREEN}Run ABC on the original and optimized circuit completed in $runtime_process_abc seconds.${RESET}"
+echo -e "${GREEN}Total runtime: $(echo "scale=2; $runtime_process_rw + $runtime_process_process_json + $runtime_process_graph2eqn + $runtime_process_abc" | bc) seconds.${RESET}"
