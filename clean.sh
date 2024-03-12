@@ -53,4 +53,37 @@ if [ -d "abc" ]; then
   echo -e "${GREEN}Cleaned abc directory${RESET}"
 fi
 
+# ask user whether to execute cargo clean in each directory
+echo -ne "${YELLOW}Do you want to execute cargo clean in each directory? (y/n)${RESET} "
+read answer
+
+if [ "$answer" != "y" ]; then
+  echo -e "${RED}Aborting.${RESET}"
+  exit 1
+fi
+
+# Execute cargo clean in e-rewriter directory
+if [ -d "e-rewriter" ]; then
+  (cd e-rewriter && cargo clean)
+  echo -e "${GREEN}Ran cargo clean in e-rewriter directory${RESET}"
+fi
+
+# Execute cargo clean in process_json directory
+if [ -d "process_json" ]; then
+  (cd process_json && cargo clean)
+  echo -e "${GREEN}Ran cargo clean in process_json directory${RESET}"
+fi
+
+# Execute cargo clean in graph2eqn directory
+if [ -d "graph2eqn" ]; then
+  (cd graph2eqn && cargo clean)
+  echo -e "${GREEN}Ran cargo clean in graph2eqn directory${RESET}"
+fi
+
+# Execute cargo clean in extraction-gym directory
+if [ -d "extraction-gym" ]; then
+  (cd extraction-gym && cargo clean)
+  echo -e "${GREEN}Ran cargo clean in extraction-gym directory${RESET}"
+fi
+
 echo -e "${GREEN}Cleaning complete.${RESET}"

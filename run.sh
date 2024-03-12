@@ -46,9 +46,9 @@ read -p "Enter the feature label (optional): " feature
 # Helper info for user input
 if [ -z "$feature" ]; then
     echo -e "${YELLOW}Feature label not provided, proceeding without it.${RESET}"
-    feature_cmd=""
+    feature_cmd="./target/release/e-rewriter"
 else
-    feature_cmd="--features ${feature}"
+    feature_cmd="./target/release/e-rewriter-${feature}"
     echo -e "${YELLOW}Using feature label: ${feature}${RESET}"
 fi
 
@@ -57,7 +57,7 @@ fi
 echo -e "${YELLOW}<-----------------------------Process 1: Rewrite the Circuit----------------------------->${RESET}"
 start_time_process_rw=$(date +%s.%N)
 change_dir "e-rewriter/"
-execute_command "RUSTFLAGS=\"-A warnings\" cargo run --quiet circuit0.eqn 10"
+execute_command "$feature_cmd circuit0.eqn $iteration_times"
 change_dir ".."
 copy_file "e-rewriter/dot_graph/graph_internal_serd.json" "extraction-gym/data/my_data/"
 end_time_process_rw=$(date +%s.%N)
