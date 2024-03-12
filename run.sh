@@ -89,6 +89,7 @@ echo -e "${GREEN}Process 3 - Graph to Equation completed.${RESET}"
 
 # Process 4: Run ABC on the original and optimized circuit
 echo -e "${YELLOW}<------------------------------Process 4: Run ABC on the original and optimized circuit, and conduct equivalent checking------------------->${RESET}"
+copy_file "e-rewriter/circuit0.eqn" "abc/ori.eqn"
 start_time_process_abc=$(date +%s.%N)
 change_dir "abc/"
 execute_command "./abc -c \"read_eqn ori.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
