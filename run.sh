@@ -30,6 +30,7 @@ echo -e "${GREEN}Setting up required directories...${RESET}"
 
 # Setup directories
 ensure_dir "e-rewriter/dot_graph"
+ensure_dir "e-rewriter/random_dot"
 ensure_dir "extraction-gym/data/my_data"
 ensure_dir "extraction-gym/data/egg"
 ensure_dir "extraction-gym/out_dag_json/my_data"
@@ -42,6 +43,7 @@ echo -e "${GREEN}Setup complete.${RESET}\n"
 # Get user input for iteration times and feature label
 read -p "Enter the number of iteration times: " iteration_times
 read -p "Enter the feature label (optional): " feature
+read -p "Enter the extraction pattern for e-rewriter (optional): " pattern
 
 # Helper info for user input
 if [ -z "$feature" ]; then
@@ -57,7 +59,7 @@ fi
 echo -e "${YELLOW}<-----------------------------Process 1: Rewrite the Circuit----------------------------->${RESET}"
 start_time_process_rw=$(date +%s.%N)
 change_dir "e-rewriter/"
-execute_command "$feature_cmd circuit0.eqn $iteration_times"
+execute_command "$feature_cmd circuit0.eqn $iteration_times $pattern"
 change_dir ".."
 copy_file "e-rewriter/dot_graph/graph_internal_serd.json" "extraction-gym/data/my_data/"
 end_time_process_rw=$(date +%s.%N)
@@ -108,8 +110,8 @@ change_dir ".."
 # Report total runtime
 echo -e "${GREEN}All processes completed successfully.${RESET}"
 
-echo -e "${GREEN}Rewrite circuit completed in $runtime_process_rw seconds.${RESET}"
-echo -e "${GREEN}Extract DAG and Process JSON completed in $runtime_process_process_json seconds.${RESET}"
-echo -e "${GREEN}Graph to Equation in $runtime_process_graph2eqn seconds.${RESET}"
-echo -e "${GREEN}Run ABC on the original and optimized circuit completed in $runtime_process_abc seconds.${RESET}"
-echo -e "${GREEN}Total runtime: $(echo "scale=2; $runtime_process_rw + $runtime_process_process_json + $runtime_process_graph2eqn + $runtime_process_abc" | bc) seconds.${RESET}"
+echo -e "${GREEN}Rewrite circuit completed in ${RED}$runtime_process_rw${GREEN} seconds.${RESET}"
+echo -e "${GREEN}Extract DAG and Process JSON completed in ${RED}$runtime_process_process_json${GREEN} seconds.${RESET}"
+echo -e "${GREEN}Graph to Equation in ${RED}$runtime_process_graph2eqn${GREEN} seconds.${RESET}"
+echo -e "${GREEN}Run ABC on the original and optimized circuit completed in ${RED}$runtime_process_abc${GREEN} seconds.${RESET}"
+echo -e "${GREEN}Total runtime: ${RED}$(echo "scale=2; $runtime_process_rw + $runtime_process_process_json + $runtime_process_graph2eqn + $runtime_process_abc" | bc)${GREEN} seconds.${RESET}"

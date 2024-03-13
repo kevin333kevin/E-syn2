@@ -19,6 +19,7 @@ pub const INFINITY: Cost = unsafe { NotNan::new_unchecked(std::f64::INFINITY) };
 
 fn main() {
     env_logger::init();
+    // only keep fast version
     let extractors: IndexMap<&str, Box<dyn Extractor>> = [
          ("bottom-up", extract::bottom_up::BottomUpExtractor.boxed()),
          (
@@ -43,6 +44,8 @@ fn main() {
      .filter(|(index, _)| *index == 1)
      .map(|(_, item)| item)
      .collect();
+
+    // default extractor 
  
     // let extractors: IndexMap<&str, Box<dyn Extractor>> = [
     //     ("bottom-up", extract::bottom_up::BottomUpExtractor.boxed()),

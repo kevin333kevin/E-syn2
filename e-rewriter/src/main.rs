@@ -1,4 +1,5 @@
 use egg::*; 
+use rand::random;
 use rayon::iter::ParallelDrainRange;
 use serde::Serialize;
 use std::f32::consts::E;
@@ -21,6 +22,7 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use crate::utils::cost::*;
+use crate::utils::random_gen;
 
 pub fn preprocess_file(file_name: &str) -> Result<(), io::Error> {
     // Open the file for reading
@@ -90,6 +92,9 @@ pub fn preprocess_file(file_name: &str) -> Result<(), io::Error> {
     Ok(())
 }
 
+fn print_usage(program_name: &str) {
+    println!("Usage: {} <input_file_path> <runner_iteration_limit> <extract_pattern>", program_name);
+}
 
 
 fn main() ->Result<(), Box<dyn std::error::Error>> {
@@ -97,6 +102,14 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
 
     //1.read eqn file
     let args: Vec<String> = env::args().collect();
+
+    // Check if the correct number of arguments is provided
+    // if args.len() < 3 {
+    //     // If not, print the usage information
+    //     print_usage(&args[0]);
+    //     return Ok(()); // or you can use std::process::exit(1) to exit with an error code
+    // }
+
     let input_path1 = &args[1];
 
     // preprocess input file
@@ -182,9 +195,9 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
 
     //-----------------------------------------------------------------------------------------------------   
     //7.ruuner configure
-    #[cfg(not(feature = "feature1"))]
-    #[cfg(not(feature = "feature2"))]
-    #[cfg(not(feature = "feature3"))]
+    #[cfg(not(feature = "feature1"))] // 
+    #[cfg(not(feature = "feature2"))] // 
+    #[cfg(not(feature = "feature3"))] // 
     {
     let runner_iteration_limit = env::args().nth(2).unwrap_or("10".to_string()).parse().unwrap_or(1000);
     let egraph_node_limit = 200000000;
@@ -292,8 +305,17 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     //  println!("find_best: {:?}", elapsed_time);
     let start_time = Instant::now();
      println!("------------------done----------------");
-     extractor_base_0. record_costs();
+     extractor_base_0. record_costs(); // generate result.json
+
+    //if args.len() == 4 and args[3] is "random"
+
+    if args.len() > 3  && args[3] == "random" {
+
+
+     // generate random extract
      let expr_Rec=extractor_base_0.record_costs_random(100,0.2,input_vec_id,root); // switch for random extract
+     
+     // convert to dot
      let results_vec: Vec<(&u32, &RecExpr<Prop>)> = expr_Rec.iter().collect();
      results_vec.par_iter().enumerate().for_each(|(count, (key, best))| {
          let result_string = best.to_string();
@@ -335,6 +357,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     
     // let mut results: BTreeMap<i32, RecExpr<Prop>> = BTreeMap::new();
     // results.insert(0, best_base_0.clone());
+    };
     }
 //    results.insert(1, best_base_1.clone()); 
 
@@ -356,10 +379,11 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     // }
     //---------------------------------------------------
     #[cfg(feature = "feature1")] 
-   
+   // heuristic search - multiple runs
     {   println!("\n");
         println!("Enable Heuristic Search");
-        let runner_iteration_limit = 50;
+        let runner_iteration_limit = env::args().nth(2).unwrap_or("10".to_string()).parse().unwrap_or(50);
+        //let runner_iteration_limit = 50;
         let egraph_node_limit = 200000000;
       //  let egraph_node_limit = 10 *egraph_new_test.total_size();
         let start = Instant::now();
@@ -527,6 +551,8 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
 
         }
 
+        // feature2 - using extraction gym -> astsize minimization
+
         #[cfg(feature = "feature2")] {
             let runner_iteration_limit = 20;
             let egraph_node_limit = 200000000;
@@ -609,7 +635,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
             }
 
 
-
+            // 
 
 
             #[cfg(feature = "feature3")] {

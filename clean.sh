@@ -20,6 +20,7 @@ echo -e "${GREEN}Cleaning output folders and files...${RESET}"
 # Define directories to clean
 directories=(
   "e-rewriter/random_result"
+  "e-rewriter/random_dot"
   "e-rewriter/dot_graph"
   "extraction-gym/data/my_data"
   "extraction-gym/out_json"
@@ -51,6 +52,12 @@ fi
 if [ -d "abc" ]; then
   rm -f abc/*.eqn 2>/dev/null
   echo -e "${GREEN}Cleaned abc directory${RESET}"
+fi
+
+# Special case for tmp_log/, remove files starts with "log_+ number" if they exist
+if [ -d "tmp_log" ]; then
+  rm -f tmp_log/log_[0-9]*_* 2>/dev/null
+  echo -e "${GREEN}Cleaned tmp_log directory${RESET}"
 fi
 
 # ask user whether to execute cargo clean in each directory
