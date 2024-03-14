@@ -79,6 +79,11 @@ if [ $test_type -eq 1 ]; then
     echo -e "${YELLOW}<-----------------------------Process 2: Extract the DAG and Process JSON----------------------------->${RESET}"
     start_time_process_process_json=$(date +%s.%N)
     copy_file "e-rewriter/result.json" "extraction-gym/out_json/my_data"
+
+    for i in {0..19}; do
+        copy_file "e-rewriter/random_result/result${i}.json" "extraction-gym/out_json/my_data/"
+    done
+
     change_dir "process_json/"
     execute_command "target/release/process_json"
     change_dir ".."
@@ -88,10 +93,14 @@ if [ $test_type -eq 1 ]; then
     if [ -z "$feature" ] || [ "$feature" != "dag_cost" ]; then
         echo -e "${YELLOW}Copying result.json ... Prepare graph for Equation conversion.${RESET}"
         copy_file "process_json/out_process_result/result.json" "graph2eqn/result.json" 
+        for i in {0..19}; do
+            copy_file "process_json/out_process_result/result${i}.json" "graph2eqn/result${i}.json" 
+        done
     elif [ "$feature" == "dag_cost" ]; then
         echo -e "${YELLOW}Copying graph_cost_serd_faster-bottom-up.json ... Prepare graph for Equation conversion.${RESET}"
         copy_file "process_json/out_process_dag_result/graph_cost_serd_faster-bottom-up.json" "graph2eqn/result.json" 
     fi
+
 
     end_time_process_process_json=$(date +%s.%N)
     runtime_process_process_json=$(echo "$end_time_process_process_json - $start_time_process_process_json" | bc)
@@ -102,8 +111,16 @@ if [ $test_type -eq 1 ]; then
     start_time_process_graph2eqn=$(date +%s.%N)
     change_dir "graph2eqn/"
     execute_command "target/release/graph2eqn result.json"
+    for i in {0..19}; do
+        execute_command "target/release/graph2eqn result${i}.json"
+    done
     change_dir ".."
     copy_file "graph2eqn/circuit0.eqn" "abc/op2.eqn"
+
+    for i in {0..19}; do
+        copy_file "graph2eqn/circuit${i}.eqn" "abc/op2_${i}.eqn"
+    done
+    
     end_time_process_graph2eqn=$(date +%s.%N)
     runtime_process_graph2eqn=$(echo "$end_time_process_graph2eqn - $start_time_process_graph2eqn" | bc)
     echo -e "${GREEN}Process 3 - Graph to Equation completed.${RESET}"
@@ -115,6 +132,10 @@ if [ $test_type -eq 1 ]; then
     change_dir "abc/"
     execute_command "./abc -c \"read_eqn ori.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
     execute_command "./abc -c \"read_eqn op2.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
+
+    for i in {0..19}; do
+        execute_command "./abc -c \"read_eqn op2_${i}.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
+    done
 
     end_time_process_abc=$(date +%s.%N)
     runtime_process_abc=$(echo "$end_time_process_abc - $start_time_process_abc" | bc)
@@ -137,88 +158,3 @@ if [ $test_type -eq 1 ]; then
 
 elif [ $test_type -eq 2 ]; then
     echo -e "${GREEN}Conduct Experimental Testing for Extraction Gym...${RESET}"
-    # Process 1: Rewrite the circuit
-    # initialize variablles - feature, iteration_times, pattern
-    feature=""
-    iteration_times=10
-    pattern="random"
-    echo -e "${YELLOW}<-----------------------------Process 1: Rewrite the Circuit----------------------------->${RESET}"
-    start_time_process_rw=$(date +%s.%N)
-    change_dir "e-rewriter/"
-    execute_command "$feature_cmd circuit0.eqn $iteration_times $pattern"
-    change_dir ".."
-    copy_file "e-rewriter/dot_graph/graph_internal_serd.json" "extraction-gym/data/my_data/"
-
-    # if feature is feature2, run the extraction gym -> cd extraction-gym/ && make
-
-    if [ ! -z "$feature" ] && [ "$feature" == "dag_cost" ]; then
-        echo -e "${YELLOW}Running extraction gym...${RESET}"
-        change_dir "extraction-gym/"
-        execute_command "make"
-        change_dir ".."
-    fi
-
-    end_time_process_rw=$(date +%s.%N)
-    runtime_process_rw=$(echo "$end_time_process_rw - $start_time_process_rw" | bc)
-    echo -e "${GREEN}Process 1 - Rewrite circuit completed.${RESET}"
-
-    # Process 2: Extract the DAG and Process JSON
-    echo -e "${YELLOW}<-----------------------------Process 2: Extract the DAG and Process JSON----------------------------->${RESET}"
-    start_time_process_process_json=$(date +%s.%N)
-    copy_file "e-rewriter/result.json" "extraction-gym/out_json/my_data"
-    change_dir "process_json/"
-    execute_command "target/release/process_json"
-    change_dir ".."
-
-    # if feature is not dag_cost, copy the result.json to graph2eqn/result.json
-
-    if [ -z "$feature" ] || [ "$feature" != "dag_cost" ]; then
-        echo -e "${YELLOW}Copying result.json ... Prepare graph for Equation conversion.${RESET}"
-        copy_file "process_json/out_process_result/result.json" "graph2eqn/result.json" 
-    elif [ "$feature" == "dag_cost" ]; then
-        echo -e "${YELLOW}Copying graph_cost_serd_faster-bottom-up.json ... Prepare graph for Equation conversion.${RESET}"
-        copy_file "process_json/out_process_dag_result/graph_cost_serd_faster-bottom-up.json" "graph2eqn/result.json" 
-    fi
-
-    end_time_process_process_json=$(date +%s.%N)
-    runtime_process_process_json=$(echo "$end_time_process_process_json - $start_time_process_process_json" | bc)
-    echo -e "${GREEN}Process 2 - Extract DAG and Process JSON completed.${RESET}"
-
-    # Process 3: Convert Graph to Equation and Evaluate
-    echo -e "${YELLOW}<-----------------------------Process 3: Graph to Equation ----------------------------------------------->${RESET}"
-    start_time_process_graph2eqn=$(date +%s.%N)
-    change_dir "graph2eqn/"
-    execute_command "target/release/graph2eqn result.json"
-    change_dir ".."
-    copy_file "graph2eqn/circuit0.eqn" "abc/op2.eqn"
-    end_time_process_graph2eqn=$(date +%s.%N)
-    runtime_process_graph2eqn=$(echo "$end_time_process_graph2eqn - $start_time_process_graph2eqn" | bc)
-    echo -e "${GREEN}Process 3 - Graph to Equation completed.${RESET}"
-
-    # Process 4: Run ABC on the original and optimized circuit
-    echo -e "${YELLOW}<------------------------------Process 4: Run ABC on the original and optimized circuit, and conduct equivalent checking------------------->${RESET}"
-    copy_file "e-rewriter/circuit0.eqn" "abc/ori.eqn"
-    start_time_process_abc=$(date +%s.%N)
-    change_dir "abc/"
-    execute_command "./abc -c \"read_eqn ori.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
-    execute_command "./abc -c \"read_eqn op2.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
-
-    end_time_process_abc=$(date +%s.%N)
-    runtime_process_abc=$(echo "$end_time_process_abc - $start_time_process_abc" | bc)
-    echo -e "${GREEN}Process 4 - Run ABC on the original and optimized circuit completed.${RESET}"
-
-    # Final Step: Compare Original and Optimized Circuit
-    echo -e "${YELLOW}<-----------------------------Final Step: Comparing Original and Optimized Circuit----------------------------->${RESET}"
-    execute_command "./abc -c \"cec ori.eqn op2.eqn\""
-
-    change_dir ".."
-
-    # Report total runtime
-    echo -e "${GREEN}All processes completed successfully.${RESET}"
-
-    echo -e "${GREEN}Rewrite circuit completed in ${RED}$runtime_process_rw${GREEN} seconds.${RESET}"
-    echo -e "${GREEN}Extract DAG and Process JSON completed in ${RED}$runtime_process_process_json${GREEN} seconds.${RESET}"
-    echo -e "${GREEN}Graph to Equation in ${RED}$runtime_process_graph2eqn${GREEN} seconds.${RESET}"
-    echo -e "${GREEN}Run ABC on the original and optimized circuit completed in ${RED}$runtime_process_abc${GREEN} seconds.${RESET}"
-    echo -e "${GREEN}Total runtime: ${RED}$(echo "scale=2; $runtime_process_rw + $runtime_process_process_json + $runtime_process_graph2eqn + $runtime_process_abc" | bc)${GREEN} seconds.${RESET}"
-
