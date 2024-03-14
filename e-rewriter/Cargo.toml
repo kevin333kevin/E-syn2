@@ -48,8 +48,8 @@ serde-1 = [
 wasm-bindgen = ["instant/wasm-bindgen"]
 graphviz = ["dep:graphviz-rust"]
 default = []  # 默认 feature
-feature1 = []  # Feature 1
-feature2 = []  # Feature 1
+multi_round = []  # Feature 1
+dag_cost = []  # Feature 1
 feature3 = []  # Feature 1
 
 [dependencies.graphviz-rust]

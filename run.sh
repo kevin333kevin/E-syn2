@@ -41,9 +41,9 @@ ensure_dir "extraction-gym/output/my_data"
 echo -e "${GREEN}Setup complete.${RESET}\n"
 
 # Get user input for iteration times and feature label
-read -p "Enter the number of iteration times: " iteration_times
-read -p "Enter the feature label (optional): " feature
-read -p "Enter the extraction pattern for e-rewriter (optional): " pattern
+read -p "Enter the number of iteration times (optional): " iteration_times
+read -p "Enter the feature label (optional, choose multi-round heuristic serch (multi_round) or using DAG extraction (dag_cost)): " feature
+read -p "Enter the extraction pattern for e-rewriter (optional, could be 'random'): " pattern
 
 # Helper info for user input
 if [ -z "$feature" ]; then
@@ -62,6 +62,16 @@ change_dir "e-rewriter/"
 execute_command "$feature_cmd circuit0.eqn $iteration_times $pattern"
 change_dir ".."
 copy_file "e-rewriter/dot_graph/graph_internal_serd.json" "extraction-gym/data/my_data/"
+
+# if feature is feature2, run the extraction gym -> cd extraction-gym/ && make
+
+if [ ! -z "$feature" ] && [ "$feature" == "dag_cost" ]; then
+    echo -e "${YELLOW}Running extraction gym...${RESET}"
+    change_dir "extraction-gym/"
+    execute_command "make"
+    change_dir ".."
+fi
+
 end_time_process_rw=$(date +%s.%N)
 runtime_process_rw=$(echo "$end_time_process_rw - $start_time_process_rw" | bc)
 echo -e "${GREEN}Process 1 - Rewrite circuit completed.${RESET}"
@@ -73,7 +83,17 @@ copy_file "e-rewriter/result.json" "extraction-gym/out_json/my_data"
 change_dir "process_json/"
 execute_command "target/release/process_json"
 change_dir ".."
-copy_file "process_json/out_process_result/result.json" "graph2eqn/result.json"
+
+# if feature is not dag_cost, copy the result.json to graph2eqn/result.json
+
+if [ -z "$feature" ] || [ "$feature" != "dag_cost" ]; then
+    echo -e "${YELLOW}Copying result.json ... Prepare graph for Equation conversion.${RESET}"
+    copy_file "process_json/out_process_result/result.json" "graph2eqn/result.json" 
+elif [ "$feature" == "dag_cost" ]; then
+    echo -e "${YELLOW}Copying graph_cost_serd_faster-bottom-up.json ... Prepare graph for Equation conversion.${RESET}"
+    copy_file "process_json/out_process_dag_result/graph_cost_serd_faster-bottom-up.json" "graph2eqn/result.json" 
+fi
+
 end_time_process_process_json=$(date +%s.%N)
 runtime_process_process_json=$(echo "$end_time_process_process_json - $start_time_process_process_json" | bc)
 echo -e "${GREEN}Process 2 - Extract DAG and Process JSON completed.${RESET}"

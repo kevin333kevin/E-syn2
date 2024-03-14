@@ -1,6 +1,6 @@
-.PHONY: all compile feature1 feature2
+.PHONY: all compile multi_round dag_cost
 
-all: feature1 feature2 compile
+all: multi_round dag_cost compile
 
 compile:
 	cd e-rewriter/ && CARGO_BUILD_JOBS=$(shell nproc) cargo build --release
@@ -8,18 +8,18 @@ compile:
 	cd abc/ && make -j64
 	cd process_json/ && CARGO_BUILD_JOBS=$(shell nproc) cargo build --release
 
-feature1:
-	@if [ ! -f e-rewriter/target/release/e-rewriter-feature1 ]; then \
-		cd e-rewriter/ && CARGO_BUILD_JOBS=$(shell nproc) cargo build --release --features feature1; \
-		mv target/release/e-rewriter target/release/e-rewriter-feature1; \
+multi_round:
+	@if [ ! -f e-rewriter/target/release/e-rewriter-multi_round ]; then \
+		cd e-rewriter/ && CARGO_BUILD_JOBS=$(shell nproc) cargo build --release --features multi_round; \
+		mv target/release/e-rewriter target/release/e-rewriter-multi_round; \
 	else \
-		echo "Binary for e-rewriter-feature1 already exists."; \
+		echo "Binary for e-rewriter-multi_round already exists."; \
 	fi
 
-feature2:
-	@if [ ! -f e-rewriter/target/release/e-rewriter-feature2 ]; then \
-		cd e-rewriter/ && CARGO_BUILD_JOBS=$(shell nproc) cargo build --release --features feature2; \
-		mv target/release/e-rewriter target/release/e-rewriter-feature2; \
+dag_cost:
+	@if [ ! -f e-rewriter/target/release/e-rewriter-dag_cost ]; then \
+		cd e-rewriter/ && CARGO_BUILD_JOBS=$(shell nproc) cargo build --release --features dag_cost; \
+		mv target/release/e-rewriter target/release/e-rewriter-dag_cost; \
 	else \
-		echo "Binary for e-rewriter-feature2 already exists."; \
+		echo "Binary for e-rewriter-dag_cost already exists."; \
 	fi

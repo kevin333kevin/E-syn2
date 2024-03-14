@@ -1,4 +1,4 @@
-# E-syn2_power
+# E-syn2
 
 - `run1.sh` - runner, using feature label to accept multiple runs
 - `run_rad.sh` - testing script for testing random version
@@ -21,14 +21,14 @@ run with iterations experiments:
 
 ```bash
 for i in $(seq 5 5 50); do
-  echo -e "${i},feature1" | bash run.sh > tmp_log/log_${i}_feature1.txt
+  echo -e "${i},multi_round,\n" | bash run.sh > tmp_log/log_${i}_multi_round.txt
   wait
 done
 ```
 
 ```bash
 for i in $(seq 5 5 50); do
-  echo -e "${i}\n\n" | bash run.sh > tmp_log/log_${i}_no_feature.txt
+  echo -e "${i}\n\n\n" | bash run.sh > tmp_log/log_${i}_no_feature.txt
   wait
 done
 ```
