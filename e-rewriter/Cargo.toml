@@ -36,6 +36,9 @@ saturating = "0.1.0"
 #graphviz-rust = "0.6.2"
 egraph-serialize = { path = "/data/cchen/egraph-serialize/" }
 extraction-gym = { path = "/data/cchen/extraction-gym/" }
+
+rustc-hash = "1.1.0"
+
 [features]
 # forces the use of indexmaps over hashmaps
 deterministic = []

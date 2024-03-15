@@ -273,13 +273,15 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
 
      println!("------------------extract-----------------");
      let start_time = Instant::now();
+    // let extractor_base_0 = Extractor::new(&runner.egraph, wight_depth);
      let extractor_base_0 = Extractor2::new(&runner.egraph, wight_depth);
     // let extractor_base_0 = Extractor2::new(&runner.egraph, egg::AstDepth);
      let elapsed_time = start_time.elapsed();
      println!("find_costs: {:?}", elapsed_time);
 
      let start_time = Instant::now();
-     let (best_cost_base_0,root) = extractor_base_0.find_best_no_expr(root);
+     let (best_cost_base_0,root) = extractor_base_0.find_best(root);
+    // let (best_cost_base_0,root) = extractor_base_0.find_best_no_expr(root);
 
 
 
@@ -293,33 +295,33 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     let start_time = Instant::now();
      println!("------------------done----------------");
      extractor_base_0. record_costs();
-     let expr_Rec=extractor_base_0.record_costs_random(100,0.2,input_vec_id,root);
-     let results_vec: Vec<(&u32, &RecExpr<Prop>)> = expr_Rec.iter().collect();
-     results_vec.par_iter().enumerate().for_each(|(count, (key, best))| {
-         let result_string = best.to_string();
-         let expr: RecExpr<Prop> = result_string.parse().unwrap();
-         let mut egraphout = EGraph::new(());
-         egraphout.add_expr(&expr);
+    //  let expr_Rec=extractor_base_0.record_costs_random(100,0.2,input_vec_id,root);
+    //  let results_vec: Vec<(&u32, &RecExpr<Prop>)> = expr_Rec.iter().collect();
+    //  results_vec.par_iter().enumerate().for_each(|(count, (key, best))| {
+    //      let result_string = best.to_string();
+    //      let expr: RecExpr<Prop> = result_string.parse().unwrap();
+    //      let mut egraphout = EGraph::new(());
+    //      egraphout.add_expr(&expr);
          
-         print!("count: {}, key: {}", count, key);
-         let output_directory1 = "out_dot/";
-         let output_file_name1 = format!("out_graph_dot{}.dot", count);
-         let output_file_path1 = Path::new(output_directory1).join(output_file_name1);
-         let _ = egraphout.dot().to_dot(output_file_path1);
-         // let output_directory2 = "dot_graph/";
-         // let output_file_name2 = format!("out_graph_dot{}.pdf", count);
-         // let output_file_path2 = Path::new(output_directory2).join(output_file_name2);
-         // let output_file_name3 = format!("out_graph_dot{}.png", count);
-         // let output_file_path3 = Path::new(output_directory2).join(output_file_name3);       
-         // egraphout.dot().to_png(output_file_path3.clone()).unwrap();
-         // egraphout.dot().to_pdf(output_file_path2.clone()).unwrap();
-     });
+    //      print!("count: {}, key: {}", count, key);
+    //      let output_directory1 = "out_dot/";
+    //      let output_file_name1 = format!("out_graph_dot{}.dot", count);
+    //      let output_file_path1 = Path::new(output_directory1).join(output_file_name1);
+    //      let _ = egraphout.dot().to_dot(output_file_path1);
+    //      // let output_directory2 = "dot_graph/";
+    //      // let output_file_name2 = format!("out_graph_dot{}.pdf", count);
+    //      // let output_file_path2 = Path::new(output_directory2).join(output_file_name2);
+    //      // let output_file_name3 = format!("out_graph_dot{}.png", count);
+    //      // let output_file_path3 = Path::new(output_directory2).join(output_file_name3);       
+    //      // egraphout.dot().to_png(output_file_path3.clone()).unwrap();
+    //      // egraphout.dot().to_pdf(output_file_path2.clone()).unwrap();
+    //  });
  
-     results_vec.par_iter().enumerate().for_each(|(count, (key, best))| {
-         let result_string = best.to_string();
+    //  results_vec.par_iter().enumerate().for_each(|(count, (key, best))| {
+    //      let result_string = best.to_string();
  
      
-     });
+    //  });
    println!("------------------random extract-----------------");
 
 
@@ -359,7 +361,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
    
     {   println!("\n");
         println!("Enable Heuristic Search");
-        let runner_iteration_limit = 50;
+        let runner_iteration_limit = 10;
         let egraph_node_limit = 200000000;
       //  let egraph_node_limit = 10 *egraph_new_test.total_size();
         let start = Instant::now();
@@ -367,7 +369,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
             .with_explanations_enabled()
             .with_egraph(egraph_new_test.clone())
             .with_iter_limit(runner_iteration_limit)
-            .with_time_limit(std::time::Duration::from_secs(10))
+            .with_time_limit(std::time::Duration::from_secs(100))
             .with_node_limit(egraph_node_limit);
 
     
@@ -387,11 +389,11 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
         let mut egraph_bak: EGraph<Prop, ()>= runner.egraph.clone();
         let mut root_id_bak =root;
         let mut results: BTreeMap<i32, RecExpr<Prop>> = BTreeMap::new();
-        let extractor_base_0  = Extractor2::new(&runner.egraph, wight_depth);
+        let extractor_base_0  = Extractor::new(&runner.egraph, egg::AstDepth   );
        // let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
        // let extractor_base_1  = Extractor2::new(&runner.egraph, egg::AstDepth);
-        let (best_cost_base_0,best_base_0 )=extractor_base_0.find_best(root);
-        extractor_base_0. record_costs();
+        let (best_cost_base_0,best_base_0)=extractor_base_0.find_best(root);
+       // extractor_base_0. record_costs();
 
       //  root_id_vec.push(runner.roots[0].into());
       //  egraph_vec.push(runner.egraph.clone());
@@ -411,7 +413,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
                 let egraph_node_limit = 200000000;
                 let runner =  Runner::default()
                     .with_expr(&expr)
-                    .with_iter_limit(50)
+                    .with_iter_limit(10)
                     .with_time_limit(std::time::Duration::from_secs(100))
                     .with_node_limit(egraph_node_limit)
                     .run(&make_rules());

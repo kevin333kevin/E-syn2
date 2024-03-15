@@ -12,15 +12,47 @@ use std::path::Path;
 use crate::utils::{language::*};
 use std::collections::HashSet;
 use std::collections::BTreeMap;
+use rustc_hash::{FxHashMap, FxHashSet};
+use std::cmp::Ordering;
+use rayon::prelude::*;
 pub struct Extractor2<'a, CF: CostFunction<L>, L: Language, N: Analysis<L>> {
     cost_function: CF,
-    costs: HashMap<Id, (CF::Cost, usize, L)>,
+    costs: FxHashMap<Id, (CF::Cost, usize, L)>,
     egraph: &'a EGraph<L, N>,
 }
+pub struct ParallelWrapper<'a, T>(&'a [T]);
+
+impl<'a, T> IntoParallelIterator for ParallelWrapper<'a, T>
+where
+    T: Send + Sync,
+{
+    type Item = &'a T;
+    type Iter = rayon::slice::Iter<'a, T>;
+
+    fn into_par_iter(self) -> Self::Iter {
+        self.0.par_iter()
+    }
+}
+
+
+
+
 #[derive(Serialize, Deserialize)]
 struct Choices {
-    choices: HashMap<String, String>,
+    choices: FxHashMap<String, String>,
 }
+
+fn cmp<T: PartialOrd>(a: &Option<T>, b: &Option<T>) -> Ordering {
+    // None is high
+    match (a, b) {
+        (None, None) => Ordering::Equal,
+        (None, Some(_)) => Ordering::Greater,
+        (Some(_), None) => Ordering::Less,
+        (Some(a), Some(b)) => a.partial_cmp(b).unwrap(),
+    }
+}
+
+
 
 impl<'a, CF, L, N> Extractor2<'a, CF, L, N>
 where
@@ -35,7 +67,7 @@ where
     /// performs the greedy search for cheapest representative of each
     /// eclass.
     pub fn new(egraph: &'a EGraph<L, N>, cost_function: CF) ->  Self where <CF as CostFunction<L>>::Cost: Ord {
-        let costs = HashMap::default();
+        let costs = FxHashMap::default();
         let mut extractor = Extractor2 {
             costs,
             egraph,
@@ -49,7 +81,7 @@ where
     }
 
     pub fn new_random(egraph: &'a EGraph<L, N>, cost_function: CF) ->  Self where <CF as CostFunction<L>>::Cost: Ord {
-        let costs = HashMap::default();
+        let costs = FxHashMap::default();
         let mut extractor = Extractor2 {
             costs,
             egraph,
@@ -119,9 +151,9 @@ where
         let mut  rec_expr_map: BTreeMap<u32, RecExpr<L>> = BTreeMap::new();
         for num in 0..num_runs {
             
-            let mut result: HashMap<String, String> = HashMap::new();
-            let mut result1: HashMap<String, L> = HashMap::new();
-            let mut selected_ids: HashSet<Id> = HashSet::new(); // 用于跟踪已选择的节点 Id
+            let mut result: FxHashMap<String, String> = FxHashMap::default();
+            let mut result1: FxHashMap<String, L> = FxHashMap::default();
+            let mut selected_ids: FxHashSet<Id> = HashSet::default(); // 用于跟踪已选择的节点 Id
             
             for (id, (_, index, _)) in self.costs.iter() {
                 let eclass = &self.egraph[*id];
@@ -207,12 +239,12 @@ where
 
 
 
-    pub fn get_value_by_id(&self, eclass: Id, map: &HashMap<String, L>) -> L {
+    pub fn get_value_by_id(&self, eclass: Id, map: &FxHashMap<String, L>) -> L {
         map.get(&eclass.to_string()).cloned().unwrap()
     }
     
     pub fn record_costs(&self) {
-        let mut result: HashMap<String, String> = HashMap::new();
+        let mut result: FxHashMap<String, String> = FxHashMap::default();
        
         for (id, (_, index, _)) in self.costs.iter() {
             let value = format!("{}.{}", id, index);
@@ -315,6 +347,43 @@ where
 
     None
 }
+
+
+
+
+// fn make_pass(&mut self, eclass: &EClass<L, N::Data>) -> Option<(CF::Cost, usize, L)>
+// where
+//     CF::Cost: Ord,
+// {
+//     let result: Vec<(CF::Cost, usize, L)> = eclass.nodes
+//         .iter()
+//         .enumerate()
+//         .filter_map(|(index, n)| {
+//             match self.node_total_cost(n) {
+//                 Some(cost) => Some((cost, index, n.clone())),
+//                 None => None,
+//             }
+//         })
+//         .collect();
+
+//     let min_cost = result.iter().map(|(cost, _, _)| cost).cloned().min();
+
+//     if let Some(min_cost) = min_cost {
+//         let min_cost_tuples: Vec<(CF::Cost, usize, L)> = result
+//             .iter()
+//             .filter(|(cost, _, _)| cost == &min_cost)
+//             .cloned()
+//             .collect();
+//         let mut rng = rand::thread_rng();
+//         if let Some(selected_tuple) = min_cost_tuples.choose(&mut rng) {
+//             // println!("Selected Tuple: {:?}", selected_tuple);
+//             return Some(selected_tuple.clone());
+//         }
+//     }
+
+//     None
+// }
+
 
 fn find_costs_random(&mut self) where <CF as CostFunction<L>>::Cost: Ord {
     let mut did_something = true;
