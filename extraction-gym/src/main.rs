@@ -126,17 +126,18 @@ fn main() {
         .find_cycles(&egraph, &egraph.root_eclasses)
         .is_empty());
     //let tree = result.tree_cost(&egraph, &egraph.root_eclasses);
-    let dag = result.dag_cost(&egraph, &egraph.root_eclasses);
+    //let dag = result.dag_cost(&egraph, &egraph.root_eclasses);
 
          //help me print dag cost
-    print!("-------------------------------------------\n");
-    print!("dag cost: {}\n", dag);
-    print!("-------------------------------------------\n");
-    let (cost, dag_cost_with_extraction_result) =
+    // print!("-------------------------------------------\n");
+    // print!("dag cost: {}\n", dag);
+    // print!("-------------------------------------------\n");
+    let (dag_cost, dag_cost_with_extraction_result) =
         result.dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
         print!("-------------------------------------------\n");
-        print!("dag cost: {}\n", cost);
+        print!("dag cost: {}\n", dag_cost);
         print!("-------------------------------------------\n");
+    result.record_costs_random(10,0.5,&egraph,&dag_cost_with_extraction_result);
     let json_result = to_string_pretty(&result).unwrap();
     let _ = fs::create_dir_all("out_json/my_data");
     let __ = fs::write(&modified_name, json_result);
@@ -144,15 +145,18 @@ fn main() {
     let json_dag_result = to_string_pretty(&dag_cost_with_extraction_result).unwrap();
     let __ = fs::write(&modified_name1, json_dag_result);
 
+
+    let _ = fs::create_dir_all("random_extract_dag");
+
     //println!("{}", json_result);
-    log::info!("{filename:40}\t{extractor_name:10}\t{dag:5}\t{us:5}");
+    log::info!("{filename:40}\t{extractor_name:10}\t{dag_cost:5}\t{us:5}");
     writeln!(
         out_file,
         r#"{{ 
     "name": "{filename}",
     "md_name": "{modified_name1}",
     "extractor": "{extractor_name}", 
-    "dag": {dag}, 
+    "dag": {dag_cost}, 
     "micros": {us}
 }}"#
     )

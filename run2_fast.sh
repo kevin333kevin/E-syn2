@@ -35,43 +35,47 @@ fi
 
 # print the process - rewrite - process
 echo "-----------------------------Process 1: Rewrite the circuit-----------------------------"
-start_time_process1=$(date +%s.%N)
-cd e-rewriter/ && cargo run  --features feature2 circuit0.eqn 
-#cd e-rewriter/ && target/release/e-rewriter --features feature2 circuit0.eqn 
-# Execute the steps
-#if [ "$display" -eq 0 ]; then
-    #cd e-rewriter/ && target/release/e-rewriter circuit0.eqn circuit1.eqn
-#else
-#    cd e-rewriter/ && target/release/e-rewriter --features display circuit0.eqn circuit1.eqn
-#fi
+# start_time_process1=$(date +%s.%N)
+# cd e-rewriter/ && cargo run  --features feature2 circuit0.eqn 
+# #cd e-rewriter/ && target/release/e-rewriter --features feature2 circuit0.eqn 
+# # Execute the steps
+# #if [ "$display" -eq 0 ]; then
+#     #cd e-rewriter/ && target/release/e-rewriter circuit0.eqn circuit1.eqn
+# #else
+# #    cd e-rewriter/ && target/release/e-rewriter --features display circuit0.eqn circuit1.eqn
+# #fi
 
-cd ..
-cp e-rewriter/dot_graph/graph_cost_serd.json extraction-gym/data/my_data/
-end_time_process1=$(date +%s.%N)
-runtime_process1=$(echo "$end_time_process1 - $start_time_process1" | bc)
+# cd ..
+# cp e-rewriter/dot_graph/graph_cost_serd.json extraction-gym/data/my_data/
+# end_time_process1=$(date +%s.%N)
+# runtime_process1=$(echo "$end_time_process1 - $start_time_process1" | bc)
 
 
 echo "-----------------------------Process 2: Extract the DAG-----------------------------"
 start_time_process2=$(date +%s.%N)
 cd extraction-gym/ && make
+#rm extraction-gym/out_dag_json/my_data/graph_cost_serd_faster-bottom-up.json
+
 end_time_process2=$(date +%s.%N)
 cd ..
 start_time_process2_2=$(date +%s.%N)
 
+cp extraction-gym/random_result/result9.json extraction-gym/out_dag_json/my_data/graph_cost_serd_faster-bottom-up.json
 cd process_json/ && target/release/process_json
 cd ..
 #cp -r process_json/out_process_result extraction-gym/  && cp -r process_json/out_process_dag_result extraction-gym/
 #----------------select&test extract alogrithm---------------------
 
 cp process_json/out_process_dag_result/graph_cost_serd_faster-bottom-up.json graph2eqn/graph_cost_serd_faster-bottom-up.json
-
+#cp process_json/out_process_dag_result/graph_cost_serd_faster_greedy_dag.json graph2eqn/graph_cost_serd_faster_greedy_dag.json
 end_time_process2_2=$(date +%s.%N)
 echo "-----------------------------Process 3: graph to eqn-----------------------------"
  start_time_process2_3=$(date +%s.%N)
 cd graph2eqn/ && target/release/graph2eqn graph_cost_serd_faster-bottom-up.json
+#cd graph2eqn/ && target/release/graph2eqn graph_cost_serd_faster_greedy_dag.json
 # 
-# cd ..
-# cp graph2eqn/circuit0.eqn abc/op.eqn
+cd ..
+cp graph2eqn/circuit0.eqn abc/op.eqn
 cp e-rewriter/circuit0.eqn abc/ori.eqn
 
 echo "-----------------------------Process 3: Evaluate-----------------------------"
@@ -88,11 +92,11 @@ echo "-----------------------------Process 3: Evaluate--------------------------
 # cp graph2eqn/circuit0.eqn abc/op1.eqn
 # rm graph2eqn/circuit0.eqn
 echo "-----------------------------original-----------------------------"
-cd abc/ && ./abc -c "read_eqn ori.eqn; st;ps; dch;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
-cd ..
+cd abc/ && ./abc -c "read_eqn ori.eqn; st;ps; dch; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+# cd ..
 # cd abc/ && ./abc -c "read_eqn ori.eqn;st; dch; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 
-# end_time_process2_3=$(date +%s.%N)
+end_time_process2_3=$(date +%s.%N)
 
 
 
@@ -101,7 +105,7 @@ cd graph2eqn/ && target/release/graph2eqn graph_cost_serd_faster-bottom-up.json
 cd ..
 cp graph2eqn/circuit0.eqn abc/op5.eqn
 rm graph2eqn/circuit0.eqn
-cd abc/ && ./abc -c "read_eqn op5.eqn; st;ps; dch;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
+cd abc/ && ./abc -c "read_eqn op5.eqn; st;ps; dch; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 cd ..
 end_time_process2_3=$(date +%s.%N)
 

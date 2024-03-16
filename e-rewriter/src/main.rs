@@ -17,11 +17,12 @@ use std::time::Instant;
 use std::path::Path;
 mod utils;
 use utils::{language::*, preprocess::*, extract_new::*};
+use crate::utils::runner_md;
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use crate::utils::cost::*;
-
+use log::LevelFilter;
 pub fn preprocess_file(file_name: &str) -> Result<(), io::Error> {
     // Open the file for reading
     let file = File::open(file_name)?;
@@ -186,6 +187,11 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(feature = "feature2"))]
     #[cfg(not(feature = "feature3"))]
     {
+
+
+        env_logger::Builder::from_default_env()
+        .filter_level(LevelFilter::Debug)
+        .init();
     let runner_iteration_limit = env::args().nth(2).unwrap_or("10".to_string()).parse().unwrap_or(1000);
     let egraph_node_limit = 200000000;
   //  let egraph_node_limit = 10 *egraph_new_test.total_size();
@@ -196,6 +202,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
         .with_time_limit(std::time::Duration::from_secs(1500))
         .with_iter_limit(runner_iteration_limit)
         .with_node_limit(egraph_node_limit);
+        //.with_scheduler(egg::SimpleScheduler);
 
     runner1.roots = root_ids.iter().cloned().map(Id::from).collect();
     let runner =runner1.run(&make_rules());
@@ -389,7 +396,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
         let mut egraph_bak: EGraph<Prop, ()>= runner.egraph.clone();
         let mut root_id_bak =root;
         let mut results: BTreeMap<i32, RecExpr<Prop>> = BTreeMap::new();
-        let extractor_base_0  = Extractor::new(&runner.egraph, egg::AstDepth   );
+        let extractor_base_0  = Extractor2::new(&runner.egraph,wight_depth);
        // let extractor_base_0  = Extractor2::new(&runner.egraph, egg::AstSize);
        // let extractor_base_1  = Extractor2::new(&runner.egraph, egg::AstDepth);
         let (best_cost_base_0,best_base_0)=extractor_base_0.find_best(root);
@@ -413,7 +420,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
                 let egraph_node_limit = 200000000;
                 let runner =  Runner::default()
                     .with_expr(&expr)
-                    .with_iter_limit(10)
+                    .with_iter_limit(50)
                     .with_time_limit(std::time::Duration::from_secs(100))
                     .with_node_limit(egraph_node_limit)
                     .run(&make_rules());
@@ -430,7 +437,7 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
                 {
                     counter +=1;
                 }
-                if  counter==2{
+                if  counter==7{
                     println!("break!");
                 //    extractor. record_costs();
                    // println!("best{}",cost);
@@ -530,14 +537,14 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
         }
 
         #[cfg(feature = "feature2")] {
-            let runner_iteration_limit = 20;
+            let runner_iteration_limit = 10;
             let egraph_node_limit = 200000000;
           //  let egraph_node_limit = 10 *egraph_new_test.total_size();
             let start = Instant::now();
             let mut runner1 = Runner::default()
                 .with_explanations_enabled()
                 .with_egraph(egraph_new_test.clone())
-                .with_time_limit(std::time::Duration::from_secs(10))
+                .with_time_limit(std::time::Duration::from_secs(200))
                 .with_iter_limit(runner_iteration_limit)
                 .with_node_limit(egraph_node_limit);
         

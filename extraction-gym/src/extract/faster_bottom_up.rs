@@ -15,7 +15,7 @@ use super::*;
 /// it does this by tracking parent-child relationships and storing relevant nodes
 /// in a work list (UniqueQueue).
 pub struct FasterBottomUpExtractor;
-
+pub struct FasterBottomUpExtractor_random;
 impl Extractor for FasterBottomUpExtractor {
     fn extract(&self, egraph: &EGraph, _roots: &[ClassId]) -> ExtractionResult {
         let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
@@ -51,6 +51,7 @@ impl Extractor for FasterBottomUpExtractor {
             let node = &egraph[&node_id];
             let prev_cost = costs.get(class_id).unwrap_or(&INFINITY);
             let cost = result.node_sum_cost(egraph, node, &costs);
+           //let cost = result.node_depth_cost(egraph, node, &costs);
             if cost < *prev_cost {
                 result.choose(class_id.clone(), node_id.clone());
                 costs.insert(class_id.clone(), cost);
@@ -61,6 +62,8 @@ impl Extractor for FasterBottomUpExtractor {
         result
     }
 }
+
+
 
 /** A data structure to maintain a queue of unique elements.
 
