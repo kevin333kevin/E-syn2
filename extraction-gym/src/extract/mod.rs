@@ -254,22 +254,24 @@ pub fn record_costs_random(&self, num_runs: u32, random_ratio: f64,egraph: &EGra
             result.insert(class.id.clone(), dag_cost_with_extraction_result.choices[classid].clone());
         }
     }
-        
-        let filename = format!("result{}.json", num);
-        let path = format!("random_result/{}", filename);
+    let filename = format!("result{}.json", num);
+    let path = format!("random_result/{}", filename);
 
-        // Create directory if it doesn't exist
-        if let Err(err) = fs::create_dir_all("random_result") {
-            eprintln!("Failed to create directory: {}", err);
-            continue; // Skip current iteration if directory creation fails
+    // 创建目录（如果不存在）
+    if let Err(err) = fs::create_dir_all("random_result") {
+        eprintln!("无法创建目录：{}", err);
+        return;
+    }
+
+    // 创建文件并写入内容
+    if let Ok(mut file) = File::create(path) {
+        let result = "这是文件的内容"; // 假设这是要写入文件的内容
+        if let Err(err) = write!(file, "{}", result) {
+            eprintln!("无法写入文件：{}", err);
         }
-
-        if let Ok(mut file) = File::create(path) {
-            let json_dag_result =  to_string_pretty(&result).unwrap() ;
-                let _ = write!(file, "{}", json_dag_result);
-
-        }
-
+    } else {
+        eprintln!("无法创建文件");
+    }
 }
 
 

@@ -189,22 +189,23 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     {
 
 
-        env_logger::Builder::from_default_env()
-        .filter_level(LevelFilter::Debug)
-        .init();
+        // env_logger::Builder::from_default_env()
+        // .filter_level(LevelFilter::Info)
+        // .init();
     let runner_iteration_limit = env::args().nth(2).unwrap_or("10".to_string()).parse().unwrap_or(1000);
     let egraph_node_limit = 200000000;
   //  let egraph_node_limit = 10 *egraph_new_test.total_size();
     let start = Instant::now();
-    let mut runner1 = Runner::default()
+    let mut runner1 = runner_md::Runner::default()
         .with_explanations_enabled()
         .with_egraph(egraph_new_test.clone())
         .with_time_limit(std::time::Duration::from_secs(1500))
         .with_iter_limit(runner_iteration_limit)
-        .with_node_limit(egraph_node_limit);
+        .with_node_limit(egraph_node_limit)
+        .with_root_ids(root_ids.clone());
         //.with_scheduler(egg::SimpleScheduler);
 
-    runner1.roots = root_ids.iter().cloned().map(Id::from).collect();
+    //runner1.roots = root_ids.iter().cloned().map(Id::from).collect();
     let runner =runner1.run(&make_rules());
 
     let duration= start.elapsed();

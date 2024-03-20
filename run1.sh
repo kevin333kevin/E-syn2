@@ -36,7 +36,7 @@ fi
 # print the process - rewrite - process
 echo "-----------------------------Process 1: Rewrite the circuit-----------------------------"
 start_time_process1=$(date +%s.%N)
-cd e-rewriter/ && cargo run circuit0.eqn 5
+cd e-rewriter/ && cargo run circuit0.eqn 30
 cd ..
 
 #cp e-rewriter/random_result/result10.json e-rewriter/result.json
