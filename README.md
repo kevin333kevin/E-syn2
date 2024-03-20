@@ -1,21 +1,10 @@
 # E-syn2
 
-- `run1.sh` - runner, using feature label to accept multiple runs
-- `run_rad.sh` - testing script for testing random version
-- `run2.sh` - using DAG (extraction - gym)
+## Usage
 
-
-- `run.sh` - main runner, no featur label -> multiple iterations
-- `run1_test_iterations.sh` - testing script for testing multiple iterations -> test various iterations effects for a single run
-- `run_rad` - just add cp
-- `run2.sh` - using DAG (extraction - gym)
-- `run2_fast` - only one algorithm in extaction gym
-
-- extraction_gym 
-
-- `feature 2` -> using extraction gym (cp name different) - see `run2.sh`, `run2_fast.sh`
-- `feature 1` 
-
+```bash
+chmod +x ./run.sh && ./run.sh
+```
 
 run with iterations experiments:
 
@@ -32,3 +21,10 @@ for i in $(seq 5 5 50); do
   wait
 done
 ```
+
+### Parameters Explanation
+
+- `iteration times`: the number of iterations for runner in egg.
+- `multi_round` feature: heuristic algorithm that allows egg to run multiple rounds of rewriting.
+- `dag_cost` feature: using DAG cost to guide the rewriting process.
+- `random` extraction pattern: using random extraction pattern to explore the search space.

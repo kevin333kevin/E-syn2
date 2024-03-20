@@ -1,8 +1,8 @@
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{Write, Read, BufRead, BufReader};
 use std::env;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
 
 // Define Data Structures
@@ -56,13 +56,13 @@ fn is_cyclic_util(
             if !visited.get(child_id).unwrap_or(&false) {
                 let mut child_cyclic_nodes = is_cyclic_util(nodes, child_id, visited, rec_stack);
                 if !child_cyclic_nodes.is_empty() {
-                    // 找到环，将节点添加到包含环的节点列表中
+                    // Find the cyclic nodes and add them to the list of cyclic nodes.
                     cyclic_nodes.push(child_id.to_string());
                     cyclic_nodes.append(&mut child_cyclic_nodes);
                     return cyclic_nodes;
                 }
             } else if *rec_stack.get(child_id).unwrap_or(&false) {
-                // 找到环，将节点添加到包含环的节点列表中
+                // Find the cyclic nodes and add them to the list of cyclic nodes.
                 cyclic_nodes.push(child_id.to_string());
                 return cyclic_nodes;
             }
@@ -95,18 +95,22 @@ fn dag_to_equations(
     }
 
     let node = nodes.get(node_id).unwrap();
-  //  println!("Node ID: {:?}", node_id); // 添加这行
+    //  println!("Node ID: {:?}", node_id); // 添加这行
     let expression = match node.op.as_str() {
         "&" => {
-            let operands: Vec<String> = node.children.iter().map(|child_id| {
-                dag_to_equations(nodes, child_id, visited, visit_count)
-            }).collect();
+            let operands: Vec<String> = node
+                .children
+                .iter()
+                .map(|child_id| dag_to_equations(nodes, child_id, visited, visit_count))
+                .collect();
             operands.join(" & ")
         }
         _ => {
-            let operands: Vec<String> = node.children.iter().map(|child_id| {
-                dag_to_equations(nodes, child_id, visited, visit_count)
-            }).collect();
+            let operands: Vec<String> = node
+                .children
+                .iter()
+                .map(|child_id| dag_to_equations(nodes, child_id, visited, visit_count))
+                .collect();
             if operands.is_empty() {
                 node.op.clone() // No children means it's a variable or a constant
             } else if operands.len() == 1 {
@@ -118,9 +122,9 @@ fn dag_to_equations(
     };
 
     // Only record the expression if the node has been visited more than once.
-    
+
     if visit_count[node_id] > 1 && (expression.contains(" ") || expression.contains("(")) {
-    //if visit_count[node_id] > 1  {
+        //if visit_count[node_id] > 1  {
         visited.insert(node_id.to_string(), expression.clone());
     }
 
@@ -129,7 +133,10 @@ fn dag_to_equations(
 
 // Function to format Synopsys for a single equation
 fn format_synopsys_single(equation: &str) -> Vec<String> {
-    equation.split('&').map(|part| part.trim().to_string()).collect()
+    equation
+        .split('&')
+        .map(|part| part.trim().to_string())
+        .collect()
 }
 
 // Function to read the mapping from the reference file
@@ -141,7 +148,11 @@ fn read_prefix_mapping(file_path: &str) -> HashMap<String, String> {
     for line in reader.lines() {
         let line = line.expect("Unable to read line");
         if line.starts_with("OUTORDER = ") {
-            let parts: Vec<&str> = line.trim_start_matches("OUTORDER = ").trim_end_matches(';').split_whitespace().collect();
+            let parts: Vec<&str> = line
+                .trim_start_matches("OUTORDER = ")
+                .trim_end_matches(';')
+                .split_whitespace()
+                .collect();
             for (index, part) in parts.iter().enumerate() {
                 mapping.insert(format!("p[{}]", index), part.to_string());
             }
@@ -164,7 +175,7 @@ fn write_to_file(
     let mut file = File::create(file_name).expect("Unable to create file");
 
     writeln!(file, "INORDER = {};", variables.join(" ")).expect("Unable to write to file");
-    
+
     for (index, part) in parts.iter().enumerate() {
         let f_number = format!("{}[{}]", f_prefix, index);
         let mapped_prefix = prefix_mapping.get(&f_number).unwrap_or(&f_number);
@@ -173,7 +184,12 @@ fn write_to_file(
 
     let outorder: Vec<String> = (0..parts.len())
         .map(|i| format!("{}[{}]", f_prefix, i))
-        .map(|f_number| prefix_mapping.get(&f_number).unwrap_or(&f_number).to_string())
+        .map(|f_number| {
+            prefix_mapping
+                .get(&f_number)
+                .unwrap_or(&f_number)
+                .to_string()
+        })
         .collect();
 
     writeln!(file, "OUTORDER = {};", outorder.join(" ")).expect("Unable to write to file");
@@ -182,7 +198,6 @@ fn write_to_file(
         writeln!(file, "new_n_{} = {};", node_id, expr).expect("Unable to write to file");
     }
 }
-
 
 fn main() {
     // Read the file path from the command line arguments
@@ -196,7 +211,8 @@ fn main() {
     // Open the file and read the JSON content
     let mut file = File::open(file_path).expect("Unable to open file");
     let mut json_str = String::new();
-    file.read_to_string(&mut json_str).expect("Unable to read file");
+    file.read_to_string(&mut json_str)
+        .expect("Unable to read file");
 
     // Parse the JSON string
     let graph = parse_json(&json_str);
@@ -207,16 +223,15 @@ fn main() {
         return; // Exit the program or handle the error as needed
     }
 
-
     // Determine the nodes that are not children of any other nodes
     // Use the root_eclasses as root nodes
     let root_nodes = graph.root_eclasses;
 
     // Print the root nodes
-   // println!("Root nodes: {:?}", root_nodes);
+    // println!("Root nodes: {:?}", root_nodes);
 
-   // Format and write each Circuit to a file
-   let prefix_mapping = read_prefix_mapping("../e-rewriter/circuit0.eqn");
+    // Format and write each Circuit to a file
+    let prefix_mapping = read_prefix_mapping("../e-rewriter/circuit0.eqn");
 
     // Process each identified root node
     for (i, root) in root_nodes.iter().enumerate() {
@@ -226,21 +241,25 @@ fn main() {
         //println!("Equation: {}", equation);
         // if the length of visited is 0, not printing the visited nodes
         if visited.len() != 0 {
-        //    println!("Visit count: {:?}", visit_count);
-        //    println!("Visited nodes: {:?}", visited);
+            //    println!("Visit count: {:?}", visit_count);
+            //    println!("Visited nodes: {:?}", visited);
         }
-        
+
         // for (node_id, expr) in visited.iter() {
         //     println!("{}: {}", node_id, expr);
         // }
         //println!("{}", equation);
         //println!("Visited nodes: {:?}", visited);
-      //  println!("Circuit {}: ", i + 1);
+        //  println!("Circuit {}: ", i + 1);
 
         // Extract unique variables
         let mut variables = vec![];
         for node in graph.nodes.values() {
-            if node.children.is_empty() && !variables.contains(&node.op) && node.op != "1"  && node.op != "0" {
+            if node.children.is_empty()
+                && !variables.contains(&node.op)
+                && node.op != "1"
+                && node.op != "0"
+            {
                 variables.push(node.op.clone());
             }
         }
@@ -256,8 +275,14 @@ fn main() {
         // }
         // println!();
 
-        
-        write_to_file(&variables, parts, &format!("circuit{}.eqn", i), "p", visited, &prefix_mapping);
+        write_to_file(
+            &variables,
+            parts,
+            &format!("circuit{}.eqn", i),
+            "p",
+            visited,
+            &prefix_mapping,
+        );
         //post_process_eqn(&format!("circuit{}.eqn", i));
         println!("Finished graph to equation conversion")
     }

@@ -42,7 +42,7 @@ echo -e "${GREEN}Setup complete.${RESET}\n"
 
 # Get user input for iteration times and feature label
 read -p "Enter the number of iteration times (optional): " iteration_times
-read -p "Enter the feature label (optional, choose multi-round heuristic serch (multi_round) or using DAG extraction (dag_cost)): " feature
+read -p "Enter the experimental features (optional, choose 'multi_round' or 'dag_cost'): " feature
 read -p "Enter the extraction pattern for e-rewriter (optional, could be 'random'): " pattern
 
 # Helper info for user input
@@ -104,7 +104,7 @@ start_time_process_graph2eqn=$(date +%s.%N)
 change_dir "graph2eqn/"
 execute_command "target/release/graph2eqn result.json"
 change_dir ".."
-copy_file "graph2eqn/circuit0.eqn" "abc/op2.eqn"
+copy_file "graph2eqn/circuit0.eqn" "abc/opt.eqn"
 end_time_process_graph2eqn=$(date +%s.%N)
 runtime_process_graph2eqn=$(echo "$end_time_process_graph2eqn - $start_time_process_graph2eqn" | bc)
 echo -e "${GREEN}Process 3 - Graph to Equation completed.${RESET}"
@@ -115,7 +115,7 @@ copy_file "e-rewriter/circuit0.eqn" "abc/ori.eqn"
 start_time_process_abc=$(date +%s.%N)
 change_dir "abc/"
 execute_command "./abc -c \"read_eqn ori.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
-execute_command "./abc -c \"read_eqn op2.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
+execute_command "./abc -c \"read_eqn opt.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
 
 end_time_process_abc=$(date +%s.%N)
 runtime_process_abc=$(echo "$end_time_process_abc - $start_time_process_abc" | bc)
@@ -123,7 +123,7 @@ echo -e "${GREEN}Process 4 - Run ABC on the original and optimized circuit compl
 
 # Final Step: Compare Original and Optimized Circuit
 echo -e "${YELLOW}<-----------------------------Final Step: Comparing Original and Optimized Circuit----------------------------->${RESET}"
-execute_command "./abc -c \"cec ori.eqn op2.eqn\""
+execute_command "./abc -c \"cec ori.eqn opt.eqn\""
 
 change_dir ".."
 

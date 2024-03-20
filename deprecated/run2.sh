@@ -68,7 +68,7 @@ cp process_json/out_process_dag_result/graph_cost_serd_global-greedy-dag.json gr
 cp process_json/out_process_dag_result/graph_cost_serd_greedy-dag.json graph2eqn/graph_cost_serd_greedy-dag.json
 end_time_process2_2=$(date +%s.%N)
 echo "-----------------------------Process 3: graph to eqn-----------------------------"
- start_time_process2_3=$(date +%s.%N)
+start_time_process2_3=$(date +%s.%N)
 # cd graph2eqn/ && target/release/graph2eqn graph_cost_serd_faster-bottom-up.json
 # 
 # cd ..

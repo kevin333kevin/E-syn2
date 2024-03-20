@@ -29,7 +29,11 @@ fi
 num_flows=$1
 
 # Sequence lengths to consider
-lengths=(10 15 20 25)
+#lengths=(10 15 20 25)
+
+# Random length minimum and maximum (inclusive)
+min_length=10
+max_length=25
 
 # Output file
 output_file="GeneratedFlows.txt"
@@ -40,7 +44,8 @@ output_file="GeneratedFlows.txt"
 # Generate the specified number of flows
 for (( n=0; n<$num_flows; n++ )); do
     # Randomly select a length
-    len=${lengths[$RANDOM % ${#lengths[@]}]}
+    #len=${lengths[$RANDOM % ${#lengths[@]}]}
+    len=$((RANDOM % (max_length + 1 - min_length) + min_length))
     # Generate a sequence of the selected length
     seq=$(generate_sequence $len)
     # Write the sequence to the output file
