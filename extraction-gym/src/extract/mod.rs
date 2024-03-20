@@ -10,6 +10,9 @@ pub mod faster_greedy_dag;
 pub mod global_greedy_dag;
 pub mod greedy_dag;
 use serde::{Deserialize, Serialize};
+use rustc_hash::FxHashSet;
+use std::collections::HashSet;
+use rand::Rng;
 #[cfg(feature = "ilp-cbc")]
 pub mod ilp_cbc;
 
@@ -58,7 +61,13 @@ where
 #[derive(Default, Clone, Deserialize, Serialize)]
 pub struct ExtractionResult {
     pub choices: IndexMap<ClassId, NodeId>,
+    
 }
+
+pub struct Cost_extract {
+   
+}
+
 
 #[derive(Clone, Copy)]
 enum Status {
@@ -196,4 +205,80 @@ impl ExtractionResult {
                 })
                 .sum::<Cost>()
     }
+
+    pub fn node_depth_cost<M>(&self, egraph: &EGraph, node: &Node, costs: &M) -> Cost
+where
+    M: MapGet<ClassId, Cost>,
+{
+    let child_max_cost = node
+        .children
+        .iter()
+        .map(|n| {
+            let cid = egraph.nid_to_cid(n);
+            costs.get(cid).unwrap_or(&INFINITY)
+        })
+        .max()
+        .copied()
+        .unwrap_or(Cost::default());
+
+    node.cost+child_max_cost
+}
+
+
+
+pub fn record_costs_random(&self, num_runs: u32, random_ratio: f64,egraph: &EGraph,dag_cost_with_extraction_result:&ExtractionResult)  {
+    let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
+
+    for num in 0..num_runs {
+        let mut result: FxHashMap<ClassId, NodeId> = FxHashMap::default();
+        let mut selected_ids: FxHashSet<ClassId> = HashSet::default(); // 用于跟踪已选择的节点 Id
+        for classid in dag_cost_with_extraction_result.choices.keys() {
+            let class =egraph.classes().get(classid).unwrap();
+            let nodes=class.nodes.clone();
+            let mut rng = rand::thread_rng();
+        //   if input_vec_id.contains(id) {
+        //     let value = format!("{}.{}", id, index);
+        //     let value1 = &eclass.nodes[*index];
+        //     result.insert(id.to_string(), value);
+        //     result1.insert(id.to_string(), value1.clone());
+        //     selected_ids.insert(*id);}
+
+            if !selected_ids.contains(&classid) && rng.gen::<f64>() <= random_ratio && nodes.len() > 1 {
+                let random_index = rng.gen_range(0..nodes.len());
+                result.insert(classid.clone(), class.nodes[random_index].clone());
+            
+                // Add the selected node ID to the set
+                selected_ids.insert(classid.clone());
+            }
+             else {
+            result.insert(class.id.clone(), dag_cost_with_extraction_result.choices[classid].clone());
+        }
+    }
+        
+        let filename = format!("result{}.json", num);
+        let path = format!("random_result/{}", filename);
+
+        // Create directory if it doesn't exist
+        if let Err(err) = fs::create_dir_all("random_result") {
+            eprintln!("Failed to create directory: {}", err);
+            continue; // Skip current iteration if directory creation fails
+        }
+
+        if let Ok(mut file) = File::create(path) {
+            let json_dag_result =  to_string_pretty(&result).unwrap() ;
+                let _ = write!(file, "{}", json_dag_result);
+
+        }
+
+}
+
+
+
+
+
+
+
+
+
+}
 }

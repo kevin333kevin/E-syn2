@@ -16,6 +16,8 @@ use super::*;
 /// in a work list (UniqueQueue).
 pub struct FasterBottomUpExtractor;
 
+pub struct FasterBottomUpExtractor_random;
+
 impl Extractor for FasterBottomUpExtractor {
     fn extract(&self, egraph: &EGraph, _roots: &[ClassId]) -> ExtractionResult {
         let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
