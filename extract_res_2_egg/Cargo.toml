@@ -1,0 +1,17 @@
+[package]
+name = "extract_res_2_egg"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[dependencies]
+egg = {version = "0.9.5", features = ["serde-1"] }
+serde = "1.0.137"
+vectorize = { version = "0.2.0", optional = true }
+serde_json = "1.0"
+saturating = "0.1.0"
+egraph-serialize = { path = "/data/cchen/egraph-serialize/" }
+extraction-gym = { path = "/data/cchen/extraction-gym/" }
+rustc-hash = "1.1.0"
