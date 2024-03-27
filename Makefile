@@ -7,6 +7,7 @@ compile:
 	cd graph2eqn/ && CARGO_BUILD_JOBS=$(shell nproc) cargo build --release
 	cd abc/ && make -j64
 	cd process_json/ && CARGO_BUILD_JOBS=$(shell nproc) cargo build --release
+	cd extraction-gym/ && CARGO_BUILD_JOBS=$(shell nproc) cargo build --release
 
 multi_round:
 	@if [ ! -f e-rewriter/target/release/e-rewriter-multi_round ]; then \

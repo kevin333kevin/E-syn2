@@ -52,7 +52,8 @@ impl Extractor for FasterBottomUpExtractor {
             let class_id = n2c(&node_id);
             let node = &egraph[&node_id];
             let prev_cost = costs.get(class_id).unwrap_or(&INFINITY);
-            let cost = result.node_sum_cost(egraph, node, &costs);
+            //let cost = result.node_sum_cost(egraph, node, &costs);
+            let cost = result.node_depth_cost(egraph, node, &costs);
             if cost < *prev_cost {
                 result.choose(class_id.clone(), node_id.clone());
                 costs.insert(class_id.clone(), cost);

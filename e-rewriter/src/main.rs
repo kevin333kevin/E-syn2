@@ -309,7 +309,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         if args.len() > 3 && args[3] == "random" {
             // generate random extract
-            // let expr_Rec = extractor_base_0.record_costs_random(100, 0.2, input_vec_id, root); // switch for random extract
+            //let expr_Rec = extractor_base_0.record_costs_random(100, 0.2, input_vec_id, root); // switch for random extract
             // // convert to dot
             // let results_vec: Vec<(&u32, &RecExpr<Prop>)> = expr_Rec.iter().collect();
             // results_vec

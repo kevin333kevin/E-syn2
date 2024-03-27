@@ -37,6 +37,8 @@ ensure_dir "extraction-gym/out_dag_json/my_data"
 ensure_dir "extraction-gym/out_json/my_data"
 ensure_dir "extraction-gym/output/egg"
 ensure_dir "extraction-gym/output/my_data"
+#ensure_dir "extraction-gym/input/my_data"
+#ensure_dir "extraction-gym/input/egg"
 
 echo -e "${GREEN}Setup complete.${RESET}\n"
 
@@ -61,14 +63,26 @@ start_time_process_rw=$(date +%s.%N)
 change_dir "e-rewriter/"
 execute_command "$feature_cmd circuit0.eqn $iteration_times $pattern"
 change_dir ".."
-copy_file "e-rewriter/dot_graph/graph_internal_serd.json" "extraction-gym/data/my_data/"
+copy_file "e-rewriter/dot_graph/graph_cost_serd.json" "extraction-gym/data/my_data/"
 
 # if feature is feature2, run the extraction gym -> cd extraction-gym/ && make
 
 if [ ! -z "$feature" ] && [ "$feature" == "dag_cost" ]; then
     echo -e "${YELLOW}Running extraction gym...${RESET}"
     change_dir "extraction-gym/"
-    execute_command "make"
+    # Creating the output directory if it doesn't exist
+    OUTPUT_DIR="output/my_data"
+    ext="faster-bottom-up"
+    mkdir -p ${OUTPUT_DIR}
+
+    # Finding JSON data files and running the extraction process
+    for data in $(find data -name '*.json'); do
+        base_name=$(basename "${data}" .json)
+        out_file="${OUTPUT_DIR}/${base_name}-${ext}.json"
+
+        echo "Running extractor for ${data} with ${ext}"
+        target/release/extraction-gym "${data}" --extractor="${ext}" --out="${out_file}"
+    done
     change_dir ".."
 fi
 
@@ -79,7 +93,7 @@ echo -e "${GREEN}Process 1 - Rewrite circuit completed.${RESET}"
 # Process 2: Extract the DAG and Process JSON
 echo -e "${YELLOW}<-----------------------------Process 2: Extract the DAG and Process JSON----------------------------->${RESET}"
 start_time_process_process_json=$(date +%s.%N)
-copy_file "e-rewriter/result.json" "extraction-gym/out_json/my_data"
+copy_file "extraction-gym/random_result/result9.json" "extraction-gym/out_dag_json/my_data/graph_cost_serd_faster-bottom-up.json"
 change_dir "process_json/"
 execute_command "target/release/process_json"
 change_dir ".."

@@ -25,3 +25,5 @@ e-rewriter/random_result/
 graph2eqn/*.json
 graph2eqn/*.eqn
 *.txt
+extraction-gym/random_result/
+PPA_predictor/processed_dataset/graph_dataset.bin

@@ -29,6 +29,7 @@ directories=(
   "extraction-gym/output"
   "extraction-gym/out_dag_json"
   "extraction-gym/data"
+  "extraction-gym/input"
   "process_json/out_process_dag_result"
   "process_json/out_process_result"
 )
@@ -52,6 +53,12 @@ fi
 if [ -d "abc" ]; then
   rm -f abc/*.eqn 2>/dev/null
   echo -e "${GREEN}Cleaned abc directory${RESET}"
+fi
+
+# Special case for extraction-gym/random_result
+if [ -d "extraction-gym/random_result" ]; then
+  rm -f extraction-gym/random_result/* 2>/dev/null
+  echo -e "${GREEN}Cleaned extraction-gym/random_result directory${RESET}"
 fi
 
 # Special case for tmp_log/, remove files starts with "log_+ number" if they exist
@@ -92,5 +99,6 @@ if [ -d "extraction-gym" ]; then
   (cd extraction-gym && cargo clean)
   echo -e "${GREEN}Ran cargo clean in extraction-gym directory${RESET}"
 fi
+
 
 echo -e "${GREEN}Cleaning complete.${RESET}"

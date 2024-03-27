@@ -1,7 +1,9 @@
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::error::Error as StdError;
 use std::fs;
 use std::fs::File;
@@ -9,15 +11,16 @@ use std::io::prelude::*;
 use std::io::Error;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-// Define Data Structures
-use rayon::prelude::*;
-use std::collections::HashSet;
 
+// Struct representing the graph data
+// Contains a HashMap of nodes with string keys and Node values
 #[derive(Debug, Deserialize, Serialize)]
 struct GraphData {
     nodes: HashMap<String, Node>,
 }
 
+// Struct representing a node in the graph
+// Contains fields for the operation (op), children nodes, equivalence class (eclass), and cost
 #[derive(Debug, Deserialize, Serialize)]
 struct Node {
     op: String,
@@ -26,24 +29,32 @@ struct Node {
     cost: f32,
 }
 
-fn process_json(input_file: &str, a: u32) -> Result<(), Box<dyn StdError>> {
-    // 读取输入文件
-    let json_content = fs::read_to_string(input_file)
-        .map_err(|err| format!("Failed to read JSON file: {}", err))?;
-
-    // Parse the JSON content
+// Function to process a JSON file with choices
+// Input:
+//   - input_file: Path to the input JSON file
+//   - output_dir: Path to the output directory
+//   - a: An additional parameter (not used in this function)
+// Output:
+//   - Result<(), Box<dyn StdError>>: Returns Ok(()) if successful, or an error if encountered
+fn process_json_with_choices(
+    input_file: &str,
+    output_dir: &str,
+    a: u32,
+) -> Result<(), Box<dyn StdError>> {
+    // Read the JSON content from the input file
+    let json_content = fs::read_to_string(input_file)?;
     let data: Value = serde_json::from_str(&json_content)?;
+
+    // Extract the choices from the JSON data
     let choices: HashMap<String, String> = serde_json::from_value(data["choices"].clone())?;
     let values: HashSet<&str> = choices.values().map(|v| v.as_str()).collect();
-    println!("values: {:?}", values.len());
 
-    // 读取 graph_internal_serd.json 文件
+    // Get the current directory and parent directory
     let current_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let parent_dir = current_dir.parent().unwrap();
     let input_dir = parent_dir.join("extraction-gym/data/my_data");
 
-    println!("Input Directory: {:?}", input_dir);
-
+    // Find all JSON files in the input directory
     let json_files: Vec<PathBuf> = input_dir
         .read_dir()?
         .filter_map(|entry| {
@@ -57,60 +68,56 @@ fn process_json(input_file: &str, a: u32) -> Result<(), Box<dyn StdError>> {
         })
         .collect();
 
+    // Get the first JSON file (assuming there is only one)
     let graph_file = json_files.get(0).ok_or("No JSON file found")?;
-    let graph_content = fs::read_to_string(graph_file)
-        .map_err(|err| format!("Failed to read graph data file: {}", err))?;
-
-    // Parse the graph data
+    let graph_content = fs::read_to_string(graph_file)?;
     let graph_data: GraphData = serde_json::from_str(&graph_content)?;
-    // 构建新的结果字典，只保留存在于 values 集合中的键
+
+    // Filter the nodes based on the choices
     let new_nodes: HashMap<String, Node> = graph_data
         .nodes
         .into_iter()
         .filter(|(key, _)| values.contains(key.as_str()))
         .collect();
-    println!("new_nodes: {:?}", new_nodes.len());
 
-    // Build the final result dictionary
+    // Create the result JSON object
     let result = serde_json::json!({
         "nodes": new_nodes,
     });
 
-    // Get the input file name
+    // Get the file name from the input file path
     let file_name = Path::new(input_file).file_name().unwrap().to_str().unwrap();
 
-    // Build the output file path
-    let output_file = if a == 1 {
-        parent_dir
-            .join("process_json/out_process_result")
-            .join(file_name)
-            .with_extension("json")
-    } else {
-        parent_dir
-            .join("process_json/out_process_dag_result")
-            .join(file_name)
-            .with_extension("json")
-    };
-
-    // Output the result
+    // Create the output file path
+    let output_file = Path::new(output_dir).join(file_name).with_extension("json");
     let output_content = serde_json::to_string_pretty(&result)?;
+
+    // Write the result to the output file
     fs::write(output_file, output_content)?;
 
     Ok(())
 }
 
-fn process_json1(input_file: &str, a: u32) -> Result<(), Box<dyn StdError>> {
-    // Read the input file
-    let json_content = fs::read_to_string(input_file)
-        .map_err(|err| format!("Failed to read JSON file: {}", err))?;
-    // Parse the JSON content
-    let data: GraphData = serde_json::from_str(&json_content)
-        .map_err(|err| format!("Failed to parse JSON: {}", err))?;
+// Function to process a JSON file and simplify the keys
+// Input:
+//   - input_file: Path to the input JSON file
+//   - output_dir: Path to the output directory
+//   - a: An additional parameter (not used in this function)
+// Output:
+//   - Result<(), Box<dyn StdError>>: Returns Ok(()) if successful, or an error if encountered
+fn process_json_simplify_keys(
+    input_file: &str,
+    output_dir: &str,
+    a: u32,
+) -> Result<(), Box<dyn StdError>> {
+    // Read the JSON content from the input file
+    let json_content = fs::read_to_string(input_file)?;
+    let data: GraphData = serde_json::from_str(&json_content)?;
 
-    println!("Input Directory process_json1: {:?}", input_file);
-    //   println!("graph_data.nodes{:?}", data.nodes.len());
-    // Process the nodes
+    // Create a new HashMap to store the simplified nodes
     let mut new_nodes: HashMap<String, Node> = HashMap::new();
+
+    // Iterate over the nodes and simplify the keys
     for (key, mut value) in data.nodes {
         let new_key = key.split('.').next().unwrap().to_string();
         value.children = value
@@ -120,57 +127,48 @@ fn process_json1(input_file: &str, a: u32) -> Result<(), Box<dyn StdError>> {
             .collect();
         new_nodes.insert(new_key, value);
     }
-    println!("new_nodes process_json1:{:?}", new_nodes.len());
-    // Build the final result struct
+
+    // Create the result GraphData with the simplified nodes
     let result = GraphData { nodes: new_nodes };
 
-    // Get the input file name
+    // Get the file name from the input file path
     let file_name = Path::new(input_file)
         .file_name()
         .and_then(|name| name.to_str())
         .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid input file name"))?;
-    let current_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let parent_dir = current_dir.parent().unwrap();
-    // Build the output directory path
-    let output_file = if a == 1 {
-        parent_dir
-            .join("process_json/out_process_result")
-            .join(file_name)
-            .with_extension("json")
-    } else {
-        parent_dir
-            .join("process_json/out_process_dag_result")
-            .join(file_name)
-            .with_extension("json")
-    };
-    // let output_dir = Path::new(output_dir);
-    // fs::create_dir_all(output_dir).map_err(|err| format!("Failed to create output directory: {}", err))?;
 
-    // // Build the output file path
-    // let output_file = output_dir.join(file_name).with_extension("json");
-    println!("output Directory: {:?}", output_file);
-    // Serialize the result to JSON
-    let output_content = serde_json::to_string_pretty(&result)
-        .map_err(|err| format!("Failed to serialize result: {}", err))?;
+    // Create the output file path
+    let output_file = Path::new(output_dir).join(file_name).with_extension("json");
+    let output_content = serde_json::to_string_pretty(&result)?;
     let mut output_file = fs::File::create(output_file)?;
-    output_file
-        .write_all(output_content.as_bytes())
-        .map_err(|err| format!("Failed to write output file: {}", err))?;
+
+    // Write the result to the output file
+    output_file.write_all(output_content.as_bytes())?;
 
     Ok(())
 }
 
-fn main() {
-    let output_dir = Path::new("out_process_result");
+// Function to process files in a directory
+// Input:
+//   - input_dir: Path to the input directory
+//   - output_dir: Path to the output directory
+//   - process_func: Function to process each file (either process_json_with_choices or process_json_simplify_keys)
+//   - a: An additional parameter to pass to the processing function
+// Output:
+//   - None
+fn process_files_in_directory(
+    input_dir: &Path,
+    output_dir: &str,
+    process_func: fn(&str, &str, u32) -> Result<(), Box<dyn StdError>>,
+    a: u32,
+) {
+    // Create the output directory if it doesn't exist
     fs::create_dir_all(output_dir)
         .unwrap_or_else(|_| panic!("Failed to create output directory: {:?}", output_dir));
 
-    let current_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let parent_dir = current_dir.parent().unwrap();
-    let input_dir = parent_dir.join("extraction-gym/out_json/my_data");
-    //println!("Input Directory: {:?}", input_dir);
-
-    if let Ok(entries) = fs::read_dir(&input_dir) {
+    // Read the files in the input directory
+    if let Ok(entries) = fs::read_dir(input_dir) {
+        // Collect the file paths
         let file_paths: Vec<PathBuf> = entries
             .filter_map(|entry| {
                 if let Ok(entry) = entry {
@@ -186,21 +184,21 @@ fn main() {
             })
             .collect();
 
+        // Process each file in parallel
         file_paths.par_iter().for_each(|path| {
             let input_file = path.to_str().expect("Invalid input file path");
 
-            // Generate new path with .json extension
-            let mut new_path = PathBuf::from(&input_file);
+            // Rename the file to have a .json extension
+            let mut new_path = PathBuf::from(input_file);
             new_path.set_extension("json");
 
-            // Rename the file with .json extension
             if let Err(err) = fs::rename(&path, &new_path) {
                 println!("Failed to rename file: {:?}", err);
                 return;
             }
 
-            // Process the JSON file
-            if let Err(err) = process_json(new_path.to_str().unwrap(), 1) {
+            // Process the file using the provided processing function
+            if let Err(err) = process_func(new_path.to_str().unwrap(), output_dir, a) {
                 eprintln!(
                     "Error processing file {}: {}",
                     new_path.to_str().unwrap(),
@@ -211,186 +209,115 @@ fn main() {
     } else {
         println!("Failed to read directory: {:?}", input_dir);
     }
+}
 
-    let input_dir = parent_dir.join("extraction-gym/out_dag_json/my_data");
-    let output_dir_py = "out_process_dag_result";
-    fs::create_dir_all(output_dir_py)
-        .unwrap_or_else(|_| panic!("Failed to create output directory: {:?}", output_dir_py));
-
-    if let Ok(entries) = fs::read_dir(&input_dir) {
-        let file_paths: Vec<PathBuf> = entries
-            .filter_map(|entry| {
-                if let Ok(entry) = entry {
-                    let path = entry.path();
-                    if path.is_file() {
-                        Some(path)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        file_paths.par_iter().for_each(|path| {
-            let input_file = path.to_str().expect("Invalid input file path");
-
-            // Generate new path with .json extension
-            let mut new_path = PathBuf::from(&input_file);
-            new_path.set_extension("json");
-
-            // Rename the file with .json extension
-            if let Err(err) = fs::rename(&path, &new_path) {
-                println!("Failed to rename file: {:?}", err);
-                return;
-            }
-
-            // Process the JSON file
-            if let Err(err) = process_json(new_path.to_str().unwrap(), 0) {
-                eprintln!(
-                    "Error processing file {}: {}",
-                    new_path.to_str().unwrap(),
-                    err
-                );
-            }
-        });
-    } else {
-        println!("Failed to read directory: {:?}", input_dir);
-    }
-
-    let input_dir = parent_dir.join("process_json/out_process_result");
-    println!("Input Directory: {:?}", input_dir);
-    if let Ok(entries) = fs::read_dir(&input_dir) {
-        let file_paths: Vec<PathBuf> = entries
-            .filter_map(|entry| {
-                if let Ok(entry) = entry {
-                    let path = entry.path();
-                    if path.is_file() {
-                        Some(path)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        file_paths.par_iter().for_each(|path| {
-            let input_file = path.to_str().expect("Invalid input file path");
-
-            // Call the process_json function with your desired parameters
-            if let Err(err) = process_json1(input_file, 1) {
-                eprintln!("Error processing file {}: {}", input_file, err);
-            }
-        });
-    } else {
-        println!("Failed to read directory: {:?}", input_dir);
-    }
-
-    let input_dir = parent_dir.join("process_json/out_process_dag_result");
-    if let Ok(entries) = fs::read_dir(&input_dir) {
-        let file_paths: Vec<PathBuf> = entries
-            .filter_map(|entry| {
-                if let Ok(entry) = entry {
-                    let path = entry.path();
-                    if path.is_file() {
-                        Some(path)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        file_paths.par_iter().for_each(|path| {
-            let input_file = path.to_str().expect("Invalid input file path");
-
-            // Call the process_json function with your desired parameters
-            if let Err(err) = process_json1(input_file, 0) {
-                eprintln!("Error processing file {}: {}", input_file, err);
-            }
-        });
-    } else {
-        println!("Failed to read directory: {:?}", input_dir);
-    }
-
-    let input_dir = parent_dir.join("extraction-gym/data/my_data");
-    println!("Input Directory: {:?}", input_dir);
-    let files = std::fs::read_dir(&input_dir).unwrap();
-    let json_files: Vec<PathBuf> = files
-        .filter_map(|entry| {
-            let entry = entry.unwrap();
-            let path = entry.path();
-            if path.is_file() && path.extension().unwrap_or_default() == "json" {
-                Some(path)
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    let graph_file = &json_files[0];
+// Function to update root eclasses in the output files
+// Input:
+//   - graph_file: Path to the graph file containing the root eclasses
+//   - output_dir: Path to the output directory containing the files to update
+// Output:
+//   - None
+fn update_root_eclasses(graph_file: &Path, output_dir: &Path) {
+    // Read the graph data from the graph file
     let mut source_data = String::new();
-    File::open(&graph_file)
+    File::open(graph_file)
         .unwrap()
         .read_to_string(&mut source_data)
         .unwrap();
     let source_data: Value = serde_json::from_str(&source_data).unwrap();
+
+    // Extract the root eclasses from the graph data
     let root_eclasses = if let Some(root_eclasses) = source_data["root_eclasses"].as_array() {
         root_eclasses.to_owned()
     } else {
         vec![]
     };
+
+    // Iterate over the files in the output directory
+    for entry in fs::read_dir(output_dir).unwrap() {
+        let entry = entry.unwrap();
+        let target_file_path = entry.path();
+
+        // Check if the file is a JSON file
+        if target_file_path.is_file() && target_file_path.extension().unwrap_or_default() == "json"
+        {
+            // Read the target file data
+            let mut target_data = String::new();
+            File::open(&target_file_path)
+                .unwrap()
+                .read_to_string(&mut target_data)
+                .unwrap();
+            let mut target_data: Value = serde_json::from_str(&target_data).unwrap();
+
+            // Update the root eclasses in the target data
+            target_data["root_eclasses"] = json!(root_eclasses);
+
+            // Write the updated data back to the target file
+            File::create(&target_file_path)
+                .unwrap()
+                .write_all(
+                    serde_json::to_string_pretty(&target_data)
+                        .unwrap()
+                        .as_bytes(),
+                )
+                .unwrap();
+        }
+    }
+}
+
+fn main() {
+    // Get the current directory and parent directory
     let current_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let parent_dir = current_dir.parent().unwrap();
-    let output_dir = parent_dir.join("process_json/out_process_dag_result");
-    for entry in std::fs::read_dir(&output_dir).unwrap() {
-        let entry = entry.unwrap();
-        let target_file_path = entry.path();
-        if target_file_path.is_file() && target_file_path.extension().unwrap_or_default() == "json"
-        {
-            let mut target_data = String::new();
-            File::open(&target_file_path)
-                .unwrap()
-                .read_to_string(&mut target_data)
-                .unwrap();
-            let mut target_data: Value = serde_json::from_str(&target_data).unwrap();
-            target_data["root_eclasses"] = json!(root_eclasses);
-            File::create(&target_file_path)
-                .unwrap()
-                .write_all(
-                    serde_json::to_string_pretty(&target_data)
-                        .unwrap()
-                        .as_bytes(),
-                )
-                .unwrap();
-        }
-    }
-    let output_dir = parent_dir.join("process_json/out_process_result");
-    for entry in std::fs::read_dir(&output_dir).unwrap() {
-        let entry = entry.unwrap();
-        let target_file_path = entry.path();
-        if target_file_path.is_file() && target_file_path.extension().unwrap_or_default() == "json"
-        {
-            let mut target_data = String::new();
-            File::open(&target_file_path)
-                .unwrap()
-                .read_to_string(&mut target_data)
-                .unwrap();
-            let mut target_data: Value = serde_json::from_str(&target_data).unwrap();
-            target_data["root_eclasses"] = json!(root_eclasses);
-            File::create(&target_file_path)
-                .unwrap()
-                .write_all(
-                    serde_json::to_string_pretty(&target_data)
-                        .unwrap()
-                        .as_bytes(),
-                )
-                .unwrap();
-        }
-    }
+
+    // Process files in out_json directory
+    let out_json_dir = parent_dir.join("extraction-gym/out_json/my_data");
+    let out_process_result_dir = "out_process_result";
+    process_files_in_directory(
+        &out_json_dir,
+        out_process_result_dir,
+        process_json_with_choices,
+        1,
+    ); // a=1 to use choices, a=0 to use DAG
+
+    // Process files in out_dag_json directory
+    let out_dag_json_dir = parent_dir.join("extraction-gym/out_dag_json/my_data");
+    let out_process_dag_result_dir = "out_process_dag_result";
+    process_files_in_directory(
+        &out_dag_json_dir,
+        out_process_dag_result_dir,
+        process_json_with_choices,
+        0,
+    ); // a=1 to use choices, a=0 to use DAG
+
+    // Process files in out_process_result directory
+    let out_process_result_dir = parent_dir.join("process_json/out_process_result");
+    process_files_in_directory(
+        &out_process_result_dir,
+        out_process_result_dir.to_str().unwrap(),
+        process_json_simplify_keys,
+        1,
+    ); // a=1 to use choices, a=0 to use DAG
+
+    // Process files in out_process_dag_result directory
+    let out_process_dag_result_dir = parent_dir.join("process_json/out_process_dag_result");
+    process_files_in_directory(
+        &out_process_dag_result_dir,
+        out_process_dag_result_dir.to_str().unwrap(),
+        process_json_simplify_keys,
+        0,
+    ); // a=1 to use choices, a=0 to use DAG
+
+    // Update root eclasses in the output files
+    let graph_file = parent_dir
+        .join("extraction-gym/data/my_data")
+        .join("graph_cost_serd.json");
+    update_root_eclasses(
+        &graph_file,
+        &parent_dir.join("process_json/out_process_dag_result"),
+    );
+    update_root_eclasses(
+        &graph_file,
+        &parent_dir.join("process_json/out_process_result"),
+    );
 }
