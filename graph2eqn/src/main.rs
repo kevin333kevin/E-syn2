@@ -28,16 +28,16 @@ fn is_cyclic_graph(nodes: &HashMap<String, Node>) -> bool {
         if !visited.contains_key(node_id) {
             let cyclic_nodes = is_cyclic_util(nodes, node_id, &mut visited, &mut rec_stack);
             if !cyclic_nodes.is_empty() {
-                // 打印包含环的节点
+                // Find the cyclic nodes and print them.
                 for node in cyclic_nodes {
                     println!("{}", node);
                 }
-                return true; // 找到环
+                return true; // Found a cycle
             }
         }
     }
 
-    false // 没有找到环
+    false // No cycle found.
 }
 
 fn is_cyclic_util(
@@ -70,7 +70,7 @@ fn is_cyclic_util(
     }
 
     rec_stack.remove(node_id);
-    cyclic_nodes // 返回包含环的节点列表
+    cyclic_nodes // return the cyclic nodes if any.
 }
 
 // Parse json
@@ -95,7 +95,7 @@ fn dag_to_equations(
     }
 
     let node = nodes.get(node_id).unwrap();
-    //  println!("Node ID: {:?}", node_id); // 添加这行
+    //  println!("Node ID: {:?}", node_id); 
     let expression = match node.op.as_str() {
         "&" => {
             let operands: Vec<String> = node

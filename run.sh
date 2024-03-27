@@ -44,18 +44,11 @@ echo -e "${GREEN}Setup complete.${RESET}\n"
 
 # Get user input for iteration times and feature label
 read -p "Enter the number of iteration times (optional): " iteration_times
-read -p "Enter the experimental features (optional, choose 'multi_round' or 'dag_cost'): " feature
 read -p "Enter the extraction pattern for e-rewriter (optional, could be 'random'): " pattern
 
-# Helper info for user input
-if [ -z "$feature" ]; then
-    echo -e "${YELLOW}Feature label not provided, proceeding without it.${RESET}"
-    feature_cmd="./target/release/e-rewriter"
-else
-    feature_cmd="./target/release/e-rewriter-${feature}"
-    echo -e "${YELLOW}Using feature label: ${feature}${RESET}"
-fi
-
+feature="dag_cost"
+feature_cmd="./target/release/e-rewriter-${feature}"
+echo -e "${YELLOW}Using feature label: ${feature}${RESET}"
 
 # Process 1: Rewrite the circuit
 echo -e "${YELLOW}<-----------------------------Process 1: Rewrite the Circuit----------------------------->${RESET}"
@@ -65,26 +58,22 @@ execute_command "$feature_cmd circuit0.eqn $iteration_times $pattern"
 change_dir ".."
 copy_file "e-rewriter/dot_graph/graph_cost_serd.json" "extraction-gym/data/my_data/"
 
-# if feature is feature2, run the extraction gym -> cd extraction-gym/ && make
+echo -e "${YELLOW}Running extraction gym...${RESET}"
+change_dir "extraction-gym/"
+# Creating the output directory if it doesn't exist
+OUTPUT_DIR="output/my_data"
+ext="faster-bottom-up"
+mkdir -p ${OUTPUT_DIR}
 
-if [ ! -z "$feature" ] && [ "$feature" == "dag_cost" ]; then
-    echo -e "${YELLOW}Running extraction gym...${RESET}"
-    change_dir "extraction-gym/"
-    # Creating the output directory if it doesn't exist
-    OUTPUT_DIR="output/my_data"
-    ext="faster-bottom-up"
-    mkdir -p ${OUTPUT_DIR}
+# Finding JSON data files and running the extraction process
+for data in $(find data -name '*.json'); do
+    base_name=$(basename "${data}" .json)
+    out_file="${OUTPUT_DIR}/${base_name}-${ext}.json"
 
-    # Finding JSON data files and running the extraction process
-    for data in $(find data -name '*.json'); do
-        base_name=$(basename "${data}" .json)
-        out_file="${OUTPUT_DIR}/${base_name}-${ext}.json"
-
-        echo "Running extractor for ${data} with ${ext}"
-        target/release/extraction-gym "${data}" --extractor="${ext}" --out="${out_file}"
-    done
-    change_dir ".."
-fi
+    echo "Running extractor for ${data} with ${ext}"
+    target/release/extraction-gym "${data}" --extractor="${ext}" --out="${out_file}"
+done
+change_dir ".."
 
 end_time_process_rw=$(date +%s.%N)
 runtime_process_rw=$(echo "$end_time_process_rw - $start_time_process_rw" | bc)
@@ -98,15 +87,9 @@ change_dir "process_json/"
 execute_command "target/release/process_json"
 change_dir ".."
 
-# if feature is not dag_cost, copy the result.json to graph2eqn/result.json
-
-if [ -z "$feature" ] || [ "$feature" != "dag_cost" ]; then
-    echo -e "${YELLOW}Copying result.json ... Prepare graph for Equation conversion.${RESET}"
-    copy_file "process_json/out_process_result/result.json" "graph2eqn/result.json" 
-elif [ "$feature" == "dag_cost" ]; then
-    echo -e "${YELLOW}Copying graph_cost_serd_faster-bottom-up.json ... Prepare graph for Equation conversion.${RESET}"
-    copy_file "process_json/out_process_dag_result/graph_cost_serd_faster-bottom-up.json" "graph2eqn/result.json" 
-fi
+# Copying the output of process_json to the extraction-gym/out_json/my_data/graph_cost_serd_faster-bottom-up.json
+echo -e "${YELLOW}Copying graph_cost_serd_faster-bottom-up.json ... Prepare graph for Equation conversion.${RESET}"
+copy_file "process_json/out_process_dag_result/graph_cost_serd_faster-bottom-up.json" "graph2eqn/result.json" 
 
 end_time_process_process_json=$(date +%s.%N)
 runtime_process_process_json=$(echo "$end_time_process_process_json - $start_time_process_process_json" | bc)

@@ -21,32 +21,32 @@ fn main() {
     env_logger::init();
     // only keep fast version
     let extractors: IndexMap<&str, Box<dyn Extractor>> = [
-         ("bottom-up", extract::bottom_up::BottomUpExtractor.boxed()),
-         (
-             "faster-bottom-up",
-             extract::faster_bottom_up::FasterBottomUpExtractor.boxed(),
-         ),
-         (
-             "greedy-dag",
-             extract::greedy_dag::GreedyDagExtractor.boxed(),
-         ),
-         (
-             "faster-greedy-dag",
-             extract::faster_greedy_dag::FasterGreedyDagExtractor.boxed(),
-         ),
-         (
-             "global-greedy-dag",
-             extract::global_greedy_dag::GlobalGreedyDagExtractor.boxed(),
-         ),
-     ]
-     .into_iter()
-     .enumerate()
-     .filter(|(index, _)| *index == 1)
-     .map(|(_, item)| item)
-     .collect();
+        ("bottom-up", extract::bottom_up::BottomUpExtractor.boxed()),
+        (
+            "faster-bottom-up",
+            extract::faster_bottom_up::FasterBottomUpExtractor.boxed(),
+        ),
+        (
+            "greedy-dag",
+            extract::greedy_dag::GreedyDagExtractor.boxed(),
+        ),
+        (
+            "faster-greedy-dag",
+            extract::faster_greedy_dag::FasterGreedyDagExtractor.boxed(),
+        ),
+        (
+            "global-greedy-dag",
+            extract::global_greedy_dag::GlobalGreedyDagExtractor.boxed(),
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    .filter(|(index, _)| *index == 1)
+    .map(|(_, item)| item)
+    .collect();
 
-    // default extractor 
- 
+    // default extractor
+
     // let extractors: IndexMap<&str, Box<dyn Extractor>> = [
     //     ("bottom-up", extract::bottom_up::BottomUpExtractor.boxed()),
     //     (
@@ -131,16 +131,16 @@ fn main() {
     //let tree = result.tree_cost(&egraph, &egraph.root_eclasses);
     //let dag = result.dag_cost(&egraph, &egraph.root_eclasses);
 
-         //help me print dag cost
+    //help me print dag cost
     // print!("-------------------------------------------\n");
     // print!("dag cost: {}\n", dag);
     // print!("-------------------------------------------\n");
     let (dag_cost, dag_cost_with_extraction_result) =
         result.dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
-        print!("-------------------------------------------\n");
-        print!("dag cost: {}\n", dag_cost);
-        print!("-------------------------------------------\n");
-    result.record_costs_random(10,0.5,&egraph,&dag_cost_with_extraction_result);
+    print!("-------------------------------------------\n");
+    print!("dag cost: {}\n", dag_cost);
+    print!("-------------------------------------------\n");
+    result.record_costs_random(10, 0.5, &egraph, &dag_cost_with_extraction_result);
     let json_result = to_string_pretty(&result).unwrap();
     let _ = fs::create_dir_all("out_json/my_data");
     let __ = fs::write(&modified_name, json_result);

@@ -3,28 +3,58 @@
 ## Usage
 
 ```bash
+make
 chmod +x ./run.sh && ./run.sh
 ```
 
-run with iterations experiments:
+### Directory Structure
 
-```bash
-for i in $(seq 5 5 50); do
-  echo -e "${i},multi_round,\n" | bash run.sh > tmp_log/log_${i}_multi_round.txt
-  wait
-done
 ```
-
-```bash
-for i in $(seq 5 5 50); do
-  echo -e "${i}\n\n\n" | bash run.sh > tmp_log/log_${i}_no_feature.txt
-  wait
-done
+./
+├── abc
+├── converted_circuit_strash # benchmark circuits
+├── data_process_script
+│   ├── analyze_data.py
+│   ├── deal_csv.py
+│   └── extract2csv.sh
+├── deprecated
+├── e-rewriter
+|   ├── dot_graph # rewriten circuits -> wait for extraction
+│   ├── circuit0.eqn # put your circuit here
+│   ├── random_dot 
+│   ├── src
+│   ├── target
+├── extraction-gym
+│   ├── data
+│   │   ├── egg
+│   │   └── my_data # 1. saturacted circuits graphs for extraction (copied from e-rewriter)
+│   ├── out_dag_json
+│   │   └── my_data # 4. raw json marked the extracted nodes
+│   ├── out_json
+│   │   └── my_data # 4. raw json marked the extracted nodes
+│   ├── output
+│   │   ├── egg
+│   │   └── my_data # 3. log files during extraction
+│   ├── random_result # 2. random extraction results -> raw json (will copy to out_json and out_dag_json)
+│   ├── src
+│   └── target
+├── fuzz_abc_opt_flow # explore the optimization space of circuits
+├── graph2eqn
+│   ├── circuit0.eqn
+│   ├── src
+│   └── target
+├── PPA_predictor # PPA predictor for E-graph formed circuits
+├── process_json
+│   ├── out_process_dag_result # processed json (from extraction-gym out_dag_json)
+│   ├── out_process_result # processed json (from extraction-gym out_json) 
+│   ├── process_json # json with updated eclasses (deprecated)
+│   ├── src
+│   └── target
+├── clean.sh
+├── collect.sh
+├── README.md
+├── run.sh
+├── test.sh
+├── Makefile
+└── tmp_log
 ```
-
-### Parameters Explanation
-
-- `iteration times`: the number of iterations for runner in egg.
-- `multi_round` feature: heuristic algorithm that allows egg to run multiple rounds of rewriting.
-- `dag_cost` feature: using DAG cost to guide the rewriting process.
-- `random` extraction pattern: using random extraction pattern to explore the search space.
