@@ -19,7 +19,7 @@ pub struct FasterBottomUpExtractor;
 pub struct FasterBottomUpExtractor_random;
 
 impl Extractor for FasterBottomUpExtractor {
-    fn extract(&self, egraph: &EGraph, _roots: &[ClassId]) -> ExtractionResult {
+    fn extract(&self, egraph: &EGraph, _roots: &[ClassId], cost_function: &str) -> ExtractionResult {
         let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
         let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
         let mut analysis_pending = UniqueQueue::default();
@@ -52,8 +52,11 @@ impl Extractor for FasterBottomUpExtractor {
             let class_id = n2c(&node_id);
             let node = &egraph[&node_id];
             let prev_cost = costs.get(class_id).unwrap_or(&INFINITY);
-            //let cost = result.node_sum_cost(egraph, node, &costs);
-            let cost = result.node_depth_cost(egraph, node, &costs);
+            let cost = match cost_function {
+                "node_sum_cost" => result.node_sum_cost(egraph, node, &costs),
+                "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
+                _ => panic!("Unknown cost function: {}", cost_function),
+            };
             if cost < *prev_cost {
                 result.choose(class_id.clone(), node_id.clone());
                 costs.insert(class_id.clone(), cost);

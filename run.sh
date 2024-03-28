@@ -44,7 +44,16 @@ echo -e "${GREEN}Setup complete.${RESET}\n"
 
 # Get user input for iteration times and feature label
 read -p "Enter the number of iteration times (optional): " iteration_times
+read -p "Enter the cost function for extraction-gym (optional, could be 'area' or 'delay'): " cost_function
 read -p "Enter the extraction pattern for e-rewriter (optional, could be 'random'): " pattern
+
+# if cost_function is 'area', replace it with 'node_sum_cost', if it is 'delay', replace it with 'node_depth_cost'
+if [ "$cost_function" == "area" ]; then
+    cost_function="node_sum_cost"
+elif [ "$cost_function" == "delay" ]; then
+    cost_function="node_depth_cost"
+fi
+
 
 feature="dag_cost"
 feature_cmd="./target/release/e-rewriter-${feature}"
@@ -60,19 +69,20 @@ copy_file "e-rewriter/dot_graph/graph_cost_serd.json" "extraction-gym/data/my_da
 
 echo -e "${YELLOW}Running extraction gym...${RESET}"
 change_dir "extraction-gym/"
+
 # Creating the output directory if it doesn't exist
 OUTPUT_DIR="output/my_data"
 ext="faster-bottom-up"
 mkdir -p ${OUTPUT_DIR}
 
-# Finding JSON data files and running the extraction process
-for data in $(find data -name '*.json'); do
-    base_name=$(basename "${data}" .json)
-    out_file="${OUTPUT_DIR}/${base_name}-${ext}.json"
+# running the extraction process
+data="data/my_data/graph_cost_serd.json"
+base_name=$(basename "${data}" .json)
+out_file="${OUTPUT_DIR}/${base_name}-${ext}.json"
 
-    echo "Running extractor for ${data} with ${ext}"
-    target/release/extraction-gym "${data}" --extractor="${ext}" --out="${out_file}"
-done
+echo "Running extractor for ${data} with ${ext}"
+target/release/extraction-gym "${data}" --cost-function="${cost_function}" --extractor="${ext}" --out="${out_file}"
+
 change_dir ".."
 
 end_time_process_rw=$(date +%s.%N)
@@ -82,7 +92,19 @@ echo -e "${GREEN}Process 1 - Rewrite circuit completed.${RESET}"
 # Process 2: Extract the DAG and Process JSON
 echo -e "${YELLOW}<-----------------------------Process 2: Extract the DAG and Process JSON----------------------------->${RESET}"
 start_time_process_process_json=$(date +%s.%N)
-copy_file "extraction-gym/random_result/result9.json" "extraction-gym/out_dag_json/my_data/graph_cost_serd_faster-bottom-up.json"
+
+#copy_file "extraction-gym/random_result/result9.json" "extraction-gym/out_dag_json/my_data/graph_cost_serd_faster-bottom-up.json"
+
+# randomly choose a result file under random_result/ to copy
+
+# Navigate to the directory containing the result files
+change_dir "extraction-gym/random_result/"
+
+# Randomly choose one of the result*.json files and copy it
+find . -name 'result*.json' | shuf -n 1 | xargs -I{} cp {} ../out_dag_json/my_data/graph_cost_serd_faster-bottom-up.json
+
+change_dir "-"
+
 change_dir "process_json/"
 execute_command "target/release/process_json"
 change_dir ".."

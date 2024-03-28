@@ -82,6 +82,11 @@ fn main() {
         return;
     }
 
+    let cost_function: String = args
+        .opt_value_from_str("--cost-function")
+        .unwrap()
+        .unwrap_or_else(|| "node_depth_cost".into());
+
     let out_filename: PathBuf = args
         .opt_value_from_str("--out")
         .unwrap()
@@ -122,7 +127,8 @@ fn main() {
         extractor_name,
     );
     let start_time = std::time::Instant::now();
-    let result = extractor.extract(&egraph, &egraph.root_eclasses);
+    
+    let result = extractor.extract(&egraph, &egraph.root_eclasses, &cost_function);
 
     let us = start_time.elapsed().as_micros();
     assert!(result
@@ -140,7 +146,7 @@ fn main() {
     print!("-------------------------------------------\n");
     print!("dag cost: {}\n", dag_cost);
     print!("-------------------------------------------\n");
-    result.record_costs_random(10, 0.5, &egraph, &dag_cost_with_extraction_result);
+    result.record_costs_random(10, 0.5, &egraph, &dag_cost_with_extraction_result); // record random costs
     let json_result = to_string_pretty(&result).unwrap();
     let _ = fs::create_dir_all("out_json/my_data");
     let __ = fs::write(&modified_name, json_result);

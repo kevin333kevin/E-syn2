@@ -17,7 +17,7 @@ use std::collections::HashSet;
 pub mod ilp_cbc;
 
 pub trait Extractor: Sync {
-    fn extract(&self, egraph: &EGraph, roots: &[ClassId]) -> ExtractionResult;
+    fn extract(&self, egraph: &EGraph, roots: &[ClassId], cost_function: &str) -> ExtractionResult;
 
     fn boxed(self) -> Box<dyn Extractor>
     where
@@ -182,7 +182,7 @@ impl ExtractionResult {
             }
         }
 
-        let total_cost = costs.values().sum();
+        let total_cost = costs.values().sum(); // calculate total cost
 
         (total_cost, extraction_result)
     }
@@ -231,7 +231,7 @@ impl ExtractionResult {
 
         for num in 0..num_runs {
             let mut result: FxHashMap<ClassId, NodeId> = FxHashMap::default();
-            let mut selected_ids: FxHashSet<ClassId> = HashSet::default(); // 用于跟踪已选择的节点 Id
+            let mut selected_ids: FxHashSet<ClassId> = HashSet::default(); // used to track selected nodes
             for classid in dag_cost_with_extraction_result.choices.keys() {
                 let class = egraph.classes().get(classid).unwrap();
                 let nodes = class.nodes.clone();
@@ -260,7 +260,7 @@ impl ExtractionResult {
                 }
             }
 
-            let filename = format!("result{}.json", num);
+            let filename = format!("result{}.json", num); 
             let path = format!("random_result/{}", filename);
 
             // Create directory if it doesn't exist

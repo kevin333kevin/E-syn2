@@ -218,6 +218,8 @@ fn process_files_in_directory(
 // Output:
 //   - None
 fn update_root_eclasses(graph_file: &Path, output_dir: &Path) {
+    // print the output directory
+    //println!("Output directory: {:?}", output_dir);
     // Read the graph data from the graph file
     let mut source_data = String::new();
     File::open(graph_file)
