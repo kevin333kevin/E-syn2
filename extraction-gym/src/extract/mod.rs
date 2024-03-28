@@ -260,7 +260,7 @@ impl ExtractionResult {
                 }
             }
 
-            let filename = format!("result{}.json", num); 
+            let filename = format!("result{}.json", num);
             let path = format!("random_result/{}", filename);
 
             // Create directory if it doesn't exist

@@ -35,9 +35,9 @@ done
 │   │   ├── egg
 │   │   └── my_data # 1. saturacted circuits graphs for extraction (copied from e-rewriter)
 │   ├── out_dag_json
-│   │   └── my_data # 4. raw json marked the extracted nodes
+│   │   └── my_data # 4. raw json marked the extracted nodes - dag based extraction
 │   ├── out_json
-│   │   └── my_data # 4. raw json marked the extracted nodes
+│   │   └── my_data # 4. raw json marked the extracted nodes - tree based extraction
 │   ├── output
 │   │   ├── egg
 │   │   └── my_data # 3. log files during extraction

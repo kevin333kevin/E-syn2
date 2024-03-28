@@ -59,6 +59,9 @@ fi
 if [ -d "extraction-gym/random_result" ]; then
   rm -f extraction-gym/random_result/* 2>/dev/null
   echo -e "${GREEN}Cleaned extraction-gym/random_result directory${RESET}"
+  # clean .json in extraction-gym/
+  rm -f extraction-gym/*.json 2>/dev/null
+  echo -e "${GREEN}Cleaned extraction-gym/*.json files${RESET}"
 fi
 
 # Special case for tmp_log/, remove files starts with "log_+ number" if they exist
