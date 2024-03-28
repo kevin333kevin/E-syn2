@@ -23,8 +23,10 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use crate::utils::cost::*;
 use log::LevelFilter;
+
 pub fn preprocess_file(file_name: &str) -> Result<(), io::Error> {
     // Open the file for reading
+    
     let file = File::open(file_name)?;
     let reader = BufReader::new(file);
 
@@ -91,36 +93,98 @@ pub fn preprocess_file(file_name: &str) -> Result<(), io::Error> {
     Ok(())
 }
 
+pub fn preprocess_file_order(file_name: &str) -> Result<(), io::Error> {
+    // Open the file for reading
+    let file = File::open(file_name)?;
+    let reader = BufReader::new(file);
 
+    // Search for the first line starting with "new_"
+    let mut variables = Vec::new();
+    let mut found_new = false;
+
+    for line in reader.lines() {
+        let line = line?;
+        if found_new && !line.starts_with("new_") {
+            let variable = line.split('=').next().unwrap().trim().to_string();
+            variables.push(variable);
+        } else if line.starts_with("new_") {
+            found_new = true;
+        }
+    }
+
+    // Generate new OUTORDER line
+    let outorder = variables.join(" ");
+    let new_outorder = format!("OUTORDER = {};", outorder.trim_end());
+
+    // Create a temporary file
+    let temp_file_name = format!("{}_temp", file_name);
+    let temp_file = File::create(&temp_file_name)?;
+    let mut writer = BufWriter::new(temp_file);
+
+    // Write modified content to the temporary file
+    let input_file = File::open(file_name)?;
+    let reader = BufReader::new(input_file);
+
+    for line in reader.lines() {
+        let line = line?;
+        if line.starts_with("OUTORDER") {
+            writeln!(writer, "{}", new_outorder)?;
+        } else {
+            writeln!(writer, "{}", line)?;
+        }
+    }
+
+    // Flush and close the writer
+    writer.flush()?;
+    drop(writer);
+
+    // Replace the original file with the temporary file
+    fs::rename(&temp_file_name, file_name)?;
+
+    Ok(())
+}
 
 fn main() ->Result<(), Box<dyn std::error::Error>> {
-    
-
+    let (delay,area)=run_abc_to_fetch_delay_area_initial();
+    let target =0.2;
+    let target_delay = (delay * (1.0 - target)).round();
+    let target_area = (area * (1.0 - target)).round();
+    println!("目标延迟: {}", target_delay);
+    println!("目标面积: {}", target_area);
     //1.read eqn file
     let args: Vec<String> = env::args().collect();
     let input_path1 = &args[1];
-
+  //  let input_path2 = &args[3];
     // preprocess input file
+ //   let selection: String = args[4].clone();
+    let mut json_file1 = String::new();
+    let mut root_ids: Vec<usize> = Vec::new();
+    let start_time = Instant::now();
+ //   if selection == "0" {
     preprocess_file(&input_path1)?;
+    preprocess_file_order(&input_path1)?;
     println!("Finished preprocessing input file");
-
     //-----------------------------------------------------------------------------------------------------   
     //2.transfer eqn file into egraph format in egg
-    let (root_id0,input_vec_id) = process_file_1file(input_path1);
+
+    let (root_id0,input_vec_id,one_output_sig) = process_file_1file(input_path1);
     println!("root: {:?}", root_id0);
-    let mut root_ids: Vec<usize> = Vec::new();
     root_ids.push(root_id0.into());
-    let json_file1 = format!("{}.json", input_path1);
-
-
+    json_file1 = format!("{}.json", input_path1);
+    // }
+    // else{
+    // println!("second run");
+    // json_file1 = input_path2.clone();
+    // }
     //4.transfer egg::egraph symbol language 's json into your defined language's json 
     let md_json_file1=process_json_prop(&json_file1);
     let json_data1 = fs::read_to_string(&md_json_file1).expect("Unable to read the JSON file");
     let mut egraphin: egg::EGraph<Prop, ()> = serde_json::from_str(&json_data1).unwrap();
     egraphin.rebuild();
 
+
     
-    // save graphin into josn file
+    // save graphin into json file
     let json_rep_test = serde_json::to_string_pretty(&egraphin).unwrap();
     let file_path = env::current_dir().unwrap().join("dot_graph/graphin.json");
     fs::write(&file_path, json_rep_test.clone()).expect("Failed to write JSON to file");
@@ -141,7 +205,8 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
     println!("total");
     println!("input node{}", egraph_new_test.total_size());
     println!("input class{}", egraph_new_test.number_of_classes());
-
+    let elapsed_time = start_time.elapsed();
+    println!("eqn_to_sexpr: {:?}", elapsed_time);
 
     //-----------------------------------------------------------------------------------------------------   
     //6.transfer egg::egraph to serialized_egraph and save it into json file
@@ -537,18 +602,20 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
 
         }
 
-        #[cfg(feature = "feature2")] {
-            let runner_iteration_limit = 10;
+        #[cfg(feature = "feature2")] 
+        {
+            let runner_iteration_limit = 30;
             let egraph_node_limit = 200000000;
           //  let egraph_node_limit = 10 *egraph_new_test.total_size();
             let start = Instant::now();
-            let mut runner1 = Runner::default()
+            // let mut runner1 = runner_md::Runner::default()
+                let mut runner1 = Runner::default()
                 .with_explanations_enabled()
                 .with_egraph(egraph_new_test.clone())
-                .with_time_limit(std::time::Duration::from_secs(200))
+                .with_time_limit(std::time::Duration::from_secs(300))
                 .with_iter_limit(runner_iteration_limit)
                 .with_node_limit(egraph_node_limit);
-        
+               // .with_target_delay(target_delay);
             runner1.roots = root_ids.iter().cloned().map(Id::from).collect();
             let runner =runner1.run(&make_rules());
         
@@ -580,7 +647,13 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
             let root_eclasses_value: serde_json::Value = root_ids
             .clone()
             .into_iter()
-            .map(|id| serde_json::Value::String(id.to_string())) // 将整数转换为字符串
+            .map(|id| {
+                if one_output_sig == 1 {
+                    serde_json::Value::String((id + 1).to_string()) // 如果 one_output_sig = 1，则对值加 1
+                } else {
+                    serde_json::Value::String(id.to_string())
+                }
+            })
             .collect();
             let file = File::create(&file_path_1)?;
             let writer = BufWriter::new(file);
@@ -591,7 +664,18 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
             let file = File::create(&file_path_1)?;
             let writer = BufWriter::new(file);
             serde_json::to_writer_pretty(writer, &json_data)?;
-        
+            println!("------------------extract-----------------");
+            let start_time = Instant::now();
+           // let extractor_base_0 = Extractor::new(&runner.egraph, wight_depth);
+            let extractor_base_0 = Extractor2::new(&runner.egraph, wight_depth);
+           // let extractor_base_0 = Extractor2::new(&runner.egraph, egg::AstDepth);
+            let (best_cost_base_0,root) = extractor_base_0.find_best(root);
+           // let (best_cost_base_0,root) = extractor_base_0.find_best_no_expr(root);
+            let elapsed_time = start_time.elapsed();
+            println!("ori_extraction_time: {:?}", elapsed_time);
+
+
+
             println!("------------------assign cost of enode-----------------");
             let json_rep_test_egraph_serd = egg_to_serialized_egraph(&runner.egraph);
             let json_string = serde_json::to_string(&json_rep_test_egraph_serd).unwrap();
@@ -602,10 +686,16 @@ fn main() ->Result<(), Box<dyn std::error::Error>> {
             let file_path_2 = base_path.join("dot_graph/graph_cost_serd.json");
             
             let root_eclasses_value: serde_json::Value = root_ids
-                .clone()
-                .into_iter()
-                .map(|id| serde_json::Value::String(id.to_string())) // 将整数转换为字符串
-                .collect();
+            .clone()
+            .into_iter()
+            .map(|id| {
+                if one_output_sig == 1 {
+                    serde_json::Value::String((id + 1).to_string()) // 如果 one_output_sig = 1，则对值加 1
+                } else {
+                    serde_json::Value::String(id.to_string())
+                }
+            })
+            .collect();
             
             let mut json_data: serde_json::Value = serde_json::from_str(&cost_string)?;
             json_data["root_eclasses"] = root_eclasses_value;

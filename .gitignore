@@ -10,6 +10,9 @@ graph2eqn/target/
 process_json/target/
 e-rewriter/md_circuit0.eqn.json
 e-rewriter/circuit0.eqn.json
+e-rewriter/out_processed.json
+e-rewriter/md_out_processed.json
+extract_res_2_egg/*.json
 fuzz_abc_opt_flow/*.txt
 fuzz_abc_opt_flow/*.log
 e-rewriter/random_result/

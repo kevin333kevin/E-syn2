@@ -159,7 +159,8 @@ pub struct Runner<L: Language, N: Analysis<L>, IterData = ()> {
     iter_limit: usize,
     node_limit: usize,
     time_limit: Duration,
-
+    target_delay: f64,
+    check_interval:i32,
     start_time: Option<Instant>,
     scheduler: Box<dyn RewriteScheduler<L, N>>,
 }
@@ -191,6 +192,8 @@ where
             iter_limit,
             node_limit,
             time_limit,
+            target_delay,
+            check_interval,
             start_time,
             scheduler: _,
         } = self;
@@ -321,7 +324,8 @@ where
             iter_limit: 30,
             node_limit: 10_000,
             time_limit: Duration::from_secs(5),
-
+            target_delay: 0.0,
+            check_interval:0,
             egraph: EGraph::new(analysis),
             roots: vec![],
             iterations: vec![],
@@ -347,6 +351,15 @@ where
     pub fn with_time_limit(self, time_limit: Duration) -> Self {
         Self { time_limit, ..self }
     }
+
+    pub fn with_target_delay(self, target_delay: f64) -> Self {
+        Self { target_delay, ..self }
+    }
+
+    pub fn with_check_interval(self, check_interval: i32) -> Self {
+        Self { check_interval, ..self }
+    }
+
 
     pub fn with_root_ids(mut self, root_ids: Vec<usize>) -> Self {
         self.roots = root_ids.iter().cloned().map(Id::from).collect();
@@ -428,40 +441,48 @@ where
             let iter = self.run_one(&rules);
             self.iterations.push(iter);
             let stop_reason = self.iterations.last().unwrap().stop_reason.clone();
-    
-            // 每5轮执行一次egraph.rebuild()
             iteration_count += 1;
-            if iteration_count % 5 == 0 {
-                self.egraph.rebuild();
-                let json_rep_test_egraph_serd = egg_to_serialized_egraph(&self.egraph);
-                let base_path = env::current_dir().expect("Failed to get current directory");
-    
-                // 创建文件夹和文件
-                let dir_path = base_path.join("dynamic_inspect");
-                std::fs::create_dir_all(&dir_path).expect("Failed to create directory");
-    
-                // 创建文件路径
-                let file_path_1 = dir_path.join(format!("graph_internal_serd_{}.json", iteration_count / 5));
-                println!("File path: {:?}", file_path_1);
-    
-                // 创建文件并写入数据
-                let root_eclasses_value: serde_json::Value = self.roots
-                    .clone()
-                    .into_iter()
-                    .map(|id| serde_json::Value::String(id.to_string())) // 将整数转换为字符串
-                    .collect();
-                let file = File::create(&file_path_1).unwrap();
-                let writer = BufWriter::new(file);
-                serde_json::to_writer_pretty(writer, &json_rep_test_egraph_serd).unwrap();
-                let json_string = std::fs::read_to_string(&file_path_1).unwrap();
-                let mut json_data: serde_json::Value = serde_json::from_str(&json_string).unwrap();
-                json_data["root_eclasses"] = root_eclasses_value;
-                let file = File::create(&file_path_1).unwrap();
-                let writer = BufWriter::new(file);
-                serde_json::to_writer_pretty(writer, &json_data).unwrap();
+            if iteration_count % self.check_interval == 0{
+
+
+
             }
+
+            // parrallel version
+            // 每5轮执行一次egraph.rebuild()
+            // iteration_count += 1;
+            // if iteration_count % 5 == 0 {
+            //     self.egraph.rebuild();
+            //     let json_rep_test_egraph_serd = egg_to_serialized_egraph(&self.egraph);
+            //     let base_path = env::current_dir().expect("Failed to get current directory");
+    
+            //     // 创建文件夹和文件
+            //     let dir_path = base_path.join("dynamic_inspect");
+            //     std::fs::create_dir_all(&dir_path).expect("Failed to create directory");
+    
+            //     // 创建文件路径
+            //     let file_path_1 = dir_path.join(format!("graph_internal_serd_{}.json", iteration_count / 5));
+            //     println!("File path: {:?}", file_path_1);
+    
+            //     // 创建文件并写入数据
+            //     let root_eclasses_value: serde_json::Value = self.roots
+            //         .clone()
+            //         .into_iter()
+            //         .map(|id| serde_json::Value::String(id.to_string())) // 将整数转换为字符串
+            //         .collect();
+            //     let file = File::create(&file_path_1).unwrap();
+            //     let writer = BufWriter::new(file);
+            //     serde_json::to_writer_pretty(writer, &json_rep_test_egraph_serd).unwrap();
+            //     let json_string = std::fs::read_to_string(&file_path_1).unwrap();
+            //     let mut json_data: serde_json::Value = serde_json::from_str(&json_string).unwrap();
+            //     json_data["root_eclasses"] = root_eclasses_value;
+            //     let file = File::create(&file_path_1).unwrap();
+            //     let writer = BufWriter::new(file);
+            //     serde_json::to_writer_pretty(writer, &json_data).unwrap();
+            // }
     
             // 在迭代完成后检查限制条件以及停止原因
+            
             if let Some(stop_reason) = stop_reason.or_else(|| self.check_limits().err()) {
                 info!("Stopping: {:?}", stop_reason);
                 self.stop_reason = Some(stop_reason);

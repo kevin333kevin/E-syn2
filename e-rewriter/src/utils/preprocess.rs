@@ -12,7 +12,8 @@ use std::path::PathBuf;
 use std::path::Path;
 use serde_json::Value;
 use serde::__private::fmt::Display;
-
+use regex::Regex;
+use std::process::Command;
 
 
 // parse equation 2 to change the variables' names avoid of The variables of the nodes in equation 1 duplicated in the hash table
@@ -357,7 +358,168 @@ where
 
 
 
-pub fn process_file_1file(file_name: &str) -> (egg::Id,Vec<Id>){
+pub fn process_file_1file(file_name: &str) -> (egg::Id,Vec<Id>,i32){
+    let file = File::open(file_name).expect("Unable to open the eqn file");
+    let reader = BufReader::new(file);
+    let mut egraph:egg::EGraph<SymbolLang,()> = EGraph::default();
+    let mut vars = HashMap::new();
+    let mut out = HashMap::new();
+    let mut count_out = 0;
+    let mut id2concat = Vec::new();
+    let mut input_id:Vec<Id> = Vec::new();
+    let mut one_out_sig =0;
+    fn string_to_unique_id(s: &str) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        s.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    let id0 =egraph.add(SymbolLang::leaf("0"));
+    vars.insert("0".to_string(), id0);
+    let id1 =egraph.add(SymbolLang::leaf("1"));
+    vars.insert("1".to_string(), id1);
+    for line in reader.lines() {
+        let line = line.expect("Unable to read line");
+        let line = line.trim().trim_end_matches(';');
+        //print!("line:  {}\n",line);
+        if line.starts_with('#') || line.is_empty() {
+            continue;
+        } else if line.starts_with("INORDER") {
+            let inputs = line.trim_start_matches("INORDER = ").split_whitespace();
+            for input in inputs {
+                let id = egraph.add(SymbolLang::leaf(input)); // 将 "NOT" 替换为每个输入的字符串
+                vars.insert(input.to_string(), id);
+                input_id.push(id);
+            }
+            
+        } else if line.starts_with("OUTORDER") {
+            let output = line.trim_start_matches("OUTORDER = ").trim();
+            for output in output.split_whitespace() {
+                let id_u64 = string_to_unique_id(output);
+                out.insert(output.to_string(), id_u64);
+            }
+        } else {
+            let parts: Vec<&str> = line.split('=').map(str::trim).collect();
+            let left = parts[0];
+            let right = parts[1];
+           // print!("right {}\n",right);
+            let id = if right.contains('+') {
+                let operands: Vec<&str> = right.split('+').map(str::trim).collect();
+                let lhs = if operands[0].starts_with('!') {
+                    let var = &operands[0][1..];
+                    let id = vars[var];
+                    egraph.add(SymbolLang::new("Not", vec![id]))
+                } else {
+                    vars[operands[0]]
+                };
+                let rhs = if operands[1].starts_with('!') {
+                    let var = &operands[1][1..];
+                    let id = vars[var];
+                    egraph.add(SymbolLang::new("Not", vec![id]))
+                } else {
+                    vars[operands[1]]
+                };
+                egraph.add(SymbolLang::new("Or", vec![lhs, rhs]))
+            } else if right.contains('*') {
+                let operands: Vec<&str> = right.split('*').map(str::trim).collect();
+                let lhs = if operands[0].starts_with('!') {
+                    let var = &operands[0][1..];
+                    let id = vars[var];
+                    egraph.add(SymbolLang::new("Not", vec![id]))
+                } else {
+                    vars[operands[0]]
+                };
+                let rhs = if operands[1].starts_with('!') {
+                    let var = &operands[1][1..];
+                    let id = vars[var];
+                    egraph.add(SymbolLang::new("Not", vec![id]))
+                } else {
+                    vars[operands[1]]
+                };
+
+                egraph.add(SymbolLang::new("And", vec![lhs, rhs]))
+            } else if right.starts_with('!'){
+                let var =&right[1..];
+                let id =vars[var];
+                egraph.add(SymbolLang::new("Not", vec![id]))
+            }else{
+                vars[right]
+            } ;
+
+            if out.contains_key(left) {
+                id2concat.push(id);
+                count_out += 1;
+            }
+            vars.insert(left.to_string(), id);
+        }
+    }
+    
+
+    let mut concat = Vec::new();
+
+    for i in 0..count_out - 1 {
+        if i == 0 {
+            let id = egraph.add(SymbolLang::new("Concat", vec![id2concat[i as usize], id2concat[(i + 1) as usize]]));
+            concat.push(id);
+        } else {
+            let id = egraph.add(SymbolLang::new("Concat", vec![concat[(i - 1) as usize], id2concat[(i + 1) as usize]]));
+            concat.push(id);
+        }
+    }
+    let last_element: Id = if let Some(element) = concat.pop() {
+        element
+    } else {   
+        one_out_sig = 1; 
+        let mut id: Id = id2concat.pop().unwrap().into();
+        vars.insert(out.keys().next().unwrap().to_string(), id.into());
+        id
+    
+    };
+    egraph.rebuild();
+    let json_str = serde_json::to_string_pretty(&egraph).unwrap();
+
+    let output_dir = Path::new(file_name).parent().unwrap_or(Path::new(""));
+    let output_file = format!("{}.json", PathBuf::from(file_name).file_name().unwrap().to_string_lossy());
+    let output_path = output_dir.join(output_file);
+    fs::write(output_path, json_str).expect("Failed to write JSON file");
+    (last_element,input_id,one_out_sig)
+}
+
+
+
+
+
+// pub fn egg_to_serialized_egraph<L, A>(egraph: &egg::EGraph<L, A>) -> egraph_serialize::EGraph
+// where
+//     L: Language + Display,
+//     A: Analysis<L>,
+// {
+//     use egraph_serialize::*;
+//     let mut out = EGraph::default();
+//     for class in egraph.classes() {
+//         for (i, node) in class.nodes.iter().enumerate() {
+//             out.add_node(
+//                 format!("{}.{}", class.id, i),
+//                 Node {
+//                     op: node.to_string(),
+//                     children: node
+//                         .children()
+//                         .iter()
+//                         .map(|id| NodeId::from(format!("{}.0", id)))
+//                         .collect(),
+//                     eclass: ClassId::from(format!("{}", class.id)),
+//                     cost: Cost::new(1.0).unwrap(),
+//                 },
+//             )
+//         }
+//     }
+//     out
+// }
+
+
+
+pub fn process_file_1file_from_extraction_gym_res(file_name: &str) -> (egg::Id,Vec<Id>){
+
     let file = File::open(file_name).expect("Unable to open the eqn file");
     let reader = BufReader::new(file);
     let mut egraph:egg::EGraph<SymbolLang,()> = EGraph::default();
@@ -476,6 +638,14 @@ pub fn process_file_1file(file_name: &str) -> (egg::Id,Vec<Id>){
 }
 
 
+
+
+
+
+
+
+
+
 pub fn process_json_prop_cost(json_str: &str) -> String {
     let mut data: Value = serde_json::from_str(&json_str).unwrap();
 
@@ -496,4 +666,134 @@ pub fn process_json_prop_cost(json_str: &str) -> String {
     }
 
     serde_json::to_string_pretty(&data).unwrap()
+}
+
+
+
+pub fn run_abc_to_fetch_delay_area_initial() -> (f64, f64) {
+    // Step 1: Change directory to "../abc"
+    let original_dir = env::current_dir().unwrap();
+    let dir = "../abc";
+
+    if let Err(err) = env::set_current_dir(&dir) {
+        println!("Failed to change directory: {}", err);
+    }
+
+    // Step 2: Execute "./abc -c \"read_eqn ori.eqn; st; ps; dch; print_stats -p; read_lib asap7_clean.lib; map; topo; upsize; dnsize; stime\""
+    let output_abc = Command::new("./abc")
+        .arg("-c")
+        .arg("read_eqn ori.eqn; st; ps; dch; print_stats -p; read_lib asap7_clean.lib; map; topo; upsize; dnsize; stime")
+        .output()
+        .expect("Failed to execute command");
+
+ //   let mut delays: Vec<f64> = Vec::new();
+ //   let mut areas: Vec<f64> = Vec::new();
+    let mut delay_out: f64 = 0.0;
+    let mut area_out: f64 = 0.0;
+    if output_abc.status.success() {
+        let stdout = String::from_utf8_lossy(&output_abc.stdout);
+        let stderr = String::from_utf8_lossy(&output_abc.stderr);
+
+        println!("Command executed successfully");
+        println!("stdout: {}", stdout);
+        println!("stderr: {}", stderr);
+
+        let lines: Vec<&str> = stdout.lines().collect();
+
+        for line in lines {
+            if let Some(area) = extract_area(line) {
+             //   areas.push(area);
+            area_out=area;
+            }
+            if let Some(delay) = extract_delay(line) {
+            //    delays.push(delay);
+            delay_out=delay;
+            }
+        }
+    } else {
+        let stderr = String::from_utf8_lossy(&output_abc.stderr);
+
+        println!("Command failed");
+        println!("stderr: {}", stderr);
+    }
+    env::set_current_dir(&original_dir).unwrap();
+    (delay_out, area_out)
+}
+
+
+
+
+
+pub fn run_abc_to_fetch_delay_area_internal() -> (f64, f64) {
+    // Step 1: Change directory to "../abc"
+    let original_dir = env::current_dir().unwrap();
+    let dir = "../abc";
+
+    if let Err(err) = env::set_current_dir(&dir) {
+        println!("Failed to change directory: {}", err);
+    }
+
+    // Step 2: Execute "./abc -c \"read_eqn ori.eqn; st; ps; dch; print_stats -p; read_lib asap7_clean.lib; map; topo; upsize; dnsize; stime\""
+    let output_abc = Command::new("./abc")
+        .arg("-c")
+        .arg("read_eqn ori.eqn; st; ps; dch; print_stats -p; read_lib asap7_clean.lib; map; topo; upsize; dnsize; stime")
+        .output()
+        .expect("Failed to execute command");
+
+ //   let mut delays: Vec<f64> = Vec::new();
+ //   let mut areas: Vec<f64> = Vec::new();
+    let mut delay_out: f64 = 0.0;
+    let mut area_out: f64 = 0.0;
+    if output_abc.status.success() {
+        let stdout = String::from_utf8_lossy(&output_abc.stdout);
+        let stderr = String::from_utf8_lossy(&output_abc.stderr);
+
+        println!("Command executed successfully");
+        println!("stdout: {}", stdout);
+        println!("stderr: {}", stderr);
+
+        let lines: Vec<&str> = stdout.lines().collect();
+
+        for line in lines {
+            if let Some(area) = extract_area(line) {
+             //   areas.push(area);
+            area_out=area;
+            }
+            if let Some(delay) = extract_delay(line) {
+            //    delays.push(delay);
+            delay_out=delay;
+            }
+        }
+    } else {
+        let stderr = String::from_utf8_lossy(&output_abc.stderr);
+
+        println!("Command failed");
+        println!("stderr: {}", stderr);
+    }
+    env::set_current_dir(&original_dir).unwrap();
+    (delay_out, area_out)
+}
+fn extract_delay(line: &str) -> Option<f64> {
+    if let Some(delay_index) = line.find("Delay = ") {
+        if let Some(ps_index) = line[delay_index..].find("ps") {
+            let delay_start = line[(delay_index + 8)..(delay_index + ps_index)].trim();
+            println!("delay_string: {}", delay_start);
+            let delay_value = delay_start.parse::<f64>().ok();
+            println!("delay_value: {:?}ps", delay_value);
+            return delay_value;
+        }
+    }
+    None
+}
+
+fn extract_area(line: &str) -> Option<f64> {
+    let re = Regex::new(r"Area =\s+(\d+(\.\d+)?)").unwrap();
+    if let Some(capture) = re.captures(line) {
+        if let Some(area_string) = capture.get(1) {
+            let area_value = area_string.as_str().parse::<f64>().ok();
+            println!("area_value: {:?}", area_value);
+            return area_value;
+        }
+    }
+    None
 }

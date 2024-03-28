@@ -137,6 +137,7 @@ fn main() {
         print!("-------------------------------------------\n");
         print!("dag cost: {}\n", dag_cost);
         print!("-------------------------------------------\n");
+        println!("root eclasses: {:#?}", egraph.root_eclasses);
     result.record_costs_random(10,0.5,&egraph,&dag_cost_with_extraction_result);
     let json_result = to_string_pretty(&result).unwrap();
     let _ = fs::create_dir_all("out_json/my_data");
