@@ -1,9 +1,10 @@
 use serde::Deserialize;
-use std::collections::HashMap;
+//use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
+use rustc_hash::FxHashMap;
 
 // Define Data Structures
 #[derive(Deserialize, Debug)]
@@ -16,13 +17,14 @@ struct Node {
 
 #[derive(Deserialize, Debug)]
 struct Graph {
-    nodes: HashMap<String, Node>,
+    nodes: FxHashMap<String, Node>,
     root_eclasses: Vec<String>,
 }
 
-fn is_cyclic_graph(nodes: &HashMap<String, Node>) -> bool {
-    let mut visited = HashMap::new();
-    let mut rec_stack = HashMap::new();
+
+fn is_cyclic_graph(nodes: &FxHashMap<String, Node>) -> bool {
+    let mut visited = FxHashMap::default();
+    let mut rec_stack = FxHashMap::default();
 
     for node_id in nodes.keys() {
         if !visited.contains_key(node_id) {
@@ -41,10 +43,10 @@ fn is_cyclic_graph(nodes: &HashMap<String, Node>) -> bool {
 }
 
 fn is_cyclic_util(
-    nodes: &HashMap<String, Node>,
+    nodes: &FxHashMap<String, Node>,
     node_id: &str,
-    visited: &mut HashMap<String, bool>,
-    rec_stack: &mut HashMap<String, bool>,
+    visited: &mut FxHashMap<String, bool>,
+    rec_stack: &mut FxHashMap<String, bool>,
 ) -> Vec<String> {
     visited.insert(node_id.to_string(), true);
     rec_stack.insert(node_id.to_string(), true);
@@ -80,10 +82,10 @@ fn parse_json(json_str: &str) -> Graph {
 
 // Convert DAG to eqn with proper hierarchical representation
 fn dag_to_equations(
-    nodes: &HashMap<String, Node>,
+    nodes: &FxHashMap<String, Node>,
     node_id: &str,
-    visited: &mut HashMap<String, String>,
-    visit_count: &mut HashMap<String, usize>,
+    visited: &mut FxHashMap<String, String>,
+    visit_count: &mut FxHashMap<String, usize>,
 ) -> String {
     *visit_count.entry(node_id.to_string()).or_insert(0) += 1;
 
@@ -120,10 +122,11 @@ fn dag_to_equations(
             }
         }
     };
+    
 
-    // Only record the expression if the node has been visited more than once.
-
-    if visit_count[node_id] > 1 && (expression.contains(" ") || expression.contains("(")) {
+    
+    //if expression.contains(" ") || expression.contains("(") {// record the expression if it is intermediate node.
+    if visit_count[node_id] > 1 && (expression.contains(" ") || expression.contains("(")) {  // Only record the expression if the node has been visited more than once.
         //if visit_count[node_id] > 1  {
         visited.insert(node_id.to_string(), expression.clone());
     }
@@ -140,10 +143,10 @@ fn format_synopsys_single(equation: &str) -> Vec<String> {
 }
 
 // Function to read the mapping from the reference file
-fn read_prefix_mapping(file_path: &str) -> HashMap<String, String> {
+fn read_prefix_mapping(file_path: &str) -> FxHashMap<String, String> {
     let file = File::open(file_path).expect("Unable to open file");
     let reader = BufReader::new(file);
-    let mut mapping = HashMap::new();
+    let mut mapping = FxHashMap::default();
 
     for line in reader.lines() {
         let line = line.expect("Unable to read line");
@@ -169,8 +172,8 @@ fn write_to_file(
     parts: Vec<String>,
     file_name: &str,
     f_prefix: &str,
-    visited: HashMap<String, String>,
-    prefix_mapping: &HashMap<String, String>,
+    visited: FxHashMap<String, String>,
+    prefix_mapping: &FxHashMap<String, String>,
 ) {
     let mut file = File::create(file_name).expect("Unable to create file");
 
@@ -218,10 +221,10 @@ fn main() {
     let graph = parse_json(&json_str);
 
     // Check if the graph is cyclic
-    if is_cyclic_graph(&graph.nodes) {
-        println!("Error: The graph is cyclic.");
-        return; // Exit the program or handle the error as needed
-    }
+    // if is_cyclic_graph(&graph.nodes) {
+    //     println!("Error: The graph is cyclic.");
+    //     return; // Exit the program or handle the error as needed
+    // }
 
     // Determine the nodes that are not children of any other nodes
     // Use the root_eclasses as root nodes
@@ -235,8 +238,8 @@ fn main() {
 
     // Process each identified root node
     for (i, root) in root_nodes.iter().enumerate() {
-        let mut visited = HashMap::new();
-        let mut visit_count = HashMap::new();
+        let mut visited = FxHashMap::default();
+        let mut visit_count = FxHashMap::default();
         let equation = dag_to_equations(&graph.nodes, root, &mut visited, &mut visit_count);
         //println!("Equation: {}", equation);
         // if the length of visited is 0, not printing the visited nodes

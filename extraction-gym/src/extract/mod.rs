@@ -182,7 +182,7 @@ impl ExtractionResult {
 
     // dag_cost_with_extraction_result method calculates the cost of the extracted DAG
     // and returns the cost along with the extraction result
-    pub fn dag_cost_with_extraction_result(
+    pub fn calculate_dag_cost_with_extraction_result(
         &self,
         egraph: &EGraph,
         roots: &[ClassId],

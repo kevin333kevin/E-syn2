@@ -185,16 +185,43 @@ fn process_files_in_directory(
             .collect();
 
         // Process each file in parallel
-        file_paths.par_iter().for_each(|path| {
+        // file_paths.par_iter().for_each(|path| {
+        //     let input_file = path.to_str().expect("Invalid input file path");
+
+        //     // Rename the file to have a .json extension
+        //     let mut new_path = PathBuf::from(input_file);
+        //     new_path.set_extension("json");
+
+        //     if let Err(err) = fs::rename(&path, &new_path) {
+        //         println!("Failed to rename file: {:?}", err);
+        //         return;
+        //     }
+
+        //     // Process the file using the provided processing function
+        //     if let Err(err) = process_func(new_path.to_str().unwrap(), output_dir, a) {
+        //         eprintln!(
+        //             "Error processing file {}: {}",
+        //             new_path.to_str().unwrap(),
+        //             err
+        //         );
+        //     }
+        // });
+        // process file one by one
+        for path in file_paths {
+            // get the length of file_paths
+            // let len = file_paths.len();
+            // println!("Processing file {}/{}", len, len);
             let input_file = path.to_str().expect("Invalid input file path");
+
 
             // Rename the file to have a .json extension
             let mut new_path = PathBuf::from(input_file);
             new_path.set_extension("json");
 
+
             if let Err(err) = fs::rename(&path, &new_path) {
                 println!("Failed to rename file: {:?}", err);
-                return;
+                continue;
             }
 
             // Process the file using the provided processing function
@@ -205,7 +232,7 @@ fn process_files_in_directory(
                     err
                 );
             }
-        });
+        }
     } else {
         println!("Failed to read directory: {:?}", input_dir);
     }

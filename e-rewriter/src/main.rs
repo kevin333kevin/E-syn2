@@ -98,6 +98,57 @@ pub fn preprocess_file(file_name: &str) -> Result<(), io::Error> {
     Ok(())
 }
 
+pub fn preprocess_file_order(file_name: &str) -> Result<(), io::Error> {
+    // Open the file for reading
+    let file = File::open(file_name)?;
+    let reader = BufReader::new(file);
+
+    // Search for the first line starting with "new_"
+    let mut variables = Vec::new();
+    let mut found_new = false;
+
+    for line in reader.lines() {
+        let line = line?;
+        if found_new && !line.starts_with("new_") {
+            let variable = line.split('=').next().unwrap().trim().to_string();
+            variables.push(variable);
+        } else if line.starts_with("new_") {
+            found_new = true;
+        }
+    }
+
+    // Generate new OUTORDER line
+    let outorder = variables.join(" ");
+    let new_outorder = format!("OUTORDER = {};", outorder.trim_end());
+
+    // Create a temporary file
+    let temp_file_name = format!("{}_temp", file_name);
+    let temp_file = File::create(&temp_file_name)?;
+    let mut writer = BufWriter::new(temp_file);
+
+    // Write modified content to the temporary file
+    let input_file = File::open(file_name)?;
+    let reader = BufReader::new(input_file);
+
+    for line in reader.lines() {
+        let line = line?;
+        if line.starts_with("OUTORDER") {
+            writeln!(writer, "{}", new_outorder)?;
+        } else {
+            writeln!(writer, "{}", line)?;
+        }
+    }
+
+    // Flush and close the writer
+    writer.flush()?;
+    drop(writer);
+
+    // Replace the original file with the temporary file
+    fs::rename(&temp_file_name, file_name)?;
+
+    Ok(())
+}
+
 fn print_usage(program_name: &str) {
     println!(
         "Usage: {} <input_file_path> <runner_iteration_limit> <extract_pattern>",
@@ -120,11 +171,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // preprocess input file
     preprocess_file(&input_path1)?;
+    preprocess_file_order(&input_path1)?;
     println!("Finished preprocessing input file");
 
     //-----------------------------------------------------------------------------------------------------
     //2.transfer eqn file into egraph format in egg
-    let (root_id0, input_vec_id) = process_file_1file(input_path1);
+    let (root_id0, input_vec_id, input_vec_symbol) = process_file_1file(input_path1);
     println!("root: {:?}", root_id0);
     let mut root_ids: Vec<usize> = Vec::new();
     root_ids.push(root_id0.into());

@@ -260,34 +260,34 @@ fn main() {
     let extractor = get_extractor(&extractors, &extractor_name);
 
     // Format the modified filename with the extractor name
-    let modified_name = format_modified_name(&modified_filename_for_tree_cost, &extractor_name);
-    let modified_name1 = format_modified_name(&modified_filename_for_dag_cost, &extractor_name);
+    let modified_name_for_tree_cost = format_modified_name(&modified_filename_for_tree_cost, &extractor_name);
+    let modified_name_for_dag_cost = format_modified_name(&modified_filename_for_dag_cost, &extractor_name);
 
     // Record the start time
     let start_time = std::time::Instant::now();
 
     // Extract the result using the selected extractor
-    let result = extract_result(extractor, &egraph, &egraph.root_eclasses, &cost_function);
+    let tree_cost_extraction_result = extract_result(extractor, &egraph, &egraph.root_eclasses, &cost_function);
 
     // Calculate the elapsed time in microseconds
     let us = start_time.elapsed().as_micros();
     // Assert that the result has no cycles
-    assert!(result
+    assert!(tree_cost_extraction_result
         .find_cycles(&egraph, &egraph.root_eclasses)
         .is_empty());
 
     // Calculate the DAG cost and the DAG cost with extraction result
-    let (dag_cost, dag_cost_with_extraction_result) =
-        result.dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+    let (dag_cost, dag_cost_extraction_result) =
+        tree_cost_extraction_result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
     // Print the DAG cost
     print_dag_cost(dag_cost);
 
     // Record random costs based on the extraction result
-    result.record_costs_random(10, 0.5, &egraph, &dag_cost_with_extraction_result);
+    tree_cost_extraction_result.record_costs_random(10, 0.5, &egraph, &dag_cost_extraction_result);
 
     // Write the JSON result to files
-    write_json_result(&modified_name, &result);
-    write_json_result(&modified_name1, &dag_cost_with_extraction_result);
+    write_json_result(&modified_name_for_tree_cost, &tree_cost_extraction_result);
+    write_json_result(&modified_name_for_dag_cost, &dag_cost_extraction_result);
 
     // Log the result
     log_result(&filename, &extractor_name, dag_cost, us);
@@ -295,7 +295,7 @@ fn main() {
     write_output_file(
         &mut out_file,
         &filename,
-        &modified_name1,
+        &modified_name_for_dag_cost,
         &extractor_name,
         dag_cost,
         us,
