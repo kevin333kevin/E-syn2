@@ -27,3 +27,5 @@ graph2eqn/*.eqn
 *.txt
 extraction-gym/random_result/
 PPA_predictor/processed_dataset/graph_dataset.bin
+e-rewriter/src/egraph-serialize/tests/
+e-rewriter/src/egraph-serialize/tests-viz/
