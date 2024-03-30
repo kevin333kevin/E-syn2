@@ -18,6 +18,7 @@ use std::fs::{OpenOptions};
 use std::io::prelude::*;
 use std::io;
 use std::io::{BufWriter, Write};
+use rayon::prelude::*;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 struct Node {
@@ -43,7 +44,7 @@ pub fn process_data(data: &mut serde_json::Value) {
 
 //sub function for process_json_prop
 pub fn process_entry(entry_obj: &mut serde_json::Map<String, serde_json::Value>) {
-    // 处理 "op" 和 "children" 键值对
+    // handle "op" and "children" keys,values pair
     if let Some(op_value) = entry_obj.remove("op") {
         if let Some(children_value) = entry_obj.remove("children") {
             entry_obj.insert(op_value.as_str().unwrap().to_owned(), children_value);
@@ -75,7 +76,7 @@ pub fn process_json_prop(json_file: &str) -> String {
     let json_str = fs::read_to_string(json_file).expect("Failed to read JSON file");
     let mut data: Value = serde_json::from_str(&json_str).unwrap();
 
-    // 处理 "memo"
+    // handle "memo"
     if let Some(classes) = data
         .get_mut("classes")
         .and_then(|classes| classes.as_object_mut())
@@ -110,13 +111,13 @@ pub fn process_json_prop(json_file: &str) -> String {
 
     // converted the modified data into a json string
     let modified_json_str = serde_json::to_string_pretty(&data).unwrap();
-    // 构造保存修改后的文件路径
+    // make the modified json file name
     let json_file_path = PathBuf::from(json_file);
     let modified_json_file = json_file_path.with_file_name(format!(
         "modified_{}",
         json_file_path.file_name().unwrap().to_str().unwrap()
     ));
-    // 将修改后的 JSON 字符串写入文件
+    // write the modified json file
     fs::write(&modified_json_file, modified_json_str).expect("Failed to write modified JSON file");
     modified_json_file.to_str().unwrap().to_owned()
 }
@@ -432,3 +433,35 @@ pub fn preprocess_file_order(file_name: &str) -> Result<(), io::Error> {
     Ok(())
 }
 
+// -----------------------------Unused Functions----------------------------------
+
+pub fn process_json_prop_prallel(json_file: &str) -> String {
+    let json_str = fs::read_to_string(json_file).expect("Failed to read JSON file");
+    let mut data: Value = serde_json::from_str(&json_str).unwrap();
+
+    // 处理 "memo"
+    if let Some(classes) = data.get_mut("classes").and_then(Value::as_object_mut) {
+        classes.iter_mut().for_each(|(_, class)| {
+            if let Some(nodes) = class.get_mut("nodes").and_then(Value::as_array_mut) {
+                nodes.par_iter_mut().for_each(process_data);
+            }
+            if let Some(parents) = class.get_mut("parents").and_then(Value::as_array_mut) {
+                parents.par_iter_mut().for_each(process_data);
+            }
+        });
+    }
+
+    if let Some(memo) = data.get_mut("memo").and_then(Value::as_array_mut) {
+        memo.par_iter_mut().for_each(process_data);
+    }
+
+    // converted the modified data into a json string
+    let modified_json_str = serde_json::to_string(&data).unwrap();
+    let json_file_path = PathBuf::from(json_file);
+    let modified_json_file = json_file_path.with_file_name(format!(
+        "modified_{}",
+        json_file_path.file_name().unwrap().to_str().unwrap()
+    ));
+    fs::write(&modified_json_file, modified_json_str).expect("Failed to write modified JSON file");
+    modified_json_file.to_str().unwrap().to_owned()
+}

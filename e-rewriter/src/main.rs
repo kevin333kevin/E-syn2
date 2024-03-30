@@ -96,6 +96,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Transfer egg::egraph symbol language's json into my defined language's json
     let modified_json_file = process_json_prop(&json_file);
+    //let modified_json_file = process_json_prop_prallel(&json_file);
     let duration_eqn2egraph_handling_base_language = start.elapsed();
     let converted_json_data = fs::read_to_string(&modified_json_file).expect("Unable to read the JSON file");
     let mut input_egraph: egg::EGraph<Prop, ()> = serde_json::from_str(&converted_json_data).unwrap();

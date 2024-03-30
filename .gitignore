@@ -29,3 +29,8 @@ extraction-gym/random_result/
 PPA_predictor/processed_dataset/graph_dataset.bin
 e-rewriter/src/egraph-serialize/tests/
 e-rewriter/src/egraph-serialize/tests-viz/
+process_json/out_process_dag_result/
+extraction-gym/out_dag_json/
+PPA_predictor/raw_dataset/
+e-rewriter/circuit0.eqn
+e-rewriter/modified_circuit0.eqn.json
