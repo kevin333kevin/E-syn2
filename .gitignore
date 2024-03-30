@@ -2,7 +2,7 @@ abc/
 extraction-gym/data/my_data/*.json
 extraction-gym/out_json/my_data/*.json
 process_json/out_process_result/*.json
-e-rewriter/dot_graph/
+e-rewriter/rewritten_circuit/
 e-rewriter/target/
 prcoess_json/
 converted_circuit_strash/

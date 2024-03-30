@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Check if the dot_graph directory exists under e-rewriter; if not, create it
-if [ ! -d "e-rewriter/dot_graph" ]; then
-    mkdir -p e-rewriter/dot_graph
+# Check if the rewritten_circuit directory exists under e-rewriter; if not, create it
+if [ ! -d "e-rewriter/rewritten_circuit" ]; then
+    mkdir -p e-rewriter/rewritten_circuit
 fi
 
 # Check if the required folders exist under extraction-gym; if not, create them
@@ -49,7 +49,7 @@ cd ..
 #fi
 
 
-cp e-rewriter/dot_graph/graph_internal_serd.json extraction-gym/data/my_data/
+cp e-rewriter/rewritten_circuit/graph_internal_serd.json extraction-gym/data/my_data/
 end_time_process1=$(date +%s.%N)
 runtime_process1=$(echo "$end_time_process1 - $start_time_process1" | bc)
 

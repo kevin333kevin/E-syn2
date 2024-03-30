@@ -1,11 +1,6 @@
 import os
 import json
 
-
-
-
-
-
 def process_json(input_file, a):
     # 读取输入文件
     with open(input_file, 'r') as f:

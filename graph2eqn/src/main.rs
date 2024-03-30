@@ -1,10 +1,11 @@
 use serde::Deserialize;
 //use std::collections::HashMap;
+use dashmap::DashMap;
+use rustc_hash::FxHashMap;
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
-use rustc_hash::FxHashMap;
 
 // Define Data Structures
 #[derive(Deserialize, Debug)]
@@ -20,7 +21,6 @@ struct Graph {
     nodes: FxHashMap<String, Node>,
     root_eclasses: Vec<String>,
 }
-
 
 fn is_cyclic_graph(nodes: &FxHashMap<String, Node>) -> bool {
     let mut visited = FxHashMap::default();
@@ -97,7 +97,7 @@ fn dag_to_equations(
     }
 
     let node = nodes.get(node_id).unwrap();
-    //  println!("Node ID: {:?}", node_id); 
+    //  println!("Node ID: {:?}", node_id);
     let expression = match node.op.as_str() {
         "&" => {
             let operands: Vec<String> = node
@@ -122,11 +122,10 @@ fn dag_to_equations(
             }
         }
     };
-    
 
-    
     //if expression.contains(" ") || expression.contains("(") {// record the expression if it is intermediate node.
-    if visit_count[node_id] > 1 && (expression.contains(" ") || expression.contains("(")) {  // Only record the expression if the node has been visited more than once.
+    if visit_count[node_id] > 1 && (expression.contains(" ") || expression.contains("(")) {
+        // Only record the expression if the node has been visited more than once.
         //if visit_count[node_id] > 1  {
         visited.insert(node_id.to_string(), expression.clone());
     }
@@ -205,7 +204,7 @@ fn write_to_file(
 fn main() {
     // Read the file path from the command line arguments
     let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
+    if args.len() < 2 {
         println!("Usage: <program> <path_to_json_file>");
         std::process::exit(1);
     }
@@ -220,11 +219,19 @@ fn main() {
     // Parse the JSON string
     let graph = parse_json(&json_str);
 
-    // Check if the graph is cyclic
-    // if is_cyclic_graph(&graph.nodes) {
-    //     println!("Error: The graph is cyclic.");
-    //     return; // Exit the program or handle the error as needed
-    // }
+    // read final args that check if the graph is cyclic or not
+    // let check_cyclic = &args[2] if args.len() > 2 else "0";
+    if args.len() == 3 {
+        let check_cyclic = &args[2];
+        if check_cyclic == "1" {
+            println!("Checking for cyclic graph");
+            // Check if the graph is cyclic
+            if is_cyclic_graph(&graph.nodes) {
+                println!("Error: The graph is cyclic.");
+                return; // Exit the program or handle the error as needed
+            }
+        }
+    }
 
     // Determine the nodes that are not children of any other nodes
     // Use the root_eclasses as root nodes

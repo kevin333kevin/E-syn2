@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Check if the dot_graph directory exists under e-rewriter; if not, create it
-if [ ! -d "e-rewriter/dot_graph" ]; then
-    mkdir -p e-rewriter/dot_graph
+# Check if the rewritten_circuit directory exists under e-rewriter; if not, create it
+if [ ! -d "e-rewriter/rewritten_circuit" ]; then
+    mkdir -p e-rewriter/rewritten_circuit
 fi
 
 # Check if the required folders exist under extraction-gym; if not, create them

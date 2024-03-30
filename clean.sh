@@ -20,13 +20,14 @@ echo -e "${GREEN}Cleaning output folders and files...${RESET}"
 # Define directories to clean
 directories=(
   "e-rewriter/random_result"
-  "e-rewriter/random_dot"
-  "e-rewriter/dot_graph"
+  "e-rewriter/random_graph"
+  "e-rewriter/rewritten_circuit"
   "extraction-gym/data/my_data"
   "extraction-gym/out_json"
   "extraction-gym/out_process_dag_result"
   "extraction-gym/out_process_result"
   "extraction-gym/output"
+  "extraction-gym/random_result"
   "extraction-gym/out_dag_json"
   "extraction-gym/data"
   "extraction-gym/input"
@@ -41,6 +42,17 @@ for dir in "${directories[@]}"; do
     echo -e "Removed $dir"
   fi
 done
+
+# remove the .json in current directory
+rm -f *.json 2>/dev/null
+echo -e "${GREEN}Cleaned *.json files${RESET}"
+
+
+# Speical case for e-rewriter: remove .json if it exists
+if [ -d "e-rewriter" ]; then
+  rm -f e-rewriter/*.json 2>/dev/null
+  echo -e "${GREEN}Cleaned e-rewriter/*.json files${RESET}"
+fi
 
 # Special case for graph2eqn: remove .json and .eqn files if they exist
 if [ -d "graph2eqn" ]; then
@@ -62,6 +74,9 @@ if [ -d "extraction-gym/random_result" ]; then
   # clean .json in extraction-gym/
   rm -f extraction-gym/*.json 2>/dev/null
   echo -e "${GREEN}Cleaned extraction-gym/*.json files${RESET}"
+  # clean .svg in extraction-gym/
+  rm -f extraction-gym/*.svg 2>/dev/null
+  echo -e "${GREEN}Cleaned extraction-gym/*.svg files${RESET}"
 fi
 
 # Special case for tmp_log/, remove files starts with "log_+ number" if they exist

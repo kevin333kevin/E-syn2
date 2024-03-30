@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Check if the dot_graph directory exists under e-rewriter; if not, create it
-if [ ! -d "e-rewriter/dot_graph" ]; then
-    mkdir -p e-rewriter/dot_graph
+# Check if the rewritten_circuit directory exists under e-rewriter; if not, create it
+if [ ! -d "e-rewriter/rewritten_circuit" ]; then
+    mkdir -p e-rewriter/rewritten_circuit
 fi
 
 # Check if the required folders exist under extraction-gym; if not, create them
@@ -46,7 +46,7 @@ cd e-rewriter/ && cargo run  --features feature2 circuit0.eqn
 #fi
 
 cd ..
-cp e-rewriter/dot_graph/graph_cost_serd.json extraction-gym/data/my_data/
+cp e-rewriter/rewritten_circuit/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json extraction-gym/data/my_data/
 end_time_process1=$(date +%s.%N)
 runtime_process1=$(echo "$end_time_process1 - $start_time_process1" | bc)
 
@@ -63,12 +63,12 @@ cd ..
 #cp -r process_json/out_process_result extraction-gym/  && cp -r process_json/out_process_dag_result extraction-gym/
 #----------------select&test extract alogrithm---------------------
 
-cp process_json/out_process_dag_result/graph_cost_serd_faster-bottom-up.json graph2eqn/graph_cost_serd_faster-bottom-up.json
+cp process_json/out_process_dag_result/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json graph2eqn/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json
 
 end_time_process2_2=$(date +%s.%N)
 echo "-----------------------------Process 3: graph to eqn-----------------------------"
  start_time_process2_3=$(date +%s.%N)
-cd graph2eqn/ && target/release/graph2eqn graph_cost_serd_faster-bottom-up.json
+cd graph2eqn/ && target/release/graph2eqn rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json
 # 
 # cd ..
 # cp graph2eqn/circuit0.eqn abc/op.eqn
@@ -83,7 +83,7 @@ echo "-----------------------------Process 3: Evaluate--------------------------
 # cd abc/ && ./abc -c "read_eqn op.eqn; st; rewrite; balance; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime"
 # cd ..
 
-# cd graph2eqn/ && target/release/graph2eqn graph_cost_serd_bottom-up.json
+# cd graph2eqn/ && target/release/graph2eqn rewritten_egraph_with_weight_cost_serd_faster-bottom-up_bottom-up.json
 # cd ..
 # cp graph2eqn/circuit0.eqn abc/op1.eqn
 # rm graph2eqn/circuit0.eqn
@@ -96,8 +96,8 @@ cd ..
 
 
 
-echo "-----------------------------graph_cost_serd_faster-bottom-up-----------------------------"
-cd graph2eqn/ && target/release/graph2eqn graph_cost_serd_faster-bottom-up.json
+echo "-----------------------------rewritten_egraph_with_weight_cost_serd_faster-bottom-up-----------------------------"
+cd graph2eqn/ && target/release/graph2eqn rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json
 cd ..
 cp graph2eqn/circuit0.eqn abc/op5.eqn
 rm graph2eqn/circuit0.eqn

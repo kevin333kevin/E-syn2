@@ -31,8 +31,8 @@ execute_command() {
 echo -e "${GREEN}Setting up required directories...${RESET}"
 
 # Setup directories
-ensure_dir "e-rewriter/dot_graph"
-ensure_dir "e-rewriter/random_dot"
+ensure_dir "e-rewriter/rewritten_circuit"
+ensure_dir "e-rewriter/random_graph"
 ensure_dir "extraction-gym/data/my_data"
 ensure_dir "extraction-gym/data/egg"
 ensure_dir "extraction-gym/out_dag_json/my_data"
@@ -61,7 +61,7 @@ if [ $test_type -eq 1 ]; then
     change_dir "e-rewriter/"
     execute_command "$feature_cmd circuit0.eqn $iteration_times $pattern"
     change_dir ".."
-    copy_file "e-rewriter/dot_graph/graph_internal_serd.json" "extraction-gym/data/my_data/"
+    copy_file "e-rewriter/rewritten_circuit/graph_internal_serd.json" "extraction-gym/data/my_data/"
 
     # if feature is feature2, run the extraction gym -> cd extraction-gym/ && make
 
@@ -98,8 +98,8 @@ if [ $test_type -eq 1 ]; then
             copy_file "process_json/out_process_result/result${i}.json" "graph2eqn/result${i}.json" 
         done
     elif [ "$feature" == "dag_cost" ]; then
-        echo -e "${YELLOW}Copying graph_cost_serd_faster-bottom-up.json ... Prepare graph for Equation conversion.${RESET}"
-        copy_file "process_json/out_process_dag_result/graph_cost_serd_faster-bottom-up.json" "graph2eqn/result.json" 
+        echo -e "${YELLOW}Copying rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json ... Prepare graph for Equation conversion.${RESET}"
+        copy_file "process_json/out_process_dag_result/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json" "graph2eqn/result.json" 
     fi
 
 
@@ -169,7 +169,7 @@ elif [ $test_type -eq 2 ]; then
     change_dir "e-rewriter/"
     execute_command "$feature_cmd circuit0.eqn $iteration_times $pattern"
     change_dir ".."
-    copy_file "e-rewriter/dot_graph/graph_cost_serd.json" "extraction-gym/data/my_data/"
+    copy_file "e-rewriter/rewritten_circuit/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json" "extraction-gym/data/my_data/"
 
     # if feature is feature2, run the extraction gym -> cd extraction-gym/ && make
 
@@ -190,16 +190,16 @@ elif [ $test_type -eq 2 ]; then
     execute_command "target/release/process_json"
     change_dir ".."
 
-    echo -e "${YELLOW}Copying graph_cost_serd_bottom-up.json ... Prepare graph for Equation conversion.${RESET}"
-    copy_file "process_json/out_process_dag_result/graph_cost_serd_bottom-up.json" "graph2eqn/graph_cost_serd_bottom-up.json"
-    echo -e "${YELLOW}Copying graph_cost_serd_faster-bottom-up.json ... Prepare graph for Equation conversion.${RESET}"
-    copy_file "process_json/out_process_dag_result/graph_cost_serd_faster-bottom-up.json" "graph2eqn/graph_cost_serd_faster-bottom-up.json"
-    echo -e "${YELLOW}Copying graph_cost_serd_faster-greedy-dag.json ... Prepare graph for Equation conversion.${RESET}"
-    copy_file "process_json/out_process_dag_result/graph_cost_serd_faster-greedy-dag.json" "graph2eqn/graph_cost_serd_faster-greedy-dag.json"
-    echo -e "${YELLOW}Copying graph_cost_serd_global-greedy-dag.json ... Prepare graph for Equation conversion.${RESET}"
-    copy_file "process_json/out_process_dag_result/graph_cost_serd_global-greedy-dag.json" "graph2eqn/graph_cost_serd_global-greedy-dag.json"
-    echo -e "${YELLOW}Copying graph_cost_serd_greedy-dag.json ... Prepare graph for Equation conversion.${RESET}"
-    copy_file "process_json/out_process_dag_result/graph_cost_serd_greedy-dag.json" "graph2eqn/graph_cost_serd_greedy-dag.json"
+    echo -e "${YELLOW}Copying rewritten_egraph_with_weight_cost_serd_faster-bottom-up_bottom-up.json ... Prepare graph for Equation conversion.${RESET}"
+    copy_file "process_json/out_process_dag_result/rewritten_egraph_with_weight_cost_serd_faster-bottom-up_bottom-up.json" "graph2eqn/rewritten_egraph_with_weight_cost_serd_faster-bottom-up_bottom-up.json"
+    echo -e "${YELLOW}Copying rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json ... Prepare graph for Equation conversion.${RESET}"
+    copy_file "process_json/out_process_dag_result/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json" "graph2eqn/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json"
+    echo -e "${YELLOW}Copying rewritten_egraph_with_weight_cost_serd_faster-bottom-up_faster-greedy-dag.json ... Prepare graph for Equation conversion.${RESET}"
+    copy_file "process_json/out_process_dag_result/rewritten_egraph_with_weight_cost_serd_faster-bottom-up_faster-greedy-dag.json" "graph2eqn/rewritten_egraph_with_weight_cost_serd_faster-bottom-up_faster-greedy-dag.json"
+    echo -e "${YELLOW}Copying rewritten_egraph_with_weight_cost_serd_faster-bottom-up_global-greedy-dag.json ... Prepare graph for Equation conversion.${RESET}"
+    copy_file "process_json/out_process_dag_result/rewritten_egraph_with_weight_cost_serd_faster-bottom-up_global-greedy-dag.json" "graph2eqn/rewritten_egraph_with_weight_cost_serd_faster-bottom-up_global-greedy-dag.json"
+    echo -e "${YELLOW}Copying rewritten_egraph_with_weight_cost_serd_faster-bottom-up_greedy-dag.json ... Prepare graph for Equation conversion.${RESET}"
+    copy_file "process_json/out_process_dag_result/rewritten_egraph_with_weight_cost_serd_faster-bottom-up_greedy-dag.json" "graph2eqn/rewritten_egraph_with_weight_cost_serd_faster-bottom-up_greedy-dag.json"
 
     end_time_process_process_json=$(date +%s.%N)
     runtime_process_process_json=$(echo "$end_time_process_process_json - $start_time_process_process_json" | bc)
@@ -209,11 +209,11 @@ elif [ $test_type -eq 2 ]; then
     echo -e "${YELLOW}<-----------------------------Process 3: Graph to Equation ----------------------------------------------->${RESET}"
     start_time_process_graph2eqn=$(date +%s.%N)
     change_dir "graph2eqn/"
-    execute_command "target/release/graph2eqn graph_cost_serd_bottom-up.json"
-    execute_command "target/release/graph2eqn graph_cost_serd_faster-bottom-up.json"
-    execute_command "target/release/graph2eqn graph_cost_serd_faster-greedy-dag.json"
-    execute_command "target/release/graph2eqn graph_cost_serd_global-greedy-dag.json"
-    execute_command "target/release/graph2eqn graph_cost_serd_greedy-dag.json"
+    execute_command "target/release/graph2eqn rewritten_egraph_with_weight_cost_serd_faster-bottom-up_bottom-up.json"
+    execute_command "target/release/graph2eqn rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json"
+    execute_command "target/release/graph2eqn rewritten_egraph_with_weight_cost_serd_faster-bottom-up_faster-greedy-dag.json"
+    execute_command "target/release/graph2eqn rewritten_egraph_with_weight_cost_serd_faster-bottom-up_global-greedy-dag.json"
+    execute_command "target/release/graph2eqn rewritten_egraph_with_weight_cost_serd_faster-bottom-up_greedy-dag.json"
 
     copy_file "circuit0.eqn" "../abc/opt_bottom-up.eqn"
     copy_file "circuit0.eqn" "../abc/opt_faster-bottom-up.eqn"

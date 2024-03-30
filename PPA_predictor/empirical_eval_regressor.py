@@ -58,11 +58,27 @@ gbr = GradientBoostingRegressorModel()
 gbr_param_grid = {'n_estimators': [50, 100, 200], 'learning_rate': [0.01, 0.1, 0.5], 'max_depth': [2, 4, 6]}
 gbr_mae, gbr_rrse, gbr_r, gbr_mape, gbr_rmse, gbr_best_params = cross_val_evaluate(gbr.model, X, y, gbr_param_grid)
 
-print("Linear Regression: MAE={}, RRSE={}, R_square={}, MAPE={}, RMSE={}, Best Params={}".format(lr_mae, lr_rrse, lr_r, lr_mape, lr_rmse, lr_best_params))
-print("Decision Tree: MAE={}, RRSE={}, R_square={}, MAPE={}, RMSE={}, Best Params={}".format(dt_mae, dt_rrse, dt_r, dt_mape, dt_rmse, dt_best_params))
-print("Random Forest: MAE={}, RRSE={}, R_square={}, MAPE={}, RMSE={}, Best Params={}".format(rf_mae, rf_rrse, rf_r, rf_mape, rf_rmse, rf_best_params))
-print("Ridge Regression: MAE={}, RRSE={}, R_square={}, MAPE={}, RMSE={}, Best Params={}".format(ridge_mae, ridge_rrse, ridge_r, ridge_mape, ridge_rmse, ridge_best_params))
-print("Lasso Regression: MAE={}, RRSE={}, R_square={}, MAPE={}, RMSE={}, Best Params={}".format(lasso_mae, lasso_rrse, lasso_r, lasso_mape, lasso_rmse, lasso_best_params))
-print("Elastic Net Regression: MAE={}, RRSE={}, R_square={}, MAPE={}, RMSE={}, Best Params={}".format(elastic_net_mae, elastic_net_rrse, elastic_net_r, elastic_net_mape, elastic_net_rmse, elastic_net_best_params))
-print("KNN Regression: MAE={}, RRSE={}, R_square={}, MAPE={}, RMSE={}, Best Params={}".format(knn_mae, knn_rrse, knn_r, knn_mape, knn_rmse, knn_best_params))
-print("Gradient Boosting Regression: MAE={}, RRSE={}, R_square={}, MAPE={}, RMSE={}, Best Params={}".format(gbr_mae, gbr_rrse, gbr_r, gbr_mape, gbr_rmse, gbr_best_params))
+print(
+    f"Linear Regression: MAE={lr_mae}, RRSE={lr_rrse}, R_square={lr_r}, MAPE={lr_mape}, RMSE={lr_rmse}, Best Params={lr_best_params}"
+)
+print(
+    f"Decision Tree: MAE={dt_mae}, RRSE={dt_rrse}, R_square={dt_r}, MAPE={dt_mape}, RMSE={dt_rmse}, Best Params={dt_best_params}"
+)
+print(
+    f"Random Forest: MAE={rf_mae}, RRSE={rf_rrse}, R_square={rf_r}, MAPE={rf_mape}, RMSE={rf_rmse}, Best Params={rf_best_params}"
+)
+print(
+    f"Ridge Regression: MAE={ridge_mae}, RRSE={ridge_rrse}, R_square={ridge_r}, MAPE={ridge_mape}, RMSE={ridge_rmse}, Best Params={ridge_best_params}"
+)
+print(
+    f"Lasso Regression: MAE={lasso_mae}, RRSE={lasso_rrse}, R_square={lasso_r}, MAPE={lasso_mape}, RMSE={lasso_rmse}, Best Params={lasso_best_params}"
+)
+print(
+    f"Elastic Net Regression: MAE={elastic_net_mae}, RRSE={elastic_net_rrse}, R_square={elastic_net_r}, MAPE={elastic_net_mape}, RMSE={elastic_net_rmse}, Best Params={elastic_net_best_params}"
+)
+print(
+    f"KNN Regression: MAE={knn_mae}, RRSE={knn_rrse}, R_square={knn_r}, MAPE={knn_mape}, RMSE={knn_rmse}, Best Params={knn_best_params}"
+)
+print(
+    f"Gradient Boosting Regression: MAE={gbr_mae}, RRSE={gbr_rrse}, R_square={gbr_r}, MAPE={gbr_mape}, RMSE={gbr_rmse}, Best Params={gbr_best_params}"
+)

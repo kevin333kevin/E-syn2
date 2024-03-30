@@ -29,8 +29,8 @@ execute_command() {
 echo -e "${GREEN}Setting up required directories...${RESET}"
 
 # Setup directories
-ensure_dir "e-rewriter/dot_graph"
-ensure_dir "e-rewriter/random_dot"
+ensure_dir "e-rewriter/rewritten_circuit"
+ensure_dir "e-rewriter/random_graph"
 ensure_dir "extraction-gym/data/my_data"
 ensure_dir "extraction-gym/data/egg"
 ensure_dir "extraction-gym/out_dag_json/my_data"
@@ -55,8 +55,9 @@ elif [ "$cost_function" == "delay" ]; then
 fi
 
 
-feature="dag_cost"
-feature_cmd="./target/release/e-rewriter-${feature}"
+# feature="dag_cost"
+# feature_cmd="./target/release/e-rewriter-${feature}"
+feature_cmd="./target/release/e-rewriter"
 echo -e "${YELLOW}Using feature label: ${feature}${RESET}"
 
 # Process 1: Rewrite the circuit
@@ -65,7 +66,7 @@ start_time_process_rw=$(date +%s.%N)
 change_dir "e-rewriter/"
 execute_command "$feature_cmd circuit0.eqn $iteration_times $pattern"
 change_dir ".."
-copy_file "e-rewriter/dot_graph/graph_cost_serd.json" "extraction-gym/data/my_data/"
+copy_file "e-rewriter/rewritten_circuit/rewritten_egraph_with_weight_cost_serd.json" "extraction-gym/data/my_data/"
 
 echo -e "${YELLOW}Running extraction gym...${RESET}"
 change_dir "extraction-gym/"
@@ -76,7 +77,7 @@ ext="faster-bottom-up"
 mkdir -p ${OUTPUT_DIR}
 
 # running the extraction process
-data="data/my_data/graph_cost_serd.json"
+data="data/my_data/rewritten_egraph_with_weight_cost_serd.json"
 base_name=$(basename "${data}" .json)
 out_file="${OUTPUT_DIR}/${base_name}-${ext}.json"
 
@@ -93,7 +94,7 @@ echo -e "${GREEN}Process 1 - Rewrite circuit completed.${RESET}"
 echo -e "${YELLOW}<-----------------------------Process 2: Extract the DAG and Process JSON----------------------------->${RESET}"
 start_time_process_process_json=$(date +%s.%N)
 
-#copy_file "extraction-gym/random_result/result9.json" "extraction-gym/out_dag_json/my_data/graph_cost_serd_faster-bottom-up.json"
+#copy_file "extraction-gym/random_result/result9.json" "extraction-gym/out_dag_json/my_data/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json"
 
 # randomly choose a result file under random_result/ to copy
 
@@ -101,17 +102,18 @@ start_time_process_process_json=$(date +%s.%N)
 change_dir "extraction-gym/random_result/"
 
 # Randomly choose one of the result*.json files and copy it
-find . -name 'result*.json' | shuf -n 1 | xargs -I{} cp {} ../out_dag_json/my_data/graph_cost_serd_faster-bottom-up.json
+find . -name 'result*.json' | shuf -n 1 | xargs -I{} cp {} ../out_dag_json/my_data/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json
 
 change_dir "-"
 
 change_dir "process_json/"
 execute_command "target/release/process_json"
+wait
 change_dir ".."
 
-# Copying the output of process_json to the extraction-gym/out_json/my_data/graph_cost_serd_faster-bottom-up.json
-echo -e "${YELLOW}Copying graph_cost_serd_faster-bottom-up.json ... Prepare graph for Equation conversion.${RESET}"
-copy_file "process_json/out_process_dag_result/graph_cost_serd_faster-bottom-up.json" "graph2eqn/result.json" 
+# Copying the output of process_json to the extraction-gym/out_json/my_data/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json
+echo -e "${YELLOW}Copying rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json ... Prepare graph for Equation conversion.${RESET}"
+copy_file "process_json/out_process_dag_result/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json" "graph2eqn/result.json" 
 
 end_time_process_process_json=$(date +%s.%N)
 runtime_process_process_json=$(echo "$end_time_process_process_json - $start_time_process_process_json" | bc)
@@ -121,7 +123,7 @@ echo -e "${GREEN}Process 2 - Extract DAG and Process JSON completed.${RESET}"
 echo -e "${YELLOW}<-----------------------------Process 3: Graph to Equation ----------------------------------------------->${RESET}"
 start_time_process_graph2eqn=$(date +%s.%N)
 change_dir "graph2eqn/"
-execute_command "target/release/graph2eqn result.json"
+execute_command "target/release/graph2eqn result.json" # 0 means do not check cyclic
 change_dir ".."
 copy_file "graph2eqn/circuit0.eqn" "abc/opt.eqn"
 end_time_process_graph2eqn=$(date +%s.%N)

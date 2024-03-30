@@ -25,9 +25,8 @@ done
 ├── data_process_script
 ├── deprecated
 ├── e-rewriter # rewriter and parser
-|   ├── dot_graph # rewriten circuits -> wait for extraction
+|   ├── rewritten_circuit # rewriten circuits -> wait for extraction
 │   ├── circuit0.eqn # put your circuit here
-│   ├── random_dot 
 │   ├── src
 │   ├── target
 ├── extraction-gym # extractor

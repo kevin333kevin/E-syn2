@@ -249,6 +249,9 @@ fn update_root_eclasses(graph_file: &Path, output_dir: &Path) {
     //println!("Output directory: {:?}", output_dir);
     // Read the graph data from the graph file
     let mut source_data = String::new();
+
+    println!("Graph file: {:?}", graph_file);
+
     File::open(graph_file)
         .unwrap()
         .read_to_string(&mut source_data)
@@ -340,7 +343,7 @@ fn main() {
     // Update root eclasses in the output files
     let graph_file = parent_dir
         .join("extraction-gym/data/my_data")
-        .join("graph_cost_serd.json");
+        .join("rewritten_egraph_with_weight_cost_serd.json");
     update_root_eclasses(
         &graph_file,
         &parent_dir.join("process_json/out_process_dag_result"),

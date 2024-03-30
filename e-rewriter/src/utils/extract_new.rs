@@ -3,17 +3,17 @@ use crate::utils::random_gen::*;
 use egg::*;
 use rand::prelude::SliceRandom;
 use rand::Rng;
+use rayon::prelude::*;
+use rustc_hash::{FxHashMap, FxHashSet};
 use serde::de::value;
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs::File;
 use std::fs::{self};
 use std::io::Write;
-use rustc_hash::{FxHashMap, FxHashSet};
-use std::cmp::Ordering;
-use rayon::prelude::*;
 use std::path::Path;
 pub struct Extractor2<'a, CF: CostFunction<L>, L: Language, N: Analysis<L>> {
     cost_function: CF,
@@ -143,6 +143,7 @@ where
 
         (cost, root)
     }
+
     /// Find the cheapest e-node in the given e-class.
     pub fn find_best_node(&self, eclass: Id) -> &L {
         &self.costs[&self.egraph.find(eclass)].2
@@ -232,8 +233,8 @@ where
             }
 
             let filename = format!("result{}.json", num);
-            let path = format!("random_dot/{}", filename);
-            if let Err(err) = fs::create_dir_all("random_dot") {
+            let path = format!("random_graph/{}", filename);
+            if let Err(err) = fs::create_dir_all("random_graph") {
                 eprintln!("Failed to create directory: {}", err);
                 continue; // Skip current iteration if directory creation fails
             }
