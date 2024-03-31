@@ -36,7 +36,9 @@ ensure_dir "extraction-gym/input"
 ensure_dir "extraction-gym/out_dag_json"
 ensure_dir "extraction-gym/out_json"
 #ensure_dir "extraction-gym/output/egg"
-ensure_dir "extraction-gym/output"
+ensure_dir "extraction-gym/output_log"
+ensure_dir "process_json/input_saturacted_egraph"
+ensure_dir "process_json/input_extracted_egraph"
 #ensure_dir "extraction-gym/input"
 #ensure_dir "extraction-gym/input/egg"
 
@@ -72,14 +74,14 @@ echo -e "${YELLOW}Running extraction gym...${RESET}"
 change_dir "extraction-gym/"
 
 # Creating the output directory if it doesn't exist
-OUTPUT_DIR="output"
+OUTPUT_DIR="output_log"
 ext="faster-bottom-up"
 mkdir -p ${OUTPUT_DIR}
 
 # running the extraction process
 data="input/rewritten_egraph_with_weight_cost_serd.json"
 base_name=$(basename "${data}" .json)
-out_file="${OUTPUT_DIR}/${base_name}-${ext}.json"
+out_file="${OUTPUT_DIR}/log-${base_name}-${ext}.json"
 
 echo "Running extractor for ${data} with ${ext}"
 target/release/extraction-gym "${data}" --cost-function="${cost_function}" --extractor="${ext}" --out="${out_file}"
@@ -102,12 +104,18 @@ start_time_process_process_json=$(date +%s.%N)
 change_dir "extraction-gym/random_result/"
 
 # Randomly choose one of the result*.json files and copy it
-find . -name 'result*.json' | shuf -n 1 | xargs -I{} cp {} ../out_dag_json/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json
+# find . -name 'result*.json' | shuf -n 1 | xargs -I{} cp {} ../out_dag_json/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json
 
 change_dir "-"
 
+# copy saturacted egraph from extraction-gym/input/ to process_json/input_saturacted_egraph
+copy_file "extraction-gym/input/rewritten_egraph_with_weight_cost_serd.json" "process_json/input_saturacted_egraph/"
+# copy extracted extraction-gym/out_dag_json/* to process_json/input_extracted_egraph/
+copy_file "extraction-gym/out_dag_json/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json" "process_json/input_extracted_egraph/"
+
 change_dir "process_json/"
-execute_command "target/release/process_json"
+
+execute_command "target/release/process_json --graph-file input_saturacted_egraph/rewritten_egraph_with_weight_cost_serd.json --extraction-result-dir input_extracted_egraph/ --extract-dag"
 wait
 change_dir ".."
 

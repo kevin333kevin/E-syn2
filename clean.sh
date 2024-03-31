@@ -26,6 +26,7 @@ directories=(
   "extraction-gym/out_json"
   "extraction-gym/out_process_dag_result"
   "extraction-gym/out_process_result"
+  "extraction-gym/output_log"
   "extraction-gym/output"
   "extraction-gym/random_result"
   "extraction-gym/out_dag_json"
@@ -33,6 +34,8 @@ directories=(
   "extraction-gym/input"
   "process_json/out_process_dag_result"
   "process_json/out_process_result"
+  "process_json/input_extracted_egraph"
+  "process_json/input_saturacted_egraph"
 )
 
 # Remove directories if they exist

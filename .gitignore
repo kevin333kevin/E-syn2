@@ -34,3 +34,6 @@ extraction-gym/out_dag_json/
 PPA_predictor/raw_dataset/
 e-rewriter/circuit0.eqn
 e-rewriter/modified_circuit0.eqn.json
+extraction-gym/output_log/
+process_json/input_extracted_egraph/
+process_json/input_saturacted_egraph/

@@ -1,7 +1,7 @@
-use rayon::prelude::*;
+use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use serde_json::{Map, Value};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::error::Error as StdError;
@@ -11,6 +11,7 @@ use std::io::prelude::*;
 use std::io::Error;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+
 
 // Struct representing the graph data
 // Contains a HashMap of nodes with string keys and Node values
@@ -191,11 +192,9 @@ fn process_files_in_directory(
             // println!("Processing file {}/{}", len, len);
             let input_file = path.to_str().expect("Invalid input file path");
 
-
             // Rename the file to have a .json extension
             let mut new_path = PathBuf::from(input_file);
             new_path.set_extension("json");
-
 
             if let Err(err) = fs::rename(&path, &new_path) {
                 println!("Failed to rename file: {:?}", err);
@@ -275,59 +274,99 @@ fn update_root_eclasses(graph_file: &Path, output_dir: &Path) {
     }
 }
 
+#[derive(Parser, Debug)]
+#[command(name = "process_json")]
+#[command(version)]
+#[command(about = "Process extracted graphs based on user input", long_about = None)]
+struct Args {
+    #[arg(
+        short,
+        long,
+        value_name = "FILE",
+        help = "Sets the input graph file",
+        required = true,
+    )]
+    graph_file: String,
+    #[arg(
+        short,
+        long,
+        value_name = "DIR",
+        help = "Sets the input extraction result directory",
+        required = true,
+    )]
+    extraction_result_dir: String,
+    #[arg(
+        short,
+        long,
+        help = "Extracts the graph based on DAG or tree-based extraction",
+    )]
+    extract_dag: bool,
+}
+
 fn main() {
+    let args = Args::parse();
+
+    let input_saturacted_graph_file = Path::new(&args.graph_file);
+    let input_extraction_result_dir = &args.extraction_result_dir;
+    let dag_based = args.extract_dag;
+
+    // print whether it is DAG-based or not
+    println!("DAG-based: {}", dag_based);
+
     // Get the current directory and parent directory
     let current_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let parent_dir = current_dir.parent().unwrap();
 
-    // Process files in out_json directory
-    let out_json_dir = parent_dir.join("extraction-gym/out_json");
-    let out_process_result_dir = "out_process_result";
-    process_files_in_directory(
-        &out_json_dir,
-        out_process_result_dir,
-        process_json_with_choices,
-        1,
-    ); // a=1 to use choices, a=0 to use DAG
+    if dag_based {
+        println!("Processing DAG-based extracted graphs...");
+        // Process files in out_dag_json directory
+        let out_dag_json_dir = Path::new(input_extraction_result_dir);
+        let out_process_dag_result_dir = "out_process_dag_result";
+        process_files_in_directory(
+            &out_dag_json_dir,
+            out_process_dag_result_dir,
+            process_json_with_choices,
+            0,
+        ); // a=1 to use choices, a=0 to use DAG
 
-    // Process files in out_dag_json directory
-    let out_dag_json_dir = parent_dir.join("extraction-gym/out_dag_json");
-    let out_process_dag_result_dir = "out_process_dag_result";
-    process_files_in_directory(
-        &out_dag_json_dir,
-        out_process_dag_result_dir,
-        process_json_with_choices,
-        0,
-    ); // a=1 to use choices, a=0 to use DAG
+        // Process files in out_process_dag_result directory
+        let out_process_dag_result_dir = parent_dir.join("process_json/out_process_dag_result");
+        process_files_in_directory(
+            &out_process_dag_result_dir,
+            out_process_dag_result_dir.to_str().unwrap(),
+            process_json_simplify_keys,
+            0,
+        ); // a=1 to use choices, a=0 to use DAG
 
-    // Process files in out_process_result directory
-    let out_process_result_dir = parent_dir.join("process_json/out_process_result");
-    process_files_in_directory(
-        &out_process_result_dir,
-        out_process_result_dir.to_str().unwrap(),
-        process_json_simplify_keys,
-        1,
-    ); // a=1 to use choices, a=0 to use DAG
+        // Update root eclasses in the output files for dag_based
+        update_root_eclasses(
+            &input_saturacted_graph_file,
+            &parent_dir.join("process_json/out_process_dag_result"),
+        );
+    } else {
+        // Process files in out_json directory
+        let out_json_dir = Path::new(input_extraction_result_dir);
+        let out_process_result_dir = "out_process_result";
+        process_files_in_directory(
+            &out_json_dir,
+            out_process_result_dir,
+            process_json_with_choices,
+            1,
+        ); // a=1 to use choices, a=0 to use DAG
 
-    // Process files in out_process_dag_result directory
-    let out_process_dag_result_dir = parent_dir.join("process_json/out_process_dag_result");
-    process_files_in_directory(
-        &out_process_dag_result_dir,
-        out_process_dag_result_dir.to_str().unwrap(),
-        process_json_simplify_keys,
-        0,
-    ); // a=1 to use choices, a=0 to use DAG
+        // Process files in out_process_result directory
+        let out_process_result_dir = parent_dir.join("process_json/out_process_result");
+        process_files_in_directory(
+            &out_process_result_dir,
+            out_process_result_dir.to_str().unwrap(),
+            process_json_simplify_keys,
+            1,
+        ); // a=1 to use choices, a=0 to use DAG
 
-    // Update root eclasses in the output files
-    let graph_file = parent_dir
-        .join("process_json/input_saturacted_egraph")
-        .join("rewritten_egraph_with_weight_cost_serd.json");
-    update_root_eclasses(
-        &graph_file,
-        &parent_dir.join("process_json/out_process_dag_result"),
-    );
-    update_root_eclasses(
-        &graph_file,
-        &parent_dir.join("process_json/out_process_result"),
-    );
+        // Update root eclasses in the output files for non-dag_based
+        update_root_eclasses(
+            &input_saturacted_graph_file,
+            &parent_dir.join("process_json/out_process_result"),
+        );
+    }
 }

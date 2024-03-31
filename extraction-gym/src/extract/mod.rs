@@ -6,6 +6,7 @@
 
 use indexmap::IndexMap;
 use rustc_hash::FxHashMap;
+use core::num;
 use std::collections::HashMap;
 
 pub use crate::*;
@@ -89,6 +90,12 @@ enum Status {
     Doing,
     Done,
 }
+
+#[derive(Serialize)]
+struct Wrapper<T> {
+    choices: T,
+}
+
 
 // Implement methods for ExtractionResult
 impl ExtractionResult {
@@ -258,6 +265,8 @@ impl ExtractionResult {
         let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
 
         for num in 0..num_runs {
+            // dump dag_cost_with_extraction_result to file
+            
             let mut result: FxHashMap<ClassId, NodeId> = FxHashMap::default();
             let mut selected_ids: FxHashSet<ClassId> = HashSet::default(); // used to track selected nodes
             for classid in dag_cost_with_extraction_result.choices.keys() {
@@ -291,10 +300,20 @@ impl ExtractionResult {
                 continue; // Skip current iteration if directory creation fails
             }
 
+            let wrapped_result = Wrapper {
+                choices: result,
+            };
+        
+
             if let Ok(mut file) = File::create(path) {
-                let json_dag_result = to_string_pretty(&result).unwrap();
-                let _ = write!(file, "{}", json_dag_result);
+                match to_string_pretty(&wrapped_result) {
+                    Ok(json_dag_result) => {
+                        let _ = write!(file, "{}", json_dag_result);
+                    },
+                    Err(e) => eprintln!("Failed to serialize data: {}", e),
+                }
             }
+
         }
     }
 }

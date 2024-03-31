@@ -58,7 +58,7 @@ fn get_fast_extractors() -> IndexMap<&'static str, Box<dyn Extractor>> {
 fn get_extractor_name(args: &mut pico_args::Arguments) -> String {
     args.opt_value_from_str("--extractor")
         .unwrap()
-        .unwrap_or_else(|| "bottom-up".into())
+        .unwrap_or_else(|| "faster-bottom-up".into())
 }
 
 // Function to print the extractor names
@@ -135,7 +135,7 @@ fn get_extractor<'a>(
 // Returns: The formatted filename as a `String`
 fn format_modified_name(modified_filename: &str, extractor_name: &str) -> String {
     format!(
-        "{}_{}",
+        "{}_{}.json",
         &modified_filename[..modified_filename.len() - 5],
         extractor_name,
     )
@@ -291,7 +291,7 @@ fn main() {
 
     // Log the result
     log_result(&filename, &extractor_name, dag_cost, us);
-    // Write the result to the output file
+    // Write the result to the output file (log file)
     write_output_file(
         &mut out_file,
         &filename,
