@@ -300,4 +300,7 @@ fn main() {
         dag_cost,
         us,
     );
+
+    // print time consumption of tree-based extraction as seconds
+    println!("Time consumption of tree-based extraction: {} seconds", us as f64 / 1000000.0);
 }

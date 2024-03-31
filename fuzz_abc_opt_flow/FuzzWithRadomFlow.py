@@ -4,7 +4,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 # Function to execute a single ABC flow
 def execute_flow(flow):
     # Prepare the command with the given flow
-    command = "../abc/abc -c \"abcrc; read_eqn ../abc/ori.eqn; strash; {} ;read_lib ../abc/asap7_clean.lib ; map ; topo; upsize; dnsize; stime -d\"".format(flow)
+    command = "../abc/abc -c \"abcrc; read_eqn ../abc/opt.eqn; strash; {} ;read_lib ../abc/asap7_clean.lib ; map ; topo; upsize; dnsize; stime -d\"".format(flow)
     # Execute the command
     os.system(command)
     
