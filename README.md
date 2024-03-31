@@ -27,23 +27,19 @@ done
 ├── e-rewriter # rewriter and parser
 |   ├── rewritten_circuit # rewriten circuits -> wait for extraction
 │   ├── circuit0.eqn # put your circuit here
-│   ├── src
+│   ├── src # includes frontend parser (eqn2egraph) and egraph-serializer
 │   ├── target
 ├── extraction-gym # extractor
-│   ├── data
-│   │   ├── egg
-│   │   └── my_data # 1. saturacted circuits graphs for extraction (copied from e-rewriter)
-│   ├── out_dag_json
-│   │   └── my_data # 4. raw json marked the extracted nodes - dag based extraction
-│   ├── out_json
-│   │   └── my_data # 4. raw json marked the extracted nodes - tree based extraction
-│   ├── output
-│   │   ├── egg
-│   │   └── my_data # 3. log files during extraction
-│   ├── random_result # 2. random extraction results -> raw json (will copy to out_json and out_dag_json)
+│   ├── input # 1. saturacted circuits graphs for extraction (copied from e-rewriter)
+│   ├── out_dag_json # 4. raw json marked the extracted nodes - dag based extraction
+│   ├── out_json # 4. raw json marked the extracted nodes - tree based extraction
+│   ├── output-log # 3. log files during extraction
+│   ├── random_result # 2. random extraction results -> raw json (optionally replacing to out_json and out_dag_json)
 │   ├── src
 │   └── target
 ├── process_json # post-processing script for extracted results
+│   ├── input_saturacted_egraph # saturacted circuits
+│   ├── input_extracted_egraph # extracted circuits
 │   ├── out_process_dag_result # processed json (handled extracted nodes raw json)
 │   ├── out_process_result # processed json (handled extracted nodes raw json)
 │   ├── src

@@ -121,5 +121,11 @@ if [ -d "extraction-gym" ]; then
   echo -e "${GREEN}Ran cargo clean in extraction-gym directory${RESET}"
 fi
 
+# Execute cargo clean in e-rewriter/src/egraph-serialize directory
+if [ -d "e-rewriter/src/egraph-serialize" ]; then
+  (cd e-rewriter/src/egraph-serialize && cargo clean)
+  echo -e "${GREEN}Ran cargo clean in e-rewriter/src/egraph-serialize directory${RESET}"
+fi
+
 
 echo -e "${GREEN}Cleaning complete.${RESET}"
