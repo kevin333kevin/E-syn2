@@ -171,7 +171,7 @@ fn print_dag_cost(dag_cost: Cost) {
 //   - `data`: A reference to the data to serialize and write as JSON
 fn write_json_result<T: serde::Serialize>(filename: &str, data: &T) {
     let json_result = to_string_pretty(data).unwrap();
-    let _ = fs::create_dir_all("out_json/my_data");
+    let _ = fs::create_dir_all("out_json");
     let __ = fs::write(filename, json_result);
 }
 
@@ -241,8 +241,8 @@ fn main() {
     let filename = get_input_filename(&mut args);
 
     // Modify the filename for JSON output
-    let modified_filename_for_tree_cost = modify_filename(&filename, "data/", "out_json/");
-    let modified_filename_for_dag_cost = modify_filename(&filename, "data/", "out_dag_json/");
+    let modified_filename_for_tree_cost = modify_filename(&filename, "input/", "out_json/");
+    let modified_filename_for_dag_cost = modify_filename(&filename, "input/", "out_dag_json/");
 
     // Check for any remaining arguments
     let rest = args.finish();

@@ -75,7 +75,7 @@ def process_json1(input_file,a):
 output_dir = 'out_process_result1'
 os.makedirs(output_dir, exist_ok=True)
 input_dir = os.path.join(os.getcwd(), 'out_json', 'my_data')
-#input_dir = '/data/cchen/extraction-gym-new/extraction-gym/out_json/my_data/'
+#input_dir = '/data/cchen/extraction-gym-new/extraction-gym/out_json/'
 files = [file for file in os.listdir(input_dir)]
 
 for file in files:
@@ -89,7 +89,7 @@ for file in files:
 
 output_dir = 'out_process_dag_result1'
 os.makedirs(output_dir, exist_ok=True)
-#input_dir = '/data/cchen/extraction-gym-new/extraction-gym/out_dag_json/my_data/'
+#input_dir = '/data/cchen/extraction-gym-new/extraction-gym/out_dag_json/'
 input_dir = os.path.join(os.getcwd(), 'out_dag_json', 'my_data')
 files = [file for file in os.listdir(input_dir)]
 

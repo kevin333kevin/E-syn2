@@ -6,13 +6,13 @@ if [ ! -d "e-rewriter/rewritten_circuit" ]; then
 fi
 
 # Check if the required folders exist under extraction-gym; if not, create them
-if [ ! -d "extraction-gym/data" ]; then
-    mkdir -p extraction-gym/data/my_data
-    mkdir -p extraction-gym/data/egg
+if [ ! -d "extraction-gym/input" ]; then
+    mkdir -p extraction-gym/input
+    mkdir -p extraction-gym/input/egg
 fi
 
 if [ ! -d "extraction-gym/out_dag_json" ]; then
-    mkdir -p extraction-gym/out_dag_json/my_data
+    mkdir -p extraction-gym/out_dag_json
 fi
 
 # if [ ! -d "extraction-gym/out_process_result" ]; then
@@ -20,7 +20,7 @@ fi
 # fi
 
 if [ ! -d "extraction-gym/out_json" ]; then
-    mkdir -p extraction-gym/out_json/my_data
+    mkdir -p extraction-gym/out_json
 fi
 
 # if [ ! -d "extraction-gym/out_process_dag_result" ]; then
@@ -29,7 +29,7 @@ fi
 
 if [ ! -d "extraction-gym/output" ]; then
     mkdir -p extraction-gym/output/egg
-    mkdir -p extraction-gym/output/my_data
+    mkdir -p extraction-gym/output
 fi
 
 
@@ -51,7 +51,7 @@ end_time_process2=$(date +%s.%N)
 start_time_process2_2=$(date +%s.%N)
 
 for i in {0..19}; do
-  cp e-rewriter/random_result/result${i}.json extraction-gym/out_json/my_data/
+  cp e-rewriter/random_result/result${i}.json extraction-gym/out_json/
 done
 
 cd process_json/ && target/release/process_json

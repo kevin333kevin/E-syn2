@@ -33,12 +33,12 @@ echo -e "${GREEN}Setting up required directories...${RESET}"
 # Setup directories
 ensure_dir "e-rewriter/rewritten_circuit"
 ensure_dir "e-rewriter/random_graph"
-ensure_dir "extraction-gym/data/my_data"
-ensure_dir "extraction-gym/data/egg"
-ensure_dir "extraction-gym/out_dag_json/my_data"
-ensure_dir "extraction-gym/out_json/my_data"
+ensure_dir "extraction-gym/input"
+ensure_dir "extraction-gym/input/egg"
+ensure_dir "extraction-gym/out_dag_json"
+ensure_dir "extraction-gym/out_json"
 ensure_dir "extraction-gym/output/egg"
-ensure_dir "extraction-gym/output/my_data"
+ensure_dir "extraction-gym/output"
 
 echo -e "${GREEN}Setup complete.${RESET}\n"
 
@@ -61,7 +61,7 @@ if [ $test_type -eq 1 ]; then
     change_dir "e-rewriter/"
     execute_command "$feature_cmd circuit0.eqn $iteration_times $pattern"
     change_dir ".."
-    copy_file "e-rewriter/rewritten_circuit/graph_internal_serd.json" "extraction-gym/data/my_data/"
+    copy_file "e-rewriter/rewritten_circuit/graph_internal_serd.json" "extraction-gym/input/"
 
     # if feature is feature2, run the extraction gym -> cd extraction-gym/ && make
 
@@ -79,10 +79,10 @@ if [ $test_type -eq 1 ]; then
     # Process 2: Extract the DAG and Process JSON
     echo -e "${YELLOW}<-----------------------------Process 2: Extract the DAG and Process JSON----------------------------->${RESET}"
     start_time_process_process_json=$(date +%s.%N)
-    copy_file "e-rewriter/result.json" "extraction-gym/out_json/my_data"
+    copy_file "e-rewriter/result.json" "extraction-gym/out_json"
 
     for i in $(seq 0 19); do
-        copy_file "e-rewriter/random_result/result${i}.json" "extraction-gym/out_json/my_data/"
+        copy_file "e-rewriter/random_result/result${i}.json" "extraction-gym/out_json/"
     done
 
     change_dir "process_json/"
@@ -169,7 +169,7 @@ elif [ $test_type -eq 2 ]; then
     change_dir "e-rewriter/"
     execute_command "$feature_cmd circuit0.eqn $iteration_times $pattern"
     change_dir ".."
-    copy_file "e-rewriter/rewritten_circuit/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json" "extraction-gym/data/my_data/"
+    copy_file "e-rewriter/rewritten_circuit/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json" "extraction-gym/input/"
 
     # if feature is feature2, run the extraction gym -> cd extraction-gym/ && make
 

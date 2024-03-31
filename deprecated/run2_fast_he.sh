@@ -6,13 +6,13 @@ if [ ! -d "e-rewriter/rewritten_circuit" ]; then
 fi
 
 # Check if the required folders exist under extraction-gym; if not, create them
-if [ ! -d "extraction-gym/data" ]; then
-    mkdir -p extraction-gym/data/my_data
-    mkdir -p extraction-gym/data/egg
+if [ ! -d "extraction-gym/input" ]; then
+    mkdir -p extraction-gym/input
+    mkdir -p extraction-gym/input/egg
 fi
 
 if [ ! -d "extraction-gym/out_dag_json" ]; then
-    mkdir -p extraction-gym/out_dag_json/my_data
+    mkdir -p extraction-gym/out_dag_json
 fi
 
 # if [ ! -d "extraction-gym/out_process_result" ]; then
@@ -20,7 +20,7 @@ fi
 # fi
 
 if [ ! -d "extraction-gym/out_json" ]; then
-    mkdir -p extraction-gym/out_json/my_data
+    mkdir -p extraction-gym/out_json
 fi
 
 # if [ ! -d "extraction-gym/out_process_dag_result" ]; then
@@ -29,7 +29,7 @@ fi
 
 if [ ! -d "extraction-gym/output" ]; then
     mkdir -p extraction-gym/output/egg
-    mkdir -p extraction-gym/output/my_data
+    mkdir -p extraction-gym/output
 fi
 
 
@@ -40,7 +40,7 @@ start_time_process1=$(date +%s.%N)
 cd e-rewriter/ && cargo run  --features feature3 circuit0.eqn 
 
 cd ..
-cp e-rewriter/rewritten_circuit/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json extraction-gym/data/my_data/
+cp e-rewriter/rewritten_circuit/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json extraction-gym/input/
 end_time_process1=$(date +%s.%N)
 runtime_process1=$(echo "$end_time_process1 - $start_time_process1" | bc)
 
@@ -89,7 +89,7 @@ start_time_process1=$(date +%s.%N)
 cd e-rewriter/ && cargo run  --features feature2 circuit0.eqn 
 
 cd ..
-cp e-rewriter/rewritten_circuit/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json extraction-gym/data/my_data/
+cp e-rewriter/rewritten_circuit/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json extraction-gym/input/
 end_time_process1=$(date +%s.%N)
 runtime_process1=$(echo "$end_time_process1 - $start_time_process1" | bc)
 

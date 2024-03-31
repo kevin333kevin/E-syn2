@@ -52,7 +52,7 @@ fn process_json_with_choices(
     // Get the current directory and parent directory
     let current_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let parent_dir = current_dir.parent().unwrap();
-    let input_dir = parent_dir.join("extraction-gym/data/my_data");
+    let input_dir = parent_dir.join("extraction-gym/input");
 
     // Find all JSON files in the input directory
     let json_files: Vec<PathBuf> = input_dir
@@ -184,28 +184,6 @@ fn process_files_in_directory(
             })
             .collect();
 
-        // Process each file in parallel
-        // file_paths.par_iter().for_each(|path| {
-        //     let input_file = path.to_str().expect("Invalid input file path");
-
-        //     // Rename the file to have a .json extension
-        //     let mut new_path = PathBuf::from(input_file);
-        //     new_path.set_extension("json");
-
-        //     if let Err(err) = fs::rename(&path, &new_path) {
-        //         println!("Failed to rename file: {:?}", err);
-        //         return;
-        //     }
-
-        //     // Process the file using the provided processing function
-        //     if let Err(err) = process_func(new_path.to_str().unwrap(), output_dir, a) {
-        //         eprintln!(
-        //             "Error processing file {}: {}",
-        //             new_path.to_str().unwrap(),
-        //             err
-        //         );
-        //     }
-        // });
         // process file one by one
         for path in file_paths {
             // get the length of file_paths
@@ -250,7 +228,7 @@ fn update_root_eclasses(graph_file: &Path, output_dir: &Path) {
     // Read the graph data from the graph file
     let mut source_data = String::new();
 
-    println!("Graph file: {:?}", graph_file);
+    //println!("Graph file: {:?}", graph_file);
 
     File::open(graph_file)
         .unwrap()
@@ -303,7 +281,7 @@ fn main() {
     let parent_dir = current_dir.parent().unwrap();
 
     // Process files in out_json directory
-    let out_json_dir = parent_dir.join("extraction-gym/out_json/my_data");
+    let out_json_dir = parent_dir.join("extraction-gym/out_json");
     let out_process_result_dir = "out_process_result";
     process_files_in_directory(
         &out_json_dir,
@@ -313,7 +291,7 @@ fn main() {
     ); // a=1 to use choices, a=0 to use DAG
 
     // Process files in out_dag_json directory
-    let out_dag_json_dir = parent_dir.join("extraction-gym/out_dag_json/my_data");
+    let out_dag_json_dir = parent_dir.join("extraction-gym/out_dag_json");
     let out_process_dag_result_dir = "out_process_dag_result";
     process_files_in_directory(
         &out_dag_json_dir,
@@ -342,7 +320,7 @@ fn main() {
 
     // Update root eclasses in the output files
     let graph_file = parent_dir
-        .join("extraction-gym/data/my_data")
+        .join("process_json/input_saturacted_egraph")
         .join("rewritten_egraph_with_weight_cost_serd.json");
     update_root_eclasses(
         &graph_file,
