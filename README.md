@@ -87,8 +87,8 @@ done
 ├── run.sh
 ├── test.sh
 ├── Makefile
-├── tmp_log
-│   ├── abc_opt_all_{timestamp}.log # log file for abc optimization (complete log)
-│   ├── abc_opt_all_formatted_{timestamp}.log # log file for abc optimization (formatted log)
-│   └── log_{iteration_number}_no_feature.txt # log file for each iteration (no feature extraction)
+└── tmp_log
+    ├── abc_opt_all_{timestamp}.log # log file for abc optimization (complete log)
+    ├── abc_opt_all_formatted_{timestamp}.log # log file for abc optimization (formatted log)
+    └── log_{iteration_number}_no_feature.txt # log file for each iteration (no feature extraction)
 ```
