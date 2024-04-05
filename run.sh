@@ -39,6 +39,7 @@ ensure_dir "extraction-gym/out_json"
 ensure_dir "extraction-gym/output_log"
 ensure_dir "process_json/input_saturacted_egraph"
 ensure_dir "process_json/input_extracted_egraph"
+ensure_dir "process_json/out_process_dag_result"
 #ensure_dir "extraction-gym/input"
 #ensure_dir "extraction-gym/input/egg"
 
@@ -115,7 +116,7 @@ copy_file "extraction-gym/out_dag_json/rewritten_egraph_with_weight_cost_serd_fa
 
 change_dir "process_json/"
 
-execute_command "target/release/process_json --graph-file input_saturacted_egraph/rewritten_egraph_with_weight_cost_serd.json --extraction-result-dir input_extracted_egraph/ --extract-dag"
+execute_command "target/release/process_json -s input_saturacted_egraph/rewritten_egraph_with_weight_cost_serd.json -e input_extracted_egraph/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json -o out_process_dag_result/rewritten_egraph_with_weight_cost_serd_faster-bottom-up.json -g"
 wait
 change_dir ".."
 
