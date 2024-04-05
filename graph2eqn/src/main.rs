@@ -207,10 +207,12 @@ fn main() {
     // Read the file path from the command line arguments
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        println!("Usage: <program> <path_to_json_file>");
+        println!("Usage: <program> <path_to_input_json_file> <path_to_output_circuit_file> <check_cyclic>");
         std::process::exit(1);
     }
     let file_path = &args[1];
+
+    let output_path = &args[2];
 
     // Open the file and read the JSON content
     let mut file = File::open(file_path).expect("Unable to open file");
@@ -223,8 +225,8 @@ fn main() {
 
     // read final args that check if the graph is cyclic or not
     // let check_cyclic = &args[2] if args.len() > 2 else "0";
-    if args.len() == 3 {
-        let check_cyclic = &args[2];
+    if args.len() == 4 {
+        let check_cyclic = &args[3];
         if check_cyclic == "1" {
             println!("Checking for cyclic graph");
             // Check if the graph is cyclic
@@ -290,7 +292,9 @@ fn main() {
         write_to_file(
             &variables,
             parts,
-            &format!("circuit{}.eqn", i),
+            //&format!("circuit{}.eqn", i),
+            // use output_path instead of hardcoded circuit{}.eqn
+            &format!("{}", output_path),
             "p",
             visited,
             &prefix_mapping,

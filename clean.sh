@@ -68,6 +68,8 @@ fi
 # Special case for abc: remove .eqn files if they exist
 if [ -d "abc" ]; then
   rm -f abc/*.eqn 2>/dev/null
+  # clean stats.txt in abc/
+  rm -f abc/stats.txt 2>/dev/null
   echo -e "${GREEN}Cleaned abc directory${RESET}"
 fi
 

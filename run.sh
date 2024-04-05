@@ -93,36 +93,25 @@ extract_dag_and_process_json() {
     echo -e "${YELLOW}<-----------------------------Process 2: Extract the DAG and Process JSON----------------------------->${RESET}"
     start_time_process_process_json=$(date +%s.%N)
 
-    #change_dir "extraction-gym/random_result/"
-    #change_dir "-"
-
-    # copy saturated egraph from extraction-gym/input/ to process_json/input_saturacted_egraph
     copy_file "extraction-gym/input/rewritten_egraph_with_weight_cost_serd.json" "process_json/input_saturacted_egraph/"
 
-    # if pattern contains `random`
-
     if [[ "$pattern" == *"random"* ]]; then
-        # copy all the file from extraction-gym/random_out_dag_json/ to process_json/input_extracted_egraph/
         for file in extraction-gym/random_out_dag_json/*; do
             copy_file "$file" "process_json/input_extracted_egraph/"
         done
         change_dir "process_json/"
         input_saturacted_egraph_path="input_saturacted_egraph/rewritten_egraph_with_weight_cost_serd.json"
-        # make a for loop to parallel execute process_json for each extracted egraph
-        for file in input_extracted_egraph/*; do
-            input_extracted_egraph_path="$file"
-            output_path="out_process_dag_result/${file##*/}"
-            execute_command "target/release/process_json -s ${input_saturacted_egraph_path} -e ${input_extracted_egraph_path} -o ${output_path} -g"
-        done
+        
+        # Parallel execution of process_json for each extracted egraph
+        ls input_extracted_egraph/* | parallel --eta "target/release/process_json -s ${input_saturacted_egraph_path} -e {} -o out_process_dag_result/{/} -g"
+        
         change_dir ".."
 
-        # Copying the output of process_json to the extraction-gym/out_json/rewritten_egraph_with_weight_cost_serd_${pattern}_${file##*/}.json
         echo -e "${YELLOW}Copying rewritten and extracted egraph files ... Prepare graph for Equation conversion.${RESET}"
         for file in process_json/out_process_dag_result/*; do
             copy_file "$file" "graph2eqn/${file##*/}"
         done
     else
-        # copy extracted extraction-gym/out_dag_json/* to process_json/input_extracted_egraph/
         copy_file "extraction-gym/out_dag_json/rewritten_egraph_with_weight_cost_serd_${pattern}.json" "process_json/input_extracted_egraph/"
         change_dir "process_json/"
 
@@ -133,12 +122,9 @@ extract_dag_and_process_json() {
         execute_command "target/release/process_json -s ${input_saturacted_egraph_path} -e ${input_extracted_egraph_path} -o ${output_path} -g"
         change_dir ".."
 
-        # Copying the output of process_json to the extraction-gym/out_json/rewritten_egraph_with_weight_cost_serd_${pattern}.json
         echo -e "${YELLOW}Copying rewritten and extracted egraph files ... Prepare graph for Equation conversion.${RESET}"
         copy_file "process_json/out_process_dag_result/rewritten_egraph_with_weight_cost_serd_${pattern}.json" "graph2eqn/result.json"
     fi
-
-    
 
     end_time_process_process_json=$(date +%s.%N)
     runtime_process_process_json=$(echo "$end_time_process_process_json - $start_time_process_process_json" | bc)
@@ -150,23 +136,28 @@ graph_to_equation() {
     echo -e "${YELLOW}<-----------------------------Process 3: Graph to Equation ----------------------------------------------->${RESET}"
     start_time_process_graph2eqn=$(date +%s.%N)
     change_dir "graph2eqn/"
-    # if pattern contains `random`
+    
     if [[ "$pattern" == *"random"* ]]; then
-        # for file of .json in current directory
-        for file in ./*.json; do
-            execute_command "target/release/graph2eqn $file" # 0 means do not check cyclic
-            # change name for circuit0.eqn to circuit0_{i}.eqn
-            # extract the number of filename
-            index=$(echo "$file" | grep -oP '(?<=_)\d+(?=\.json)')
-            mv "circuit0.eqn" "circuit0_$index.eqn"
-            copy_file "circuit0_$index.eqn" "../abc/opt_$index.eqn"
+        # Parallel execution of graph2eqn for each JSON file
+        ls ./*.json | parallel --eta 'target/release/graph2eqn {} circuit_opt_{/}.eqn'
+        #ls ./*.json | parallel --eta 'echo {/} | sed "s/[^0-9]*\([0-9]\+\).*/\1/" | xargs -I{} target/release/graph2eqn {1} circuit_opt_{}.eqn' ::: {} 
+        
+        # Rename circuit0.eqn to circuit0_{i}.eqn and copy to abc directory
+        #ls ./*.json | parallel --eta 'index=$(echo "{}" | grep -oP "(?<=_)\d+(?=\.json)"); mv "circuit0.eqn" "circuit0_$index.eqn"; copy_file "circuit0_$index.eqn" "../abc/opt_$index.eqn"'
+        
+        # Copy optimized circuits to abc directory
+        for file in ./*.eqn; do
+            index=$(echo "$file" | awk -F'[_.]' '{print $(NF-2)}' )
+            copy_file "$file" "../abc/opt_$index.eqn"
         done
+
         change_dir ".."
     else
-        execute_command "target/release/graph2eqn result.json" # 0 means do not check cyclic
+        execute_command "target/release/graph2eqn result.json circuit0.eqn"
         change_dir ".."
         copy_file "graph2eqn/circuit0.eqn" "abc/opt.eqn"
     fi
+    
     end_time_process_graph2eqn=$(date +%s.%N)
     runtime_process_graph2eqn=$(echo "$end_time_process_graph2eqn - $start_time_process_graph2eqn" | bc)
     echo -e "${GREEN}Process 3 - Graph to Equation completed.${RESET}"
@@ -183,11 +174,12 @@ run_abc() {
     execute_command "./abc -c \"read_eqn ori.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
     
     if [[ "$pattern" == *"random"* ]]; then
-        # make a file in ../tmp_log/abc_opt_all.log with head `    i   o  Gates Area  Delay`
-        echo "    i   o  Gates Area  Delay" > ../tmp_log/abc_opt_all.log
-        for file in ./opt_*.eqn; do
-            execute_command "./abc -c \"read_eqn $file;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime -d\"" >> ../tmp_log/abc_opt_all.log
-        done
+        timestamp=$(date +%Y%m%d%H%M%S)
+        echo "    i   o  Gates Area  Delay" > ../abc/stats.txt
+        # Parallel execution of ABC for each optimized circuit
+        ls ./opt_*.eqn | parallel --eta "./abc -c \"read_eqn {};st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime -d\"" >> ../tmp_log/abc_opt_all_${timestamp}.log
+        # copy right from ./stats.txt to ../tmp_log/abc_opt_all_{timestamp}.log
+        copy_file "stats.txt" "../tmp_log/abc_opt_all_formatted_${timestamp}.log"
     else
         execute_command "./abc -c \"read_eqn opt.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
     fi
@@ -201,9 +193,8 @@ run_abc() {
 compare_circuits() {
     echo -e "${YELLOW}<-----------------------------Final Step: Comparing Original and Optimized Circuit----------------------------->${RESET}"
     if [[ "$pattern" == *"random"* ]]; then
-        for file in ./opt_*.eqn; do
-            execute_command "./abc -c \"cec ori.eqn $file\""
-        done
+        # Parallel execution of cec for each optimized circuit
+        ls ./opt_*.eqn | parallel --eta "./abc -c \"cec ori.eqn {}\""
     else
         execute_command "./abc -c \"cec ori.eqn opt.eqn\""
     fi
