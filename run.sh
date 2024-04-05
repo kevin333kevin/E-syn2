@@ -48,6 +48,12 @@ get_user_input() {
     read -p "Enter the cost function for extraction-gym (optional, could be 'area' or 'delay'): " cost_function
     read -p "Enter the extraction pattern for e-rewriter (optional, could be 'faster-bottom-up' or 'random-based-faster-bottom-up', etc): " pattern
 
+    # if pattern is provided with *random*
+    if [[ "$pattern" == *"random"* ]]; then
+        read -p "Enter the number of samplings for random pattern (optional): " num_samplings
+        read -p "Enter the probability of randomization (optional): " prob_randomization
+    fi
+
     # if cost_function is 'area', replace it with 'node_sum_cost', if it is 'delay', replace it with 'node_depth_cost'
     if [ "$cost_function" == "area" ]; then
         cost_function="node_sum_cost"
@@ -65,6 +71,16 @@ rewrite_circuit() {
     change_dir ".."
     copy_file "e-rewriter/rewritten_circuit/rewritten_egraph_with_weight_cost_serd.json" "extraction-gym/input/"
 
+    end_time_process_rw=$(date +%s.%N)
+    runtime_process_rw=$(echo "$end_time_process_rw - $start_time_process_rw" | bc)
+    echo -e "${GREEN}Process 1 - Rewrite circuit completed.${RESET}"
+}
+
+# Function to extract the DAG
+
+extract_dag() {
+    echo -e "${YELLOW}<-----------------------------Process 2: Extract DAG------------------------------>${RESET}"
+    start_time_process_extract=$(date +%s.%N)
     echo -e "${YELLOW}Running extraction gym...${RESET}"
     change_dir "extraction-gym/"
 
@@ -79,18 +95,18 @@ rewrite_circuit() {
     out_file="${OUTPUT_DIR}/log-${base_name}-${ext}.json"
 
     echo "Running extractor for ${data} with ${ext}"
-    target/release/extraction-gym "${data}" --cost-function="${cost_function}" --extractor="${pattern}" --out="${out_file}"
+    target/release/extraction-gym "${data}" --cost-function="${cost_function}" --extractor="${pattern}" --out="${out_file}" --num-samples="${num_samplings}" --random-prob="${prob_randomization}"
 
     change_dir ".."
-
-    end_time_process_rw=$(date +%s.%N)
-    runtime_process_rw=$(echo "$end_time_process_rw - $start_time_process_rw" | bc)
-    echo -e "${GREEN}Process 1 - Rewrite circuit completed.${RESET}"
+    end_time_process_extract=$(date +%s.%N)
+    runtime_process_extract=$(echo "$end_time_process_extract - $start_time_process_extract" | bc)
+    echo -e "${GREEN}Process 2 - Extract DAG completed.${RESET}"
 }
 
-# Function to extract the DAG and process JSON
-extract_dag_and_process_json() {
-    echo -e "${YELLOW}<-----------------------------Process 2: Extract the DAG and Process JSON----------------------------->${RESET}"
+
+# Function to process JSON
+process_json() {
+    echo -e "${YELLOW}<-----------------------------Process 3: Process JSON----------------------------->${RESET}"
     start_time_process_process_json=$(date +%s.%N)
 
     copy_file "extraction-gym/input/rewritten_egraph_with_weight_cost_serd.json" "process_json/input_saturacted_egraph/"
@@ -128,12 +144,12 @@ extract_dag_and_process_json() {
 
     end_time_process_process_json=$(date +%s.%N)
     runtime_process_process_json=$(echo "$end_time_process_process_json - $start_time_process_process_json" | bc)
-    echo -e "${GREEN}Process 2 - Extract DAG and Process JSON completed.${RESET}"
+    echo -e "${GREEN}Process 3 - Extract DAG and Process JSON completed.${RESET}"
 }
 
 # Function to convert graph to equation
 graph_to_equation() {
-    echo -e "${YELLOW}<-----------------------------Process 3: Graph to Equation ----------------------------------------------->${RESET}"
+    echo -e "${YELLOW}<-----------------------------Process 4: Graph to Equation ----------------------------------------------->${RESET}"
     start_time_process_graph2eqn=$(date +%s.%N)
     change_dir "graph2eqn/"
     
@@ -160,12 +176,12 @@ graph_to_equation() {
     
     end_time_process_graph2eqn=$(date +%s.%N)
     runtime_process_graph2eqn=$(echo "$end_time_process_graph2eqn - $start_time_process_graph2eqn" | bc)
-    echo -e "${GREEN}Process 3 - Graph to Equation completed.${RESET}"
+    echo -e "${GREEN}Process 4 - Graph to Equation completed.${RESET}"
 }
 
 # Function to run ABC on the original and optimized circuit
 run_abc() {
-    echo -e "${YELLOW}<------------------------------Process 4: Run ABC on the original and optimized circuit, and conduct equivalent checking------------------->${RESET}"
+    echo -e "${YELLOW}<------------------------------Process 5: Run ABC on the original and optimized circuit, and conduct equivalent checking------------------->${RESET}"
     copy_file "e-rewriter/circuit0.eqn" "abc/ori.eqn"
     start_time_process_abc=$(date +%s.%N)
 
@@ -186,7 +202,7 @@ run_abc() {
 
     end_time_process_abc=$(date +%s.%N)
     runtime_process_abc=$(echo "$end_time_process_abc - $start_time_process_abc" | bc)
-    echo -e "${GREEN}Process 4 - Run ABC on the original and optimized circuit completed.${RESET}"
+    echo -e "${GREEN}Process 5 - Run ABC on the original and optimized circuit completed.${RESET}"
 }
 
 # Function to compare original and optimized circuit
@@ -207,7 +223,8 @@ report_runtime() {
     echo -e "${GREEN}All processes completed successfully.${RESET}"
 
     echo -e "${GREEN}Rewrite circuit completed in ${RED}$runtime_process_rw${GREEN} seconds.${RESET}"
-    echo -e "${GREEN}Extract DAG and Process JSON completed in ${RED}$runtime_process_process_json${GREEN} seconds.${RESET}"
+    echo -e "${GREEN}Extract DAG completed in ${RED}$runtime_process_extract${GREEN} seconds.${RESET}"
+    echo -e "${GREEN}Process JSON completed in ${RED}$runtime_process_process_json${GREEN} seconds.${RESET}"
     echo -e "${GREEN}Graph to Equation in ${RED}$runtime_process_graph2eqn${GREEN} seconds.${RESET}"
     echo -e "${GREEN}Run ABC on the original and optimized circuit completed in ${RED}$runtime_process_abc${GREEN} seconds.${RESET}"
     echo -e "${GREEN}Total runtime: ${RED}$(echo "scale=2; $runtime_process_rw + $runtime_process_process_json + $runtime_process_graph2eqn + $runtime_process_abc" | bc)${GREEN} seconds.${RESET}"
@@ -220,7 +237,8 @@ echo -e "${YELLOW}Using feature label: ${feature}${RESET}"
 setup_directories
 get_user_input 
 rewrite_circuit # eqn2egraph, rewrite
-extract_dag_and_process_json # extract from saturated egraph, process json
+extract_dag # extract from saturated egraph, extract dag
+process_json # extract from saturated egraph, process json
 graph_to_equation # egraph2eqn
 run_abc
 compare_circuits  # logic equivalence check

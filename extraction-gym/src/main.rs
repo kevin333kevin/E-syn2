@@ -79,6 +79,17 @@ fn print_extractor_names(extractors: &IndexMap<&str, Box<dyn Extractor>>) {
     }
 }
 
+// Function to get randomized extractors
+fn get_random_sampling_settings(args: &mut pico_args::Arguments) -> (u32, f64) {
+    let num_samples = args.opt_value_from_str("--num-samples")
+        .unwrap()
+        .unwrap_or(30);
+    let random_prob = args.opt_value_from_str("--random-prob")
+        .unwrap()
+        .unwrap_or(0.1);
+    (num_samples, random_prob)
+}
+
 // Function to get the cost function from the command-line arguments
 // Input: A mutable reference to the `pico_args::Arguments` instance
 // Returns: The cost function as a `String`, defaulting to "node_depth_cost" if not provided
@@ -137,6 +148,7 @@ fn get_extractor<'a>(
     for name in extractors.keys() {
         println!("{}", name);
     }
+    println!("Your chosen extractor: {}", extractor_name);
     extractors
         .get(extractor_name)
         .with_context(|| format!("Unknown extractor: {extractor_name}"))
@@ -241,9 +253,12 @@ fn run_extract_result_parallel(
     roots: Arc<[ClassId]>,
     cost_function: Arc<str>,
     k: f64, // random probability parameter
+    num_samples: u32, // number of samples to take
     result_channel: Sender<ExtractionResult>,
 ) {
-    let num_runs = 30;
+    // print the parameters of random sampling
+    println!("num samples: {}, random probability: {}", num_samples, k);
+    let num_runs = num_samples;
     let pool = ThreadPoolBuilder::new().num_threads(64).build().unwrap();
     for _ in 0..num_runs {
         let extractor = Arc::clone(&extractor);
@@ -287,6 +302,8 @@ fn main() {
     // Modify the filename for JSON output
     let modified_filename_for_tree_cost = modify_filename(&filename, "input/", "out_json/");
     let modified_filename_for_dag_cost = modify_filename(&filename, "input/", "out_dag_json/");
+
+    let (num_samples, random_prob) = get_random_sampling_settings(&mut args);
 
     // Check for any remaining arguments
     let rest = args.finish();
@@ -360,7 +377,7 @@ fn main() {
             "Time consumption of tree-based extraction: {} seconds",
             us as f64 / 1000000.0
         );
-    } else {
+    } else { // extractor is random-based-faster-bottom-up
         // if the extractor is random
         let extractor: Arc<dyn Extractor + Send + Sync> = Arc::new(FasterBottomUpExtractor_random);
         let (result_sender, result_receiver) = channel();
@@ -374,7 +391,10 @@ fn main() {
             Arc::new(egraph.clone()),
             Arc::from(egraph.root_eclasses.clone()),
             cost_function,
-            0.1,
+            //0.1, // random probability parameter
+            //30, // number of samples to take
+            random_prob,
+            num_samples,
             result_sender,
         );
         //let extraction_result = result_receiver.recv().unwrap();
