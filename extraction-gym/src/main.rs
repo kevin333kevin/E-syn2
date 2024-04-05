@@ -7,16 +7,22 @@ pub use extract::*;
 // Import necessary dependencies
 use egraph_serialize::*;
 
+use crate::faster_bottom_up::FasterBottomUpExtractor_random;
 use anyhow::Context;
+use im_rc::iter;
 use indexmap::IndexMap;
 use ordered_float::NotNan;
+use rayon::ThreadPool;
+use rayon::ThreadPoolBuilder;
 use serde_json::to_string_pretty;
 use std::fs;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 use std::path::PathBuf;
-
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Mutex};
+use std::thread;
 // Define a type alias for the cost value
 pub type Cost = NotNan<f64>;
 
@@ -43,6 +49,10 @@ fn get_fast_extractors() -> IndexMap<&'static str, Box<dyn Extractor>> {
         (
             "global-greedy-dag",
             extract::global_greedy_dag::GlobalGreedyDagExtractor.boxed(),
+        ),
+        (
+            "random-based-faster-bottom-up",
+            extract::faster_bottom_up::FasterBottomUpExtractor_random.boxed(),
         ),
     ]
     .into_iter()
@@ -123,9 +133,10 @@ fn get_extractor<'a>(
     extractor_name: &str,
 ) -> &'a Box<dyn Extractor> {
     // print all extractors
-    // for name in extractors.keys() {
-    //     println!("{}", name);
-    // }
+    println!("Available extractors:");
+    for name in extractors.keys() {
+        println!("{}", name);
+    }
     extractors
         .get(extractor_name)
         .with_context(|| format!("Unknown extractor: {extractor_name}"))
@@ -158,7 +169,7 @@ fn extract_result(
     root_eclasses: &[ClassId],
     cost_function: &str,
 ) -> ExtractionResult {
-    extractor.extract(egraph, root_eclasses, cost_function)
+    extractor.extract(egraph, root_eclasses, cost_function, 0.0) // 0.0 here prohibits randomness
 }
 
 // Function to print the DAG cost
@@ -175,7 +186,7 @@ fn print_dag_cost(dag_cost: Cost) {
 //   - `data`: A reference to the data to serialize and write as JSON
 fn write_json_result<T: serde::Serialize>(filename: &str, data: &T) {
     let json_result = to_string_pretty(data).unwrap();
-    let _ = fs::create_dir_all("out_json");
+    //let _ = fs::create_dir_all("out_json");
     let __ = fs::write(filename, json_result);
 }
 
@@ -216,6 +227,35 @@ fn write_output_file(
 }}"#
     )
     .unwrap();
+}
+
+fn get_iteration(args: &mut pico_args::Arguments) -> u32 {
+    args.opt_value_from_str("--iteration")
+        .unwrap()
+        .unwrap_or_else(|| 1)
+}
+
+fn run_extract_result_parallel(
+    extractor: Arc<dyn Extractor + Send + Sync>,
+    egraph: Arc<EGraph>,
+    roots: Arc<[ClassId]>,
+    cost_function: Arc<str>,
+    k: f64, // random probability parameter
+    result_channel: Sender<ExtractionResult>,
+) {
+    let num_runs = 30;
+    let pool = ThreadPoolBuilder::new().num_threads(64).build().unwrap();
+    for _ in 0..num_runs {
+        let extractor = Arc::clone(&extractor);
+        let egraph = Arc::clone(&egraph);
+        let roots = Arc::clone(&roots);
+        let cost_function = Arc::clone(&cost_function);
+        let result_channel = result_channel.clone();
+        pool.spawn(move || {
+            let result = extractor.extract(&egraph, &roots, &cost_function, k);
+            result_channel.send(result).unwrap();
+        });
+    }
 }
 
 // Main function
@@ -264,47 +304,106 @@ fn main() {
     let extractor = get_extractor(&extractors, &extractor_name);
 
     // Format the modified filename with the extractor name
-    let modified_name_for_tree_cost = format_modified_name(&modified_filename_for_tree_cost, &extractor_name);
-    let modified_name_for_dag_cost = format_modified_name(&modified_filename_for_dag_cost, &extractor_name);
+    let modified_name_for_tree_cost =
+        format_modified_name(&modified_filename_for_tree_cost, &extractor_name);
+    let modified_name_for_dag_cost =
+        format_modified_name(&modified_filename_for_dag_cost, &extractor_name);
 
     // Record the start time
     let start_time = std::time::Instant::now();
 
-    // Extract the result using the selected extractor
-    let tree_cost_extraction_result = extract_result(extractor, &egraph, &egraph.root_eclasses, &cost_function);
+    // if the extractor is not random
+    if extractor_name != "random-based-faster-bottom-up" {
+        // Extract the result using the selected extractor
+        let tree_cost_extraction_result =
+            extract_result(extractor, &egraph, &egraph.root_eclasses, &cost_function);
 
-    // Calculate the elapsed time in microseconds
-    let us = start_time.elapsed().as_micros();
-    // Assert that the result has no cycles
-    assert!(tree_cost_extraction_result
-        .find_cycles(&egraph, &egraph.root_eclasses)
-        .is_empty());
+        // Calculate the elapsed time in microseconds
+        let us = start_time.elapsed().as_micros();
+        // Assert that the result has no cycles
+        assert!(tree_cost_extraction_result
+            .find_cycles(&egraph, &egraph.root_eclasses)
+            .is_empty());
 
-    // Calculate the DAG cost and the DAG cost with extraction result
-    let (dag_cost, dag_cost_extraction_result) =
-        tree_cost_extraction_result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
-    // Print the DAG cost
-    print_dag_cost(dag_cost);
+        // Calculate the DAG cost and the DAG cost with extraction result
+        let (dag_cost, dag_cost_extraction_result) = tree_cost_extraction_result
+            .calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+        // Print the DAG cost
+        print_dag_cost(dag_cost);
 
-    // Record random costs based on the extraction result
-    tree_cost_extraction_result.record_costs_random(10, 0.5, &egraph, &dag_cost_extraction_result);
+        // Record random costs based on the extraction result
+        // tree_cost_extraction_result.record_costs_random(
+        //     10,
+        //     0.5,
+        //     &egraph,
+        //     &dag_cost_extraction_result,
+        // );
 
-    // Write the JSON result to files
-    write_json_result(&modified_name_for_tree_cost, &tree_cost_extraction_result);
-    write_json_result(&modified_name_for_dag_cost, &dag_cost_extraction_result);
+        // Write the JSON result to files
+        write_json_result(&modified_name_for_tree_cost, &tree_cost_extraction_result);
+        write_json_result(&modified_name_for_dag_cost, &dag_cost_extraction_result);
 
-    // Log the result
-    log_result(&filename, &extractor_name, dag_cost, us);
-    // Write the result to the output file (log file)
-    write_output_file(
-        &mut out_file,
-        &filename,
-        &modified_name_for_dag_cost,
-        &extractor_name,
-        dag_cost,
-        us,
-    );
+        // Log the result
+        log_result(&filename, &extractor_name, dag_cost, us);
+        // Write the result to the output file (log file)
+        write_output_file(
+            &mut out_file,
+            &filename,
+            &modified_name_for_dag_cost,
+            &extractor_name,
+            dag_cost,
+            us,
+        );
 
-    // print time consumption of tree-based extraction as seconds
-    println!("Time consumption of tree-based extraction: {} seconds", us as f64 / 1000000.0);
+        // print time consumption of tree-based extraction as seconds
+        println!(
+            "Time consumption of tree-based extraction: {} seconds",
+            us as f64 / 1000000.0
+        );
+    } else {
+        // if the extractor is random
+        let extractor: Arc<dyn Extractor + Send + Sync> = Arc::new(FasterBottomUpExtractor_random);
+        let (result_sender, result_receiver) = channel();
+        let cost_function: Arc<str> = Arc::from(cost_function);
+
+        // Extract the result using the selected extractor
+        //  let tree_cost_extraction_result = extract_result(extractor, &egraph, &egraph.root_eclasses, &cost_function);
+
+        run_extract_result_parallel(
+            extractor,
+            Arc::new(egraph.clone()),
+            Arc::from(egraph.root_eclasses.clone()),
+            cost_function,
+            0.1,
+            result_sender,
+        );
+        //let extraction_result = result_receiver.recv().unwrap();
+        let mut extraction_results = Vec::new();
+        loop {
+            match result_receiver.recv() {
+                Ok(extraction_result) => {
+                    extraction_results.push(extraction_result);
+                }
+                Err(_) => break,
+            }
+        }
+
+        // modify `modified_name_for_dag_cost`, replace `out_` with `random_`
+        let modified_name_for_dag_cost = modify_filename(
+            &modified_name_for_dag_cost,
+            "out_dag_json/",
+            "random_out_dag_json/",
+        );
+        for (i, extraction_result) in extraction_results.iter().enumerate() {
+            let (dag_cost, dag_cost_extraction_result_depth) = extraction_result
+                .calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+            //let dag_cost_file_name = format!("{}{}", modified_name_for_dag_cost, i + 1);
+            let dag_cost_file_name = modify_filename(
+                &modified_name_for_dag_cost,
+                ".json",
+                &format!("_{}.json", i),
+            );
+            write_json_result(&dag_cost_file_name, &dag_cost_extraction_result_depth);
+        }
+    }
 }

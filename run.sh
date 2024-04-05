@@ -38,6 +38,7 @@ setup_directories() {
     ensure_dir "process_json/input_saturacted_egraph"
     ensure_dir "process_json/input_extracted_egraph"
     ensure_dir "process_json/out_process_dag_result"
+    ensure_dir "extraction-gym/random_out_dag_json/"
     echo -e "${GREEN}Setup complete.${RESET}\n"
 }
 
@@ -45,7 +46,7 @@ setup_directories() {
 get_user_input() {
     read -p "Enter the number of iteration times (optional): " iteration_times
     read -p "Enter the cost function for extraction-gym (optional, could be 'area' or 'delay'): " cost_function
-    read -p "Enter the extraction pattern for e-rewriter (optional, could be 'random'): " pattern
+    read -p "Enter the extraction pattern for e-rewriter (optional, could be 'faster-bottom-up' or 'random-based-faster-bottom-up', etc): " pattern
 
     # if cost_function is 'area', replace it with 'node_sum_cost', if it is 'delay', replace it with 'node_depth_cost'
     if [ "$cost_function" == "area" ]; then
@@ -97,21 +98,47 @@ extract_dag_and_process_json() {
 
     # copy saturated egraph from extraction-gym/input/ to process_json/input_saturacted_egraph
     copy_file "extraction-gym/input/rewritten_egraph_with_weight_cost_serd.json" "process_json/input_saturacted_egraph/"
-    # copy extracted extraction-gym/out_dag_json/* to process_json/input_extracted_egraph/
-    copy_file "extraction-gym/out_dag_json/rewritten_egraph_with_weight_cost_serd_${pattern}.json" "process_json/input_extracted_egraph/"
 
-    change_dir "process_json/"
+    # if pattern contains `random`
 
-    input_saturacted_egraph_path="input_saturacted_egraph/rewritten_egraph_with_weight_cost_serd.json"
-    input_extracted_egraph_path="input_extracted_egraph/rewritten_egraph_with_weight_cost_serd_${pattern}.json"
-    output_path="out_process_dag_result/rewritten_egraph_with_weight_cost_serd_${pattern}.json"
+    if [[ "$pattern" == *"random"* ]]; then
+        # copy all the file from extraction-gym/random_out_dag_json/ to process_json/input_extracted_egraph/
+        for file in extraction-gym/random_out_dag_json/*; do
+            copy_file "$file" "process_json/input_extracted_egraph/"
+        done
+        change_dir "process_json/"
+        input_saturacted_egraph_path="input_saturacted_egraph/rewritten_egraph_with_weight_cost_serd.json"
+        # make a for loop to parallel execute process_json for each extracted egraph
+        for file in input_extracted_egraph/*; do
+            input_extracted_egraph_path="$file"
+            output_path="out_process_dag_result/${file##*/}"
+            execute_command "target/release/process_json -s ${input_saturacted_egraph_path} -e ${input_extracted_egraph_path} -o ${output_path} -g"
+        done
+        change_dir ".."
 
-    execute_command "target/release/process_json -s ${input_saturacted_egraph_path} -e ${input_extracted_egraph_path} -o ${output_path} -g"
-    change_dir ".."
+        # Copying the output of process_json to the extraction-gym/out_json/rewritten_egraph_with_weight_cost_serd_${pattern}_${file##*/}.json
+        echo -e "${YELLOW}Copying rewritten and extracted egraph files ... Prepare graph for Equation conversion.${RESET}"
+        for file in process_json/out_process_dag_result/*; do
+            copy_file "$file" "graph2eqn/${file##*/}"
+        done
+    else
+        # copy extracted extraction-gym/out_dag_json/* to process_json/input_extracted_egraph/
+        copy_file "extraction-gym/out_dag_json/rewritten_egraph_with_weight_cost_serd_${pattern}.json" "process_json/input_extracted_egraph/"
+        change_dir "process_json/"
 
-    # Copying the output of process_json to the extraction-gym/out_json/rewritten_egraph_with_weight_cost_serd_${pattern}.json
-    echo -e "${YELLOW}Copying rewritten_egraph_with_weight_cost_serd_${pattern}.json ... Prepare graph for Equation conversion.${RESET}"
-    copy_file "process_json/out_process_dag_result/rewritten_egraph_with_weight_cost_serd_${pattern}.json" "graph2eqn/result.json"
+        input_saturacted_egraph_path="input_saturacted_egraph/rewritten_egraph_with_weight_cost_serd.json"
+        input_extracted_egraph_path="input_extracted_egraph/rewritten_egraph_with_weight_cost_serd_${pattern}.json"
+        output_path="out_process_dag_result/rewritten_egraph_with_weight_cost_serd_${pattern}.json"
+
+        execute_command "target/release/process_json -s ${input_saturacted_egraph_path} -e ${input_extracted_egraph_path} -o ${output_path} -g"
+        change_dir ".."
+
+        # Copying the output of process_json to the extraction-gym/out_json/rewritten_egraph_with_weight_cost_serd_${pattern}.json
+        echo -e "${YELLOW}Copying rewritten and extracted egraph files ... Prepare graph for Equation conversion.${RESET}"
+        copy_file "process_json/out_process_dag_result/rewritten_egraph_with_weight_cost_serd_${pattern}.json" "graph2eqn/result.json"
+    fi
+
+    
 
     end_time_process_process_json=$(date +%s.%N)
     runtime_process_process_json=$(echo "$end_time_process_process_json - $start_time_process_process_json" | bc)
@@ -123,9 +150,23 @@ graph_to_equation() {
     echo -e "${YELLOW}<-----------------------------Process 3: Graph to Equation ----------------------------------------------->${RESET}"
     start_time_process_graph2eqn=$(date +%s.%N)
     change_dir "graph2eqn/"
-    execute_command "target/release/graph2eqn result.json" # 0 means do not check cyclic
-    change_dir ".."
-    copy_file "graph2eqn/circuit0.eqn" "abc/opt.eqn"
+    # if pattern contains `random`
+    if [[ "$pattern" == *"random"* ]]; then
+        # for file of .json in current directory
+        for file in ./*.json; do
+            execute_command "target/release/graph2eqn $file" # 0 means do not check cyclic
+            # change name for circuit0.eqn to circuit0_{i}.eqn
+            # extract the number of filename
+            index=$(echo "$file" | grep -oP '(?<=_)\d+(?=\.json)')
+            mv "circuit0.eqn" "circuit0_$index.eqn"
+            copy_file "circuit0_$index.eqn" "../abc/opt_$index.eqn"
+        done
+        change_dir ".."
+    else
+        execute_command "target/release/graph2eqn result.json" # 0 means do not check cyclic
+        change_dir ".."
+        copy_file "graph2eqn/circuit0.eqn" "abc/opt.eqn"
+    fi
     end_time_process_graph2eqn=$(date +%s.%N)
     runtime_process_graph2eqn=$(echo "$end_time_process_graph2eqn - $start_time_process_graph2eqn" | bc)
     echo -e "${GREEN}Process 3 - Graph to Equation completed.${RESET}"
@@ -136,9 +177,20 @@ run_abc() {
     echo -e "${YELLOW}<------------------------------Process 4: Run ABC on the original and optimized circuit, and conduct equivalent checking------------------->${RESET}"
     copy_file "e-rewriter/circuit0.eqn" "abc/ori.eqn"
     start_time_process_abc=$(date +%s.%N)
+
     change_dir "abc/"
+
     execute_command "./abc -c \"read_eqn ori.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
-    execute_command "./abc -c \"read_eqn opt.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
+    
+    if [[ "$pattern" == *"random"* ]]; then
+        # make a file in ../tmp_log/abc_opt_all.log with head `    i   o  Gates Area  Delay`
+        echo "    i   o  Gates Area  Delay" > ../tmp_log/abc_opt_all.log
+        for file in ./opt_*.eqn; do
+            execute_command "./abc -c \"read_eqn $file;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime -d\"" >> ../tmp_log/abc_opt_all.log
+        done
+    else
+        execute_command "./abc -c \"read_eqn opt.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
+    fi
 
     end_time_process_abc=$(date +%s.%N)
     runtime_process_abc=$(echo "$end_time_process_abc - $start_time_process_abc" | bc)
@@ -148,7 +200,14 @@ run_abc() {
 # Function to compare original and optimized circuit
 compare_circuits() {
     echo -e "${YELLOW}<-----------------------------Final Step: Comparing Original and Optimized Circuit----------------------------->${RESET}"
-    execute_command "./abc -c \"cec ori.eqn opt.eqn\""
+    if [[ "$pattern" == *"random"* ]]; then
+        for file in ./opt_*.eqn; do
+            execute_command "./abc -c \"cec ori.eqn $file\""
+        done
+    else
+        execute_command "./abc -c \"cec ori.eqn opt.eqn\""
+    fi
+
     change_dir ".."
 }
 

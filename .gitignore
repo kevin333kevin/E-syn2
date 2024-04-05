@@ -37,3 +37,5 @@ e-rewriter/modified_circuit0.eqn.json
 extraction-gym/output_log/
 process_json/input_extracted_egraph/
 process_json/input_saturacted_egraph/
+extraction-gym/random_out_dag_json/*.json
+tmp_log/*.log

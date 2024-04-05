@@ -2,7 +2,7 @@ use super::*;
 
 pub struct BottomUpExtractor;
 impl Extractor for BottomUpExtractor {
-    fn extract(&self, egraph: &EGraph, _roots: &[ClassId], cost_function: &str) -> ExtractionResult {
+    fn extract(&self, egraph: &EGraph, _roots: &[ClassId], cost_function: &str, random_prob: f64) -> ExtractionResult {
         let mut result = ExtractionResult::default();
         let mut costs = FxHashMap::<ClassId, Cost>::with_capacity_and_hasher(
             egraph.classes().len(),

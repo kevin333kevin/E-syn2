@@ -27,7 +27,7 @@ pub mod ilp_cbc;
 pub trait Extractor: Sync {
     // extract method takes an EGraph, roots, and cost_function as input
     // and returns an ExtractionResult
-    fn extract(&self, egraph: &EGraph, roots: &[ClassId], cost_function: &str) -> ExtractionResult;
+    fn extract(&self, egraph: &EGraph, roots: &[ClassId], cost_function: &str, random_prob: f64) -> ExtractionResult;
 
     // boxed method allows creating a boxed instance of the Extractor trait
     fn boxed(self) -> Box<dyn Extractor>

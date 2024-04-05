@@ -15,11 +15,16 @@ use super::*;
 /// it does this by tracking parent-child relationships and storing relevant nodes
 /// in a work list (UniqueQueue).
 pub struct FasterBottomUpExtractor;
-
 pub struct FasterBottomUpExtractor_random;
 
 impl Extractor for FasterBottomUpExtractor {
-    fn extract(&self, egraph: &EGraph, _roots: &[ClassId], cost_function: &str) -> ExtractionResult {
+    fn extract(
+        &self,
+        egraph: &EGraph,
+        _roots: &[ClassId],
+        cost_function: &str,
+        random_prob: f64,
+    ) -> ExtractionResult {
         let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
         let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
         let mut analysis_pending = UniqueQueue::default();
@@ -68,7 +73,89 @@ impl Extractor for FasterBottomUpExtractor {
     }
 }
 
-// impl Extractor for FasterBottomUpExtractor_random {
+impl Extractor for FasterBottomUpExtractor_random {
+    fn extract(
+        &self,
+        egraph: &EGraph,
+        _roots: &[ClassId],
+        cost_function: &str,
+        random_prob: f64,
+    ) -> ExtractionResult {
+        let k = random_prob;
+        let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
+        let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
+        let mut analysis_pending = UniqueQueue::default();
+
+        for class in egraph.classes().values() {
+            parents.insert(class.id.clone(), Vec::new());
+        }
+
+        for class in egraph.classes().values() {
+            for node in &class.nodes {
+                for c in &egraph[node].children {
+                    // compute parents of this enode
+                    parents[n2c(c)].push(node.clone());
+                    //println!("Node: {:?}", node);
+                }
+
+                // start the analysis from leaves
+                if egraph[node].is_leaf() {
+                    analysis_pending.insert(node.clone());
+                }
+            }
+        }
+
+        let mut result = ExtractionResult::default();
+        let mut costs = FxHashMap::<ClassId, Cost>::with_capacity_and_hasher(
+            egraph.classes().len(),
+            Default::default(),
+        );
+        let mut chosen_classes = HashSet::<ClassId>::new(); // 新增的 HashSet
+        while let Some(node_id) = analysis_pending.pop() {
+            let class_id = n2c(&node_id);
+            let node = &egraph[&node_id];
+            let prev_cost = costs.get(class_id).unwrap_or(&INFINITY);
+            let cost = match cost_function {
+                "node_sum_cost" => result.node_sum_cost(egraph, node, &costs),
+                "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
+                _ => panic!("Unknown cost function: {}", cost_function),
+            };
+            let mut rng = rand::thread_rng();
+            let random_value: f64 = rng.gen();
+            // if     (cost < *prev_cost) {
+            //     result.choose(class_id.clone(), node_id.clone());
+            //     costs.insert(class_id.clone(), cost);
+            //     analysis_pending.extend(parents[class_id].iter().cloned());
+
+            // }
+
+            //version1
+            if ((random_value >= k) && (cost < *prev_cost)) || (*prev_cost == std::f64::INFINITY) {
+                result.choose(class_id.clone(), node_id.clone());
+                costs.insert(class_id.clone(), cost);
+                analysis_pending.extend(parents[class_id].iter().cloned());
+            }
+
+            //version2
+            //  if      ((random_value >= k) &&(cost < *prev_cost)) {
+            //     result.choose(class_id.clone(), node_id.clone());
+            //     costs.insert(class_id.clone(), cost);
+            //     analysis_pending.extend(parents[class_id].iter().cloned());
+            //     chosen_classes.insert(class_id.clone());
+            // }
+            //     else if chosen_classes.contains(&class_id) {
+            //     continue;}
+            //     else{
+            //         result.choose(class_id.clone(), node_id.clone());
+            //         costs.insert(class_id.clone(), cost);
+            //         analysis_pending.extend(parents[class_id].iter().cloned());
+            //         chosen_classes.insert(class_id.clone());
+            //     }
+        }
+
+        result
+    }
+}
 
 /** A data structure to maintain a queue of unique elements.
 

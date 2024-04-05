@@ -29,6 +29,7 @@ directories=(
   "extraction-gym/output_log"
   "extraction-gym/output"
   "extraction-gym/random_result"
+  "extraction-gym/random_out_dag_json"
   "extraction-gym/out_dag_json"
   "extraction-gym/input"
   "extraction-gym/input"

@@ -94,7 +94,7 @@ impl FasterGreedyDagExtractor {
 }
 
 impl Extractor for FasterGreedyDagExtractor {
-    fn extract(&self, egraph: &EGraph, _roots: &[ClassId],cost_function: &str) -> ExtractionResult {
+    fn extract(&self, egraph: &EGraph, _roots: &[ClassId],cost_function: &str, random_prob: f64) -> ExtractionResult {
         let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
         let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
         let mut analysis_pending = MostlyUniquePriorityQueue::default();
