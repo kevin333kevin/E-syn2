@@ -7,11 +7,23 @@ make
 chmod +x ./run.sh && ./run.sh
 ```
 
-run with iterations experiments:
+quick start:
+
+```bash
+echo -e "30\ndelay\nfaster-bottom-up\n" | bash run.sh    
+```
+
+run with randomized extraction experiments:
+
+```bash
+echo -e "60\narea\nrandom-based-faster-bottom-up\n40\n0.8\n" | bash run.sh 
+```
+
+run with iterations experiments (without randomized extraction):
 
 ```bash
 for i in $(seq 5 5 50); do
-  echo -e "${i}\ndelay\nrandom" | bash run.sh > tmp_log/log_${i}_no_feature.txt
+  echo -e "${i}\ndelay\nfaster-bottom-up\n" | bash run.sh > tmp_log/log_${i}_no_feature.txt
   wait
 done
 ```
@@ -31,17 +43,16 @@ done
 │   ├── target
 ├── extraction-gym # extractor
 │   ├── input # 1. saturacted circuits graphs for extraction (copied from e-rewriter)
-│   ├── out_dag_json # 4. raw json marked the extracted nodes - dag based extraction
-│   ├── out_json # 4. raw json marked the extracted nodes - tree based extraction
-│   ├── output_log # 3. log files during extraction
-│   ├── random_result # 2. random extraction results -> raw json (optionally replacing to out_json and out_dag_json)
+│   ├── out_dag_json # 2. raw json marked the extracted nodes - dag based extraction
+│   ├── out_json # 2. raw json marked the extracted nodes - tree based extraction
+│   ├── random_out_dag_json # 3. random extraction results -> raw json (random-based extraction)
+│   ├── output_log # 4. log files during extraction
 │   ├── src
 │   └── target
 ├── process_json # post-processing script for extracted results
 │   ├── input_saturacted_egraph # saturacted circuits
 │   ├── input_extracted_egraph # extracted circuits
 │   ├── out_process_dag_result # processed json (handled extracted nodes raw json)
-│   ├── out_process_result # processed json (handled extracted nodes raw json)
 │   ├── src
 │   └── target
 ├── graph2eqn # convert extracted circuits to eqn format
@@ -56,5 +67,8 @@ done
 ├── run.sh
 ├── test.sh
 ├── Makefile
-└── tmp_log
+├── tmp_log
+│   ├── abc_opt_all_{timestamp}.log # log file for abc optimization (complete log)
+│   ├── abc_opt_all_formatted_{timestamp}.log # log file for abc optimization (formatted log)
+│   └── log_{iteration_number}_no_feature.txt # log file for each iteration (no feature extraction)
 ```

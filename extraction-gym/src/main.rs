@@ -83,10 +83,10 @@ fn print_extractor_names(extractors: &IndexMap<&str, Box<dyn Extractor>>) {
 fn get_random_sampling_settings(args: &mut pico_args::Arguments) -> (u32, f64) {
     let num_samples = args.opt_value_from_str("--num-samples")
         .unwrap()
-        .unwrap_or(30);
+        .unwrap_or_else(|| 30);
     let random_prob = args.opt_value_from_str("--random-prob")
         .unwrap()
-        .unwrap_or(0.1);
+        .unwrap_or_else(|| 0.1);
     (num_samples, random_prob)
 }
 
@@ -304,13 +304,12 @@ fn main() {
     let modified_filename_for_dag_cost = modify_filename(&filename, "input/", "out_dag_json/");
 
     let (num_samples, random_prob) = get_random_sampling_settings(&mut args);
-
     // Check for any remaining arguments
     let rest = args.finish();
     if !rest.is_empty() {
         panic!("Unknown arguments: {:?}", rest);
     }
-
+    
     // Create the output file
     let mut out_file = std::fs::File::create(out_filename.clone()).unwrap();
 

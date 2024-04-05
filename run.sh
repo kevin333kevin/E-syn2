@@ -44,14 +44,22 @@ setup_directories() {
 
 # Function to get user input
 get_user_input() {
-    read -p "Enter the number of iteration times (optional): " iteration_times
-    read -p "Enter the cost function for extraction-gym (optional, could be 'area' or 'delay'): " cost_function
-    read -p "Enter the extraction pattern for e-rewriter (optional, could be 'faster-bottom-up' or 'random-based-faster-bottom-up', etc): " pattern
+    read -p "Enter the number of iteration times (optional, default: 1): " iteration_times
+    iteration_times=${iteration_times:-30}
+
+    read -p "Enter the cost function for extraction-gym (optional, could be 'area' or 'delay', default: 'area'): " cost_function
+    cost_function=${cost_function:-"area"}
+
+    read -p "Enter the extraction pattern for e-rewriter (optional, could be 'faster-bottom-up' or 'random-based-faster-bottom-up', default: 'faster-bottom-up'): " pattern
+    pattern=${pattern:-"faster-bottom-up"}
 
     # if pattern is provided with *random*
     if [[ "$pattern" == *"random"* ]]; then
-        read -p "Enter the number of samplings for random pattern (optional): " num_samplings
-        read -p "Enter the probability of randomization (optional): " prob_randomization
+        read -p "Enter the number of samplings for random pattern (optional, default: 10): " num_samplings
+        num_samplings=${num_samplings:-30}
+
+        read -p "Enter the probability of randomization (optional, default: 0.5): " prob_randomization
+        prob_randomization=${prob_randomization:-0.1}
     fi
 
     # if cost_function is 'area', replace it with 'node_sum_cost', if it is 'delay', replace it with 'node_depth_cost'
@@ -95,7 +103,12 @@ extract_dag() {
     out_file="${OUTPUT_DIR}/log-${base_name}-${ext}.json"
 
     echo "Running extractor for ${data} with ${ext}"
-    target/release/extraction-gym "${data}" --cost-function="${cost_function}" --extractor="${pattern}" --out="${out_file}" --num-samples="${num_samplings}" --random-prob="${prob_randomization}"
+
+    if [[ "$pattern" == *"random"* ]]; then
+        target/release/extraction-gym "${data}" --cost-function="${cost_function}" --extractor="${pattern}" --out="${out_file}" --num-samples="${num_samplings}" --random-prob="${prob_randomization}"
+    else
+        target/release/extraction-gym "${data}" --cost-function="${cost_function}" --extractor="${pattern}" --out="${out_file}"
+    fi
 
     change_dir ".."
     end_time_process_extract=$(date +%s.%N)
@@ -227,7 +240,7 @@ report_runtime() {
     echo -e "${GREEN}Process JSON completed in ${RED}$runtime_process_process_json${GREEN} seconds.${RESET}"
     echo -e "${GREEN}Graph to Equation in ${RED}$runtime_process_graph2eqn${GREEN} seconds.${RESET}"
     echo -e "${GREEN}Run ABC on the original and optimized circuit completed in ${RED}$runtime_process_abc${GREEN} seconds.${RESET}"
-    echo -e "${GREEN}Total runtime: ${RED}$(echo "scale=2; $runtime_process_rw + $runtime_process_process_json + $runtime_process_graph2eqn + $runtime_process_abc" | bc)${GREEN} seconds.${RESET}"
+    echo -e "${GREEN}Total runtime: ${RED}$(echo "scale=2; $runtime_process_rw + $runtime_process_extract + $runtime_process_process_json + $runtime_process_graph2eqn + $runtime_process_abc" | bc)${GREEN} seconds.${RESET}"
 }
 
 # Main script
