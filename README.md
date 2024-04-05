@@ -1,5 +1,25 @@
 # E-syn2
 
+## Prequisites  
+
+- Rust environment
+- gRPC installed
+
+### Enter grpc_commnicator/
+
+```bash
+sudo apt-get install protobuf-compiler
+pip install grpcio grpcio-tools
+```
+compile proto files:
+
+```bash
+cd rust/
+cargo build --release
+cd ../proto/
+python -m grpc_tools.protoc -I. --python_out=../python/ --grpc_python_out=../python/ service.proto
+```
+
 ## Usage
 
 ```bash

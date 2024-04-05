@@ -39,3 +39,7 @@ process_json/input_extracted_egraph/
 process_json/input_saturacted_egraph/
 extraction-gym/random_out_dag_json/*.json
 tmp_log/*.log
+grpc_communicator/python/service_pb2_grpc.py
+grpc_communicator/python/service_pb2.py
+grpc_communicator/python/__pycache__/service_pb2_grpc.cpython-39.pyc
+grpc_communicator/python/__pycache__/service_pb2.cpython-39.pyc
