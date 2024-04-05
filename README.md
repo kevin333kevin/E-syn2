@@ -33,7 +33,7 @@ done
 │   ├── input # 1. saturacted circuits graphs for extraction (copied from e-rewriter)
 │   ├── out_dag_json # 4. raw json marked the extracted nodes - dag based extraction
 │   ├── out_json # 4. raw json marked the extracted nodes - tree based extraction
-│   ├── output-log # 3. log files during extraction
+│   ├── output_log # 3. log files during extraction
 │   ├── random_result # 2. random extraction results -> raw json (optionally replacing to out_json and out_dag_json)
 │   ├── src
 │   └── target

@@ -96,6 +96,8 @@ fn dag_to_equations(
         return format!("new_n_{}", node_id); // Return the modified key value if already recorded.
     }
 
+    //println!("Node ID: {}", node_id);
+
     let node = nodes.get(node_id).unwrap();
     //  println!("Node ID: {:?}", node_id);
     let expression = match node.op.as_str() {

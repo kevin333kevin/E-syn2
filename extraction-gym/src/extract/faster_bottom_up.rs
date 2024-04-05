@@ -68,6 +68,8 @@ impl Extractor for FasterBottomUpExtractor {
     }
 }
 
+// impl Extractor for FasterBottomUpExtractor_random {
+
 /** A data structure to maintain a queue of unique elements.
 
 Notably, insert/pop operations have O(1) expected amortized runtime complexity.

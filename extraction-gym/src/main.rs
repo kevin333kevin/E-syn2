@@ -47,7 +47,7 @@ fn get_fast_extractors() -> IndexMap<&'static str, Box<dyn Extractor>> {
     ]
     .into_iter()
     .enumerate()
-    .filter(|(index, _)| *index == 1)
+    //.filter(|(index, _)| *index == 1)
     .map(|(_, item)| item)
     .collect()
 }
@@ -122,6 +122,10 @@ fn get_extractor<'a>(
     extractors: &'a IndexMap<&str, Box<dyn Extractor>>,
     extractor_name: &str,
 ) -> &'a Box<dyn Extractor> {
+    // print all extractors
+    // for name in extractors.keys() {
+    //     println!("{}", name);
+    // }
     extractors
         .get(extractor_name)
         .with_context(|| format!("Unknown extractor: {extractor_name}"))

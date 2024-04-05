@@ -344,29 +344,8 @@ fn main() {
             &parent_dir.join("process_json/out_process_dag_result"),
         );
     } else {
-        // Process files in out_json directory
-        let out_json_dir = Path::new(input_extraction_result_dir);
-        let out_process_result_dir = "out_process_result";
-        process_files_in_directory(
-            &out_json_dir,
-            out_process_result_dir,
-            process_json_with_choices,
-            1,
-        ); // a=1 to use choices, a=0 to use DAG
-
-        // Process files in out_process_result directory
-        let out_process_result_dir = parent_dir.join("process_json/out_process_result");
-        process_files_in_directory(
-            &out_process_result_dir,
-            out_process_result_dir.to_str().unwrap(),
-            process_json_simplify_keys,
-            1,
-        ); // a=1 to use choices, a=0 to use DAG
-
-        // Update root eclasses in the output files for non-dag_based
-        update_root_eclasses(
-            &input_saturacted_graph_file,
-            &parent_dir.join("process_json/out_process_result"),
-        );
+        //assert fail
+        println!("Processing tree-based extracted graphs...");
+        assert!(false, "Tree-based extraction is not supported yet");
     }
 }
