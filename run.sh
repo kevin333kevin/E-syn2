@@ -208,7 +208,7 @@ run_abc() {
         # Parallel execution of ABC for each optimized circuit
         ls ./opt_*.eqn | parallel --eta "./abc -c \"read_eqn {};st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime -d\"" >> ../tmp_log/abc_opt_all_${timestamp}.log
         # copy right from ./stats.txt to ../tmp_log/abc_opt_all_{timestamp}.log
-        copy_file "stats.txt" "../tmp_log/abc_opt_all_formatted_${timestamp}.log"
+        mv "stats.txt" "../tmp_log/abc_opt_all_formatted_${timestamp}.log"
     else
         execute_command "./abc -c \"read_eqn opt.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
     fi

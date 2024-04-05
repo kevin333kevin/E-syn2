@@ -5,7 +5,7 @@
 - Rust environment
 - gRPC installed
 
-### Enter grpc_commnicator/
+### Enter `grpc_commnicator`
 
 ```bash
 sudo apt-get install protobuf-compiler
