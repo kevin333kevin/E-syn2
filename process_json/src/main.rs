@@ -51,30 +51,7 @@ fn process_json_with_choices(
     let choices: HashMap<String, String> = serde_json::from_value(data["choices"].clone())?;
     let values: HashSet<&str> = choices.values().map(|v| v.as_str()).collect();
 
-    // Get the current directory and parent directory
-    //let current_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    //let parent_dir = current_dir.parent().unwrap();
-    // let input_dir = parent_dir.join("extraction-gym/input");
-
-    // // Find all JSON files in the input directory
-    // let json_files: Vec<PathBuf> = input_dir
-    //     .read_dir()?
-    //     .filter_map(|entry| {
-    //         let entry = entry.ok()?;
-    //         let path = entry.path();
-    //         if path.is_file() && path.extension().map(|ext| ext == "json").unwrap_or(false) {
-    //             Some(path)
-    //         } else {
-    //             None
-    //         }
-    //     })
-    //     .collect();
-
-    // let json file is the input_file_saturated_graph
-    // let json_files = vec![input_file_saturated_graph.to_path_buf()];
-
-    // // Get the first JSON file (assuming there is only one)
-    // let graph_file = json_files.get(0).ok_or("No JSON file found")?;
+    // Read the saturated graph data from the input file
     let graph_content = fs::read_to_string(input_file_saturated_graph)?;
     let graph_data: GraphData = serde_json::from_str(&graph_content)?;
 
