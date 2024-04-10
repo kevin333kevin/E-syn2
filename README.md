@@ -5,7 +5,7 @@
 - Rust environment
 - gRPC installed
 
-### Enter `grpc_commnicator`
+### Enter `grpc_communicator`
 
 ```bash
 sudo apt-get install protobuf-compiler
@@ -30,7 +30,7 @@ chmod +x ./run.sh && ./run.sh
 quick start:
 
 ```bash
-echo -e "30\ndelay\nfaster-bottom-up\n" | bash run.sh    
+echo -e "5\ndelay\nfaster-bottom-up\n" | bash run.sh    
 ```
 
 run with randomized extraction experiments:

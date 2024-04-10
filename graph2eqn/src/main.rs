@@ -6,6 +6,8 @@ use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 
 // Define Data Structures
 #[derive(Deserialize, Debug)]
@@ -80,6 +82,12 @@ fn parse_json(json_str: &str) -> Graph {
     serde_json::from_str(json_str).expect("JSON was not well-formatted")
 }
 
+fn string_to_unique_id(s: &str) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    s.hash(&mut hasher);
+    hasher.finish()
+}
+
 // Convert DAG to eqn with proper hierarchical representation
 fn dag_to_equations(
     nodes: &FxHashMap<String, Node>,
@@ -118,9 +126,29 @@ fn dag_to_equations(
             if operands.is_empty() {
                 node.op.clone() // No children means it's a variable or a constant
             } else if operands.len() == 1 {
-                format!("{}({})", node.op, operands[0]) // Unary operation
+                // sometimes operands too large, using new_n_{} to avoid too long expression
+                if operands[0].clone().len() > 50 {
+
+                    let new_node_id = string_to_unique_id(node_id);
+                    visited.insert(new_node_id.to_string(), operands[0].clone());
+                    //format!("{}({})", node.op, operands[0]) // Unary operation
+                    format!("{}({})", node.op, format!("new_n_{}", new_node_id)) 
+                }
+                else {
+                    format!("{}({})", node.op, operands[0]) // Unary operation
+
+                }
+                //format!("{}({})", node.op, operands[0])
             } else {
-                format!("({} {} {})", operands[0], node.op, operands[1]) // Binary operation
+                if operands[0].clone().len() > 50 {
+                    let new_node_id = string_to_unique_id(node_id);
+                    visited.insert(new_node_id.to_string(), operands[0].clone());
+                    format!("({} {} {})", format!("new_n_{}", new_node_id), node.op, operands[1]) // Binary operation
+                }
+                else {
+                    format!("({} {} {})", operands[0], node.op, operands[1]) // Binary operation
+                }
+                //format!("({} {} {})", operands[0], node.op, operands[1]) // Binary operation
             }
         }
     };
