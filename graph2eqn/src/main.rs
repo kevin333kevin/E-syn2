@@ -110,12 +110,11 @@ fn dag_to_equations(
     //  println!("Node ID: {:?}", node_id);
     let expression = match node.op.as_str() {
         "&" => {
-            let operands: Vec<String> = node
-                .children
+            node.children
                 .iter()
                 .map(|child_id| dag_to_equations(nodes, child_id, visited, visit_count))
-                .collect();
-            operands.join(" & ")
+                .collect::<Vec<_>>()
+                .join(" & ")
         }
         _ => {
             let operands: Vec<String> = node
@@ -123,48 +122,51 @@ fn dag_to_equations(
                 .iter()
                 .map(|child_id| dag_to_equations(nodes, child_id, visited, visit_count))
                 .collect();
-            if operands.is_empty() {
-                node.op.clone() // No children means it's a variable or a constant
-            } else if operands.len() == 1 {
-                // sometimes operands too large, using new_n_{} to avoid too long expression
-                if operands[0].clone().len() > 50 {
-
-                    let new_node_id = string_to_unique_id(operands[0].clone().as_str());
-                    visited.insert(new_node_id.to_string(), operands[0].clone());
-                    //format!("{}({})", node.op, operands[0]) // Unary operation
-                    format!("{}({})", node.op, format!("new_n_{}", new_node_id)) 
+    
+            match operands.len() {
+                0 => node.op.clone(),
+                1 => {
+                    let operand = &operands[0];
+                    if operand.len() > 50 {
+                        let new_node_id = string_to_unique_id(operand);
+                        visited.insert(new_node_id.to_string(), operand.clone());
+                        format!("{}(new_n_{})", node.op, new_node_id)
+                    } else {
+                        format!("{}({})", node.op, operand)
+                    }
                 }
-                else {
-                    format!("{}({})", node.op, operands[0]) // Unary operation
-
+                2 => {
+                    let lhs = &operands[0];
+                    let rhs = &operands[1];
+                    let (lhs_id, rhs_id) = (
+                        if lhs.len() > 50 {
+                            let id = string_to_unique_id(lhs);
+                            visited.insert(id.to_string(), lhs.clone());
+                            Some(id)
+                        } else {
+                            None
+                        },
+                        if rhs.len() > 50 {
+                            let id = string_to_unique_id(rhs);
+                            visited.insert(id.to_string(), rhs.clone());
+                            Some(id)
+                        } else {
+                            None
+                        },
+                    );
+    
+                    format!(
+                        "({} {} {})",
+                        lhs_id.map_or_else(|| lhs.clone(), |id| format!("new_n_{}", id)),
+                        node.op,
+                        rhs_id.map_or_else(|| rhs.clone(), |id| format!("new_n_{}", id))
+                    )
                 }
-                //format!("{}({})", node.op, operands[0])
-            } else {
-                if operands[0].clone().len() > 50 && operands[1].clone().len() > 50 {
-                    let new_node_id_lhs = string_to_unique_id(operands[0].clone().as_str());
-                    let new_node_id_rhs = string_to_unique_id(operands[1].clone().as_str());
-
-                    visited.insert(new_node_id_lhs.to_string(), operands[0].clone());
-                    visited.insert(new_node_id_rhs.to_string(), operands[1].clone());
-                    format!("({} {} {})", format!("new_n_{}", new_node_id_lhs), node.op,format!("new_n_{}", new_node_id_rhs)) // Binary operation
-                }
-                else if operands[0].clone().len() > 50 && operands[1].clone().len() <= 50 {
-                    let new_node_id_lhs = string_to_unique_id(operands[0].clone().as_str());
-                    visited.insert(new_node_id_lhs.to_string(), operands[0].clone());
-                    format!("({} {} {})", format!("new_n_{}", new_node_id_lhs), node.op, operands[1]) // Binary operation
-                }  
-                else if operands[0].clone().len() <= 50 && operands[1].clone().len() > 50 {
-                    let new_node_id_rhs = string_to_unique_id(operands[1].clone().as_str());
-                    visited.insert(new_node_id_rhs.to_string(), operands[1].clone());
-                    format!("({} {} {})", operands[0], node.op, format!("new_n_{}", new_node_id_rhs)) // Binary operation
-                }
-                else {
-                    format!("({} {} {})", operands[0], node.op, operands[1]) // Binary operation
-                }
-                //format!("({} {} {})", operands[0], node.op, operands[1]) // Binary operation
+                _ => unreachable!(),
             }
         }
     };
+    
 
     //if expression.contains(" ") || expression.contains("(") {// record the expression if it is intermediate node.
     if visit_count[node_id] > 1 && (expression.contains(" ") || expression.contains("(")) {
