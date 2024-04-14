@@ -124,7 +124,7 @@ fn dag_to_equations(
                 .collect();
     
             match operands.len() {
-                0 => node.op.clone(),
+                0 => node.op.clone(), // No children means it's a variable or a constant
                 1 => {
                     let operand = &operands[0];
                     if operand.len() > 50 {

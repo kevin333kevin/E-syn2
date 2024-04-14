@@ -3,22 +3,7 @@
 ## Prequisites  
 
 - Rust environment
-- gRPC installed
-
-### Enter `grpc_communicator`
-
-```bash
-sudo apt-get install protobuf-compiler
-pip install grpcio grpcio-tools
-```
-compile proto files:
-
-```bash
-cd rust/
-cargo build --release
-cd ../proto/
-python -m grpc_tools.protoc -I. --python_out=../python/ --grpc_python_out=../python/ service.proto
-```
+- Berkeley ABC tool (replaced with the `abc/src/opt/dar/darRefact.c`)
 
 ## Usage
 
@@ -80,7 +65,6 @@ done
 │   ├── src
 │   └── target
 ├── fuzz_abc_opt_flow # explore the optimization space of circuits
-├── PPA_predictor # PPA predictor for E-graph formed circuits
 ├── clean.sh
 ├── collect.sh
 ├── README.md
