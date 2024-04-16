@@ -43,3 +43,5 @@ grpc_communicator/python/service_pb2_grpc.py
 grpc_communicator/python/service_pb2.py
 grpc_communicator/python/__pycache__/service_pb2_grpc.cpython-39.pyc
 grpc_communicator/python/__pycache__/service_pb2.cpython-39.pyc
+fuzz_abc_opt_flow/EPFL_adder_pareto.pdf
+result_visualization/__pycache__/hv.cpython-39.pyc
