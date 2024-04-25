@@ -5,6 +5,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # Function to execute a single ABC flow
 def execute_flow(flow, eqn_file):
+    print(f"Fuzzing {eqn_file}")
     # Prepare the command with the given flow and eqn file
     command = "../abc/abc -c \"source -s ../abc/abc.rc; read_eqn {}; strash; {} ;read_lib ../abc/asap7_clean.lib ; map ; topo; upsize; dnsize; stime -d\"".format(eqn_file, flow)
     # Execute the command
@@ -33,12 +34,6 @@ def main():
     with open(args.flows_file, 'r') as file:
         flows = [line.strip() for line in file]
     
-    # Sample flows if the --sample flag is set
-    if args.sample:
-        if args.num_samples is None:
-            parser.error('--num_samples is required when --sample is set')
-        flows = sampling_flows(flows, args.num_samples)
-    
     # Determine the eqn files based on the --circuit argument
     if args.circuit == 'original':
         eqn_files = ["../abc/ori.eqn"]
@@ -49,6 +44,19 @@ def main():
     else:
         parser.error('Invalid circuit choice')
     
+    # Create a dictionary to store the sampled flows for each eqn_file
+    sampled_flows_dict = {}
+    
+    # Sample flows for each eqn_file if the --sample flag is set
+    if args.sample:
+        if args.num_samples is None:
+            parser.error('--num_samples is required when --sample is set')
+        for eqn_file in eqn_files:
+            sampled_flows_dict[eqn_file] = sampling_flows(flows, args.num_samples)
+    else:
+        for eqn_file in eqn_files:
+            sampled_flows_dict[eqn_file] = flows
+    
     # Number of parallel processes (up to the number of cores/cpus you have)
     max_workers = 64
     
@@ -56,8 +64,8 @@ def main():
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         # Submit all the flows for execution with each eqn file
         futures = []
-        for eqn_file in eqn_files:
-            for flow in flows:
+        for eqn_file, sampled_flows in sampled_flows_dict.items():
+            for flow in sampled_flows:
                 futures.append(executor.submit(execute_flow, flow, eqn_file))
         
         # Process the results as they complete
