@@ -152,5 +152,6 @@ alias nfmap "strash; &get; &synch2; &nf; &put"
 alias delay_syn "st;dch -f;st;timing;timing;read_lib asap7_clean.lib;map;topo;upsize;dnsize;stime"
 
 # area-oriented synthesis
+alias area_syn "st; ps; echo -n rwbrf:; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; st;ps; echo -n rwbrf:; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; ps; echo -n if -g:; if -g -K 6; st;ps; echo -n rwbrf:; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; st; read_lib asap7_clean.lib;map;topo;upsize;dnsize;stime"
 
 # lazy man ADP-oriented synthesis
