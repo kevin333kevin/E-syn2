@@ -49,3 +49,5 @@ result_visualization/__pycache__/hv.cpython-39.pyc
 fuzz_abc_opt_flow/log_bak/
 result_visualization/PlotResult_ESyn.ipynb
 result_visualization/PlotResult_ESynTurbo.ipynb
+result_visualization/cal_adp.py
+fuzz_abc_opt_flow/*.pdf
