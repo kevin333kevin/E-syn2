@@ -51,3 +51,9 @@ result_visualization/PlotResult_ESyn.ipynb
 result_visualization/PlotResult_ESynTurbo.ipynb
 result_visualization/cal_adp.py
 fuzz_abc_opt_flow/*.pdf
+result_visualization/*.pdf
+result_visualization/EarlyStop_Effect.png
+abc.history
+Esyn2_simplify.zip
+dag.png
+test_func.ipynb
