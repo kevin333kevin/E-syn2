@@ -133,8 +133,9 @@ alias src_rs      "st; echo -n ***st:; ps; rs -K 6 -N 2 -l; rs -K 9 -N 2 -l; rs 
 alias src_rws     "st; echo -n ***st:; ps; rw -l; rs -K 6 -N 2 -l; rwz -l; rs -K 9 -N 2 -l; rwz -l; rs -K 12 -N 2 -l; echo -n *aig*:; ps;" 
 alias resyn2rs    "echo -n *aig********:; ps; b; rs -K 6; rw; rs -K 6 -N 2; rf; rs -K 8; b; rs -K 8 -N 2; rw; rs -K 10; rwz; rs -K 10 -N 2; b; rs -K 12; rfz; rs -K 12 -N 2; rwz; b; echo -n aig:resyn2rs:; ps;"
 alias compress2rs "echo -n *aig***********:; ps; b -l; rs -K 6 -l; rw -l; rs -K 6 -N 2 -l; rf -l; rs -K 8 -l; b -l; rs -K 8 -N 2 -l; rw -l; rs -K 10 -l; rwz -l; rs -K 10 -N 2 -l; b -l; rs -K 12 -l; rfz -l; rs -K 12 -N 2 -l; rwz -l; b -l; echo -n aig:compress2rs:; ps;"
-alias lazyman "echo *****LazyMan synthesis; rec_start3 ./opt.eqn; rec_ps3; st;  echo -n ***st:; ps; echo -n rwbrf:; b;  rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; ps; echo -n if -y:; if -y -K 6; st; ps; echo -n rwbrf:; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; st; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; ps; echo -n if -y:; if -y -K 6;st;ps; echo -n rwbrf:; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b;ps; echo -n aig:lazyman:;ps;"
-alias lazyman_dch "echo *****LazyMan synthesis with dch; rec_start3 ./opt.eqn; st; echo -n ***st:; ps; echo -n **dc2:; dc2;  ps;  dch;  st; echo -n **dch:; ps;  if -y -K 6; st; echo -n if -y:; ps;  dch;  st; echo -n **dch:; ps; if -y -K 6;  st; echo -n if -y:; ps; echo -n aig:lazyman_dch:;ps;"
+alias lazyman_ori "echo *****LazyMan synthesis; rec_start3 ./ori.eqn; rec_ps3; st;  echo -n ***st:; ps; echo -n rwbrf:; b;  rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; ps; echo -n if -y:; if -y -K 6; st; ps; echo -n rwbrf:; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; st; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; ps; echo -n if -y:; if -y -K 6;st;ps; echo -n rwbrf:; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b;ps; echo -n aig:lazyman_ori:;ps;"
+alias lazyman_opt "echo *****LazyMan synthesis; rec_start3 ./circuit0_opt.eqn; rec_ps3; st;  echo -n ***st:; ps; echo -n rwbrf:; b;  rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; ps; echo -n if -y:; if -y -K 6; st; ps; echo -n rwbrf:; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; st; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; ps; echo -n if -y:; if -y -K 6;st;ps; echo -n rwbrf:; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b;ps; echo -n aig:lazyman_opt:;ps;"
+alias lazyman_dch_ori "echo *****LazyMan synthesis with dch; rec_start3 ./opt.eqn; st; echo -n ***st:; ps; echo -n **dc2:; dc2;  ps;  dch;  st; echo -n **dch:; ps;  if -y -K 6; st; echo -n if -y:; ps;  dch;  st; echo -n **dch:; ps; if -y -K 6;  st; echo -n if -y:; ps; echo -n aig:lazyman_dch:;ps;"
 alias timing "echo *****Synthesis with timing; st; echo -n ***st:; ps; echo -n rwbrf:; b;  rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; ps; echo -n if -g:;  if -g -K 6; st; ps; echo -n rwbrf:; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; st;ps; echo -n rwbrf:; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; ps; echo -n if -g:; if -g -K 6; st;ps; echo -n rwbrf:; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b;ps; echo -n aig:timing:;ps;"
 
 # use this script to convert 1-valued and DC-valued flops for an AIG
@@ -144,7 +145,10 @@ alias fix_aig     "logic; undc; strash; zero"
 alias fix_blif    "undc; strash; zero"
 
 # lazy man's synthesis
-alias recadd3     "rec_start3 ./opt.eqn; st; echo -n ***st:; rec_add3; b; rec_add3; dc2; rec_add3; if -K 8; bidec; st; rec_add3; dc2; rec_add3; if -g -K 6; st; rec_add3;  echo -n *aig*:; ps;  echo -n aig:recadd3:;ps;"
+alias recadd3_ori     "rec_start3; read_eqn ./ori.eqn;  st; echo -n ***st:; rec_add3; b; rec_add3; dc2; rec_add3; if -K 8; bidec; st; rec_add3; dc2; rec_add3; if -g -K 6; st; rec_add3;  echo -n *aig*:; ps;  echo -n aig:recadd3_ori:;ps;"
+alias recadd3_opt     "rec_start3; read_eqn ./circuit0_opt.eqn;  st; echo -n ***st:; rec_add3; b; rec_add3; dc2; rec_add3; if -K 8; bidec; st; rec_add3; dc2; rec_add3; if -g -K 6; st; rec_add3;  echo -n *aig*:; ps;  echo -n aig:recadd3_opt:;ps;"
+
+alias recadd3     "rec_start3; st; rec_add3; b; rec_add3; dc2; rec_add3; if -K 8; bidec; st; rec_add3; dc2; rec_add3; if -g -K 6; st; rec_add3"
 
 alias nfmap "strash; &get; &synch2; &nf; &put"
 
@@ -155,3 +159,6 @@ alias delay_syn "st;dch -f;st;timing;timing;read_lib asap7_clean.lib;map;topo;up
 alias area_syn "st; ps; echo -n rwbrf:; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; st;ps; echo -n rwbrf:; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; ps; echo -n if -g:; if -g -K 6; st;ps; echo -n rwbrf:; b; rw; rf; b; rw; rw -z; b; rf -z; rw -z; b; st; read_lib asap7_clean.lib;map;topo;upsize;dnsize;stime"
 
 # lazy man ADP-oriented synthesis
+
+alias alan_ori "st; if -K 6 -g -C 8;read_lib asap7_clean.lib; st; dch; ps; map; topo; upsize; dnsize; stime; st; dch; ps; map; topo; upsize; dnsize; stime; st; dch; ps; map; topo; upsize; dnsize; stime; st; dch; ps; map; topo; upsize; dnsize; stime;"
+alias lazyman_conventional_2 "read_lib asap7_clean.lib; st; if -g -K 6 -C 8; st; if -g -K 6 -C 8; st; dch; map; st; dch; map; st; dch; map; st; dch; map; st; dch; map; st; dch; map; ps"
