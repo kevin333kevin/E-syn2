@@ -6,8 +6,6 @@ use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
-use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
 
 // Define Data Structures
 #[derive(Deserialize, Debug)]
@@ -82,12 +80,6 @@ fn parse_json(json_str: &str) -> Graph {
     serde_json::from_str(json_str).expect("JSON was not well-formatted")
 }
 
-fn string_to_unique_id(s: &str) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    s.hash(&mut hasher);
-    hasher.finish()
-}
-
 // Convert DAG to eqn with proper hierarchical representation
 fn dag_to_equations(
     nodes: &FxHashMap<String, Node>,
@@ -110,11 +102,12 @@ fn dag_to_equations(
     //  println!("Node ID: {:?}", node_id);
     let expression = match node.op.as_str() {
         "&" => {
-            node.children
+            let operands: Vec<String> = node
+                .children
                 .iter()
                 .map(|child_id| dag_to_equations(nodes, child_id, visited, visit_count))
-                .collect::<Vec<_>>()
-                .join(" & ")
+                .collect();
+            operands.join(" & ")
         }
         _ => {
             let operands: Vec<String> = node
@@ -122,51 +115,15 @@ fn dag_to_equations(
                 .iter()
                 .map(|child_id| dag_to_equations(nodes, child_id, visited, visit_count))
                 .collect();
-    
-            match operands.len() {
-                0 => node.op.clone(), // No children means it's a variable or a constant
-                1 => {
-                    let operand = &operands[0];
-                    if operand.len() > 50 {
-                        let new_node_id = string_to_unique_id(operand);
-                        visited.insert(new_node_id.to_string(), operand.clone());
-                        format!("{}(new_n_{})", node.op, new_node_id)
-                    } else {
-                        format!("{}({})", node.op, operand)
-                    }
-                }
-                2 => {
-                    let lhs = &operands[0];
-                    let rhs = &operands[1];
-                    let (lhs_id, rhs_id) = (
-                        if lhs.len() > 50 {
-                            let id = string_to_unique_id(lhs);
-                            visited.insert(id.to_string(), lhs.clone());
-                            Some(id)
-                        } else {
-                            None
-                        },
-                        if rhs.len() > 50 {
-                            let id = string_to_unique_id(rhs);
-                            visited.insert(id.to_string(), rhs.clone());
-                            Some(id)
-                        } else {
-                            None
-                        },
-                    );
-    
-                    format!(
-                        "({} {} {})",
-                        lhs_id.map_or_else(|| lhs.clone(), |id| format!("new_n_{}", id)),
-                        node.op,
-                        rhs_id.map_or_else(|| rhs.clone(), |id| format!("new_n_{}", id))
-                    )
-                }
-                _ => unreachable!(),
+            if operands.is_empty() {
+                node.op.clone() // No children means it's a variable or a constant
+            } else if operands.len() == 1 {
+                format!("{}({})", node.op, operands[0]) // Unary operation
+            } else {
+                format!("({} {} {})", operands[0], node.op, operands[1]) // Binary operation
             }
         }
     };
-    
 
     //if expression.contains(" ") || expression.contains("(") {// record the expression if it is intermediate node.
     if visit_count[node_id] > 1 && (expression.contains(" ") || expression.contains("(")) {
@@ -288,7 +245,7 @@ fn main() {
     // println!("Root nodes: {:?}", root_nodes);
 
     // Format and write each Circuit to a file
-    let prefix_mapping = read_prefix_mapping("../e-rewriter/circuit0.eqn");
+    let prefix_mapping = read_prefix_mapping("../e-rewriter/circuit0_opt.eqn");
 
     // Process each identified root node
     for (i, root) in root_nodes.iter().enumerate() {

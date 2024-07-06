@@ -73,9 +73,16 @@ get_user_input() {
 # Function to rewrite the circuit
 rewrite_circuit() {
     echo -e "${YELLOW}<-----------------------------Process 1: Rewrite the Circuit----------------------------->${RESET}"
-    start_time_process_rw=$(date +%s.%N)
     change_dir "e-rewriter/"
-    execute_command "$feature_cmd circuit0.eqn $iteration_times"
+    #execute_command "../abc/abc -c \"read_eqn circuit0.eqn; write_eqn circuit0.eqn\""
+    copy_file "circuit0.eqn" "../abc/circuit0_opt.eqn"
+    change_dir "../abc"
+    #execute_command "./abc -c \"read_eqn circuit0_opt.eqn; if -K 6 -g -C 8; st; write_eqn circuit0_opt.eqn\"" 
+    execute_command "./abc -c \"read_eqn circuit0_opt.eqn; recadd3_opt ; write_eqn circuit0_opt.eqn\"" 
+    copy_file "circuit0_opt.eqn" "../e-rewriter/circuit0_opt.eqn"
+    change_dir "../e-rewriter"
+    start_time_process_rw=$(date +%s.%N)
+    execute_command "$feature_cmd circuit0_opt.eqn $iteration_times"
     change_dir ".."
     copy_file "e-rewriter/rewritten_circuit/rewritten_egraph_with_weight_cost_serd.json" "extraction-gym/input/"
 
@@ -95,6 +102,7 @@ extract_dag() {
     # Creating the output directory if it doesn't exist
     OUTPUT_DIR="output_log"
     #ext="faster-bottom-up"
+    ext=${pattern}
     mkdir -p ${OUTPUT_DIR}
 
     # running the extraction process
@@ -105,9 +113,9 @@ extract_dag() {
     echo "Running extractor for ${data} with ${ext}"
 
     if [[ "$pattern" == *"random"* ]]; then
-        target/release/extraction-gym "${data}" --cost-function="${cost_function}" --extractor="${pattern}" --out="${out_file}" --num-samples="${num_samplings}" --random-prob="${prob_randomization}"
+        target/x86_64-unknown-linux-musl/release/extraction-gym "${data}" --cost-function="${cost_function}" --extractor="${pattern}" --out="${out_file}" --num-samples="${num_samplings}" --random-prob="${prob_randomization}"
     else
-        target/release/extraction-gym "${data}" --cost-function="${cost_function}" --extractor="${pattern}" --out="${out_file}"
+        target/x86_64-unknown-linux-musl/release/extraction-gym "${data}" --cost-function="${cost_function}" --extractor="${pattern}" --out="${out_file}"
     fi
 
     change_dir ".."
@@ -132,7 +140,7 @@ process_json() {
         input_saturacted_egraph_path="input_saturacted_egraph/rewritten_egraph_with_weight_cost_serd.json"
         
         # Parallel execution of process_json for each extracted egraph
-        ls input_extracted_egraph/* | parallel --eta "target/release/process_json -s ${input_saturacted_egraph_path} -e {} -o out_process_dag_result/{/} -g"
+        ls input_extracted_egraph/* | parallel --eta "target/x86_64-unknown-linux-musl/release/process_json -s ${input_saturacted_egraph_path} -e {} -o out_process_dag_result/{/} -g"
         
         change_dir ".."
 
@@ -148,7 +156,7 @@ process_json() {
         input_extracted_egraph_path="input_extracted_egraph/rewritten_egraph_with_weight_cost_serd_${pattern}.json"
         output_path="out_process_dag_result/rewritten_egraph_with_weight_cost_serd_${pattern}.json"
 
-        execute_command "target/release/process_json -s ${input_saturacted_egraph_path} -e ${input_extracted_egraph_path} -o ${output_path} -g"
+        execute_command "target/x86_64-unknown-linux-musl/release/process_json -s ${input_saturacted_egraph_path} -e ${input_extracted_egraph_path} -o ${output_path} -g"
         change_dir ".."
 
         echo -e "${YELLOW}Copying rewritten and extracted egraph files ... Prepare graph for Equation conversion.${RESET}"
@@ -168,8 +176,8 @@ graph_to_equation() {
     
     if [[ "$pattern" == *"random"* ]]; then
         # Parallel execution of graph2eqn for each JSON file
-        ls ./*.json | parallel --eta 'target/release/graph2eqn {} circuit_opt_{/}.eqn'
-        #ls ./*.json | parallel --eta 'echo {/} | sed "s/[^0-9]*\([0-9]\+\).*/\1/" | xargs -I{} target/release/graph2eqn {1} circuit_opt_{}.eqn' ::: {} 
+        ls ./*.json | parallel --eta 'target/x86_64-unknown-linux-musl/release/graph2eqn {} circuit_opt_{/}.eqn'
+        #ls ./*.json | parallel --eta 'echo {/} | sed "s/[^0-9]*\([0-9]\+\).*/\1/" | xargs -I{} target/x86_64-unknown-linux-musl/release/graph2eqn {1} circuit_opt_{}.eqn' ::: {} 
         
         # Rename circuit0.eqn to circuit0_{i}.eqn and copy to abc directory
         #ls ./*.json | parallel --eta 'index=$(echo "{}" | grep -oP "(?<=_)\d+(?=\.json)"); mv "circuit0.eqn" "circuit0_$index.eqn"; copy_file "circuit0_$index.eqn" "../abc/opt_$index.eqn"'
@@ -182,7 +190,7 @@ graph_to_equation() {
 
         change_dir ".."
     else
-        execute_command "target/release/graph2eqn result.json circuit0.eqn"
+        execute_command "target/x86_64-unknown-linux-musl/release/graph2eqn result.json circuit0.eqn"
         change_dir ".."
         copy_file "graph2eqn/circuit0.eqn" "abc/opt.eqn"
     fi
@@ -196,22 +204,35 @@ graph_to_equation() {
 run_abc() {
     echo -e "${YELLOW}<------------------------------Process 5: Run ABC on the original and optimized circuit, and conduct equivalent checking------------------->${RESET}"
     copy_file "e-rewriter/circuit0.eqn" "abc/ori.eqn"
-    start_time_process_abc=$(date +%s.%N)
-
+    
+    #python graph2eqn_ng.py
     change_dir "abc/"
 
-    execute_command "./abc -c \"read_eqn ori.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
-    
+    start_time_process_abc_original_cir=$(date +%s.%N)
+    execute_command "./abc -c \"read_eqn ori.eqn; recadd3_ori; read_lib asap7_clean.lib;  st; dch; ps; map; topo; upsize; dnsize; stime;\"" 
+    end_time_process_abc_original_cir=$(date +%s.%N)
+    runtime_process_abc_original_cir=$(echo "$end_time_process_abc_original_cir - $start_time_process_abc_original_cir" | bc)
+    #execute_command "./abc -c \"read_eqn ori.eqn; st; dch -f; st; timing; timing; read_lib asap7_clean.lib; map; topo; upsize; dnsize; stime\""
+    start_time_process_abc=$(date +%s.%N)
     if [[ "$pattern" == *"random"* ]]; then
         timestamp=$(date +%Y%m%d%H%M%S)
-        echo "    i   o  Gates Area  Delay" > ../abc/stats.txt
+        #echo "    i   o  Gates Area  Delay" > ../abc/stats.txt
         # Parallel execution of ABC for each optimized circuit
-        ls ./opt_*.eqn | parallel --eta "./abc -c \"read_eqn {};st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime -d\"" >> ../tmp_log/abc_opt_all_${timestamp}.log
+        ls ./opt_*.eqn | parallel --eta "./abc -c \"read_eqn {}; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime -d\"" >> ../tmp_log/abc_opt_all_${timestamp}.log
         # copy right from ./stats.txt to ../tmp_log/abc_opt_all_{timestamp}.log
         mv "stats.txt" "../tmp_log/abc_opt_all_formatted_${timestamp}.log"
     else
-        execute_command "./abc -c \"read_eqn opt.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
+        # alan
+        # execute_command "./abc -c \"read_eqn opt.eqn; read_lib asap7_clean.lib;  st; dch; ps; map; topo; upsize; dnsize; stime; st; dch; ps; map; topo; upsize; dnsize; stime; st; dch; ps; map; topo; upsize; dnsize; stime; st; dch; ps; map; topo; upsize; dnsize; stime;\""
+        # lazyman
+        execute_command "./abc -c \"read_eqn opt.eqn; read_lib asap7_clean.lib;  st; dch; ps; map; topo; upsize; dnsize; stime;\""
+        
+        #execute_command "./abc -c \"read_eqn opt.eqn; st; dch -f; st; timing; timing; read_lib asap7_clean.lib; map; topo; upsize; dnsize; stime\""
+        #execute_command "./abc -c \"read_eqn ../circuit0.eqn; print_stats -p; print_stats -p; read_lib asap7_clean.lib; map; topo; upsize; dnsize; stime\""
+        #execute_command "./abc -c \"cec ori.eqn ../circuit0.eqn\""
     fi
+    
+
 
     end_time_process_abc=$(date +%s.%N)
     runtime_process_abc=$(echo "$end_time_process_abc - $start_time_process_abc" | bc)
@@ -239,12 +260,13 @@ report_runtime() {
     echo -e "${GREEN}Extract DAG completed in ${RED}$runtime_process_extract${GREEN} seconds.${RESET}"
     echo -e "${GREEN}Process JSON completed in ${RED}$runtime_process_process_json${GREEN} seconds.${RESET}"
     echo -e "${GREEN}Graph to Equation in ${RED}$runtime_process_graph2eqn${GREEN} seconds.${RESET}"
-    echo -e "${GREEN}Run ABC on the original and optimized circuit completed in ${RED}$runtime_process_abc${GREEN} seconds.${RESET}"
+    echo -e "${GREEN}Run ABC on the optimized circuit completed in ${RED}$runtime_process_abc${GREEN} seconds.${RESET}"
+    echo -e "${GREEN}Run ABC on the original circuit completed in ${RED}$runtime_process_abc_original_cir${GREEN} seconds.${RESET}"
     echo -e "${GREEN}Total runtime: ${RED}$(echo "scale=2; $runtime_process_rw + $runtime_process_extract + $runtime_process_process_json + $runtime_process_graph2eqn + $runtime_process_abc" | bc)${GREEN} seconds.${RESET}"
 }
 
 # Main script
-feature_cmd="./target/release/e-rewriter"
+feature_cmd="./target/x86_64-unknown-linux-musl/release/e-rewriter"
 echo -e "${YELLOW}Using feature label: ${feature}${RESET}"
 
 setup_directories
