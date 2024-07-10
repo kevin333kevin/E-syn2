@@ -1,5 +1,6 @@
 use rustc_hash::{FxHashMap, FxHashSet};
-
+use rand::seq::SliceRandom; // 需要引入 rand crate
+use rand::thread_rng;
 use super::*;
 
 /// A faster bottom up extractor inspired by the faster-greedy-dag extractor.
@@ -52,7 +53,7 @@ impl Extractor for FasterBottomUpExtractor {
             egraph.classes().len(),
             Default::default(),
         );
-
+        let mut i=0;
         while let Some(node_id) = analysis_pending.pop() {
             let class_id = n2c(&node_id);
             let node = &egraph[&node_id];
@@ -62,13 +63,15 @@ impl Extractor for FasterBottomUpExtractor {
                 "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
                 _ => panic!("Unknown cost function: {}", cost_function),
             };
+            i+=1;
             if cost < *prev_cost {
                 result.choose(class_id.clone(), node_id.clone());
                 costs.insert(class_id.clone(), cost);
                 analysis_pending.extend(parents[class_id].iter().cloned());
             }
+            
         }
-
+        print!("iteration:{}\n", i);
         result
     }
 }
@@ -81,11 +84,12 @@ impl Extractor for FasterBottomUpExtractor_random {
         cost_function: &str,
         random_prob: f64,
     ) -> ExtractionResult {
+        let start_time = std::time::Instant::now();
+
         let k = random_prob;
         let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
         let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
         let mut analysis_pending = UniqueQueue::default();
-
         for class in egraph.classes().values() {
             parents.insert(class.id.clone(), Vec::new());
         }
@@ -111,7 +115,10 @@ impl Extractor for FasterBottomUpExtractor_random {
             Default::default(),
         );
         let mut chosen_classes = HashSet::<ClassId>::new(); // 新增的 HashSet
+        let mut i=0;
+      
         while let Some(node_id) = analysis_pending.pop() {
+            
             let class_id = n2c(&node_id);
             let node = &egraph[&node_id];
             let prev_cost = costs.get(class_id).unwrap_or(&INFINITY);
@@ -122,19 +129,51 @@ impl Extractor for FasterBottomUpExtractor_random {
             };
             let mut rng = rand::thread_rng();
             let random_value: f64 = rng.gen();
-            // if     (cost < *prev_cost) {
+
+            i+=1;
+            //version1
+            if  prev_cost ==&INFINITY &&(cost < *prev_cost)  {
+                result.choose(class_id.clone(), node_id.clone());
+                costs.insert(class_id.clone(), cost);
+                analysis_pending.extend(parents[class_id].iter().cloned());
+            }else if random_value>=k &&(cost < *prev_cost) {
+                result.choose(class_id.clone(), node_id.clone());
+                costs.insert(class_id.clone(), cost);
+                analysis_pending.extend(parents[class_id].iter().cloned());
+                
+            }
+            // else if (random_value >= k) {
+            //     result.choose(class_id.clone(), node_id.clone());
+            //     costs.insert(class_id.clone(), cost);
+            //     analysis_pending.extend(parents[class_id].iter().cloned());
+
+            }
+    
+ 
+            //version2
+            //     if     (cost < *prev_cost) {
             //     result.choose(class_id.clone(), node_id.clone());
             //     costs.insert(class_id.clone(), cost);
             //     analysis_pending.extend(parents[class_id].iter().cloned());
 
             // }
-
-            //version1
-            if ((random_value >= k) && (cost < *prev_cost)) || (*prev_cost == std::f64::INFINITY) {
-                result.choose(class_id.clone(), node_id.clone());
-                costs.insert(class_id.clone(), cost);
-                analysis_pending.extend(parents[class_id].iter().cloned());
-            }
+              //version2
+            // if cost < *prev_cost &&(*prev_cost != std::f64::INFINITY) {
+            //     let mut all_parents: Vec<NodeId> = parents[class_id].iter().cloned().collect();
+            //     let parents_len = all_parents.len() as f64; // 获取长度并转换为 f64
+            //     let extend_count = (parents_len * (1.0 - k)).round() as usize; // 计算扩展的元素数量
+            //     let mut rng = thread_rng();
+            //     all_parents.shuffle(&mut rng); // 打乱向量顺序
+            //     let selected_parents = all_parents.into_iter().take(extend_count); // 取前 extend_count 个元素
+            //     result.choose(class_id.clone(), node_id.clone());
+            //     costs.insert(class_id.clone(), cost);
+            //     analysis_pending.extend(selected_parents); // 将选中的元素扩展到 analysis_pending
+            // }
+            // else if(*prev_cost == std::f64::INFINITY){
+            //     result.choose(class_id.clone(), node_id.clone());
+            //     costs.insert(class_id.clone(), cost);
+            //     analysis_pending.extend(parents[class_id].iter().cloned());
+            // }
 
             //version2
             //  if      ((random_value >= k) &&(cost < *prev_cost)) {
@@ -151,8 +190,13 @@ impl Extractor for FasterBottomUpExtractor_random {
             //         analysis_pending.extend(parents[class_id].iter().cloned());
             //         chosen_classes.insert(class_id.clone());
             //     }
-        }
-
+      
+        let us = start_time.elapsed().as_micros();
+        println!(
+            "Time consumption of faster bottom-up extractor: {} seconds",
+            us as f64 / 1000000.0
+        );
+        print!("iteration:{}", i);
         result
     }
 }
