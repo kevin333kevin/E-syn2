@@ -73,7 +73,17 @@ get_user_input() {
 # Function to rewrite the circuit
 rewrite_circuit() {
     echo -e "${YELLOW}<-----------------------------Process 1: Rewrite the Circuit----------------------------->${RESET}"
+
+
+
+    change_dir "abc/"
+    execute_command "./abc -c \"read_eqn ori.eqn;st; if -K 6 -g -C 8;;st;write_eqn ori_delay.eqn\""
+    #execute_command "./abc -c \"read_eqn ori.eqn;st; if -K 6 -g;if -K 6 -g;st;write_eqn ori_delay.eqn\""
+    execute_command "python process_eqn.py"
+    change_dir ".."
+    copy_file "abc/ori_delay.eqn" "e-rewriter/circuit0.eqn"
     start_time_process_rw=$(date +%s.%N)
+
     change_dir "e-rewriter/"
     execute_command "$feature_cmd circuit0.eqn $iteration_times"
     change_dir ".."
@@ -195,26 +205,67 @@ graph_to_equation() {
 # Function to run ABC on the original and optimized circuit
 run_abc() {
     echo -e "${YELLOW}<------------------------------Process 5: Run ABC on the original and optimized circuit, and conduct equivalent checking------------------->${RESET}"
-    copy_file "e-rewriter/circuit0.eqn" "abc/ori.eqn"
+    #copy_file "e-rewriter/circuit0.eqn" "abc/ori.eqn"
+   
     start_time_process_abc=$(date +%s.%N)
 
     change_dir "abc/"
-
-    execute_command "./abc -c \"read_eqn ori.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
+    # freepdk45.lib
+    # asap7_clean.lib
+    #skywater130.lib
+    # execute_command "./abc -c \"read_eqn ori.eqn;st; dch;ps; read_lib skywater130.lib ; map ;topo;   upsize; dnsize; stime\""
+    # end_time_process_abc=$(date +%s.%N)
+    start_time_process_abc1=$(date +%s.%N)  
+    #execute_command "./abc -c \"read_eqn ori.eqn;st; if -K 6 -g;if -K 6 -g;read_lib asap7_clean.lib;st;dch;ps;map ;topo;   upsize; dnsize; stime;\""
+    execute_command "./abc -c \"read_eqn ori.eqn;st; if -K 6 -g -C 8;read_lib asap7_clean.lib;st;dch;ps;map ;topo;   upsize; dnsize; stime;st;dch;ps;map ;topo;   upsize; dnsize; stime;st;dch;ps;map ;topo;   upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;\""
+    #execute_command "./abc -c \"read_eqn ori.eqn;st; if -K 6 -g;if -K 6 -g;read_lib asap7_clean.lib;st;dch;ps;map ;topo;   upsize; dnsize; stime;st;dch;ps;map ;topo;   upsize; dnsize; stime;st;dch;ps;map ;topo;   upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;\""
+    end_time_process_abc1=$(date +%s.%N)
+    # start_time_process_abc2=$(date +%s.%N)  
+    # execute_command "./abc -c \"read_eqn ori.eqn;st; dc2;st;print_stats -p; read_lib skywater130.lib; map ;topo;   upsize; dnsize; stime\""
+    # end_time_process_abc2=$(date +%s.%N)
     
+    start_time_process_abc_opt1=$(date +%s.%N)
+    start_time_process_abc_opt=$(date +%s.%N)
     if [[ "$pattern" == *"random"* ]]; then
-        timestamp=$(date +%Y%m%d%H%M%S)
-        echo "    i   o  Gates Area  Delay" > ../abc/stats.txt
         # Parallel execution of ABC for each optimized circuit
-        ls ./opt_*.eqn | parallel --eta "./abc -c \"read_eqn {};st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime -d\"" >> ../tmp_log/abc_opt_all_${timestamp}.log
+        ls ./opt_*.eqn | parallel --eta "./abc -c \"read_eqn {};st;read_lib asap7_clean.lib; ;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime; \""
         # copy right from ./stats.txt to ../tmp_log/abc_opt_all_{timestamp}.log
-        mv "stats.txt" "../tmp_log/abc_opt_all_formatted_${timestamp}.log"
     else
-        execute_command "./abc -c \"read_eqn opt.eqn;st; dch -f;st; print_stats -p; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime\""
-    fi
+        #execute_command "./abc -c \"read_eqn opt.eqn;read_lib asap7_clean.lib ;st;dch;ps;  map ;topo;  upsize; dnsize; stime;\""
+        execute_command "./abc -c \"read_eqn opt.eqn;read_lib asap7_clean.lib ;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime; \""
+        #execute_command "./abc -c \"read_eqn opt.eqn;read_lib asap7_clean.lib ;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;\""
+        
+    
 
-    end_time_process_abc=$(date +%s.%N)
-    runtime_process_abc=$(echo "$end_time_process_abc - $start_time_process_abc" | bc)
+    
+        #execute_command "./abc -c \"read_eqn opt.eqn;read_lib asap7_clean.lib ;st;dch;ps;  map ;topo;  upsize; dnsize; stime;\""
+        # execute_command "./abc -c \"read_eqn opt.eqn;read_lib asap7_clean.lib;st;ps;map ;topo;upsize; dnsize; stime; \""
+      #  execute_command "./abc -c \"read_eqn ori.eqn;st; if -K 6 -g -C 8;;read_lib asap7_clean.lib;st;ps;map ;topo;upsize; dnsize; stime;\""
+
+        #execute_command "./abc -c \"read_eqn opt.eqn;read_lib asap7_clean.lib ;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;\""
+
+
+
+
+        # start_time_process_abc_opt_dch=$(date +%s.%N)
+        # execute_command "./abc -c \"read_eqn opt.eqn;st;dch;ps; read_lib skywater130.lib ; map ;topo;  upsize; dnsize; stime\""
+        # end_time_process_abc_opt_dch=$(date +%s.%N)
+        # start_time_process_abc_opt_dc2=$(date +%s.%N)
+        # # execute_command "./abc -c \"read_eqn opt.eqn;st;dc2;st;print_stats -p; read_lib skywater130.lib ; map;topo;  upsize; dnsize; stime\""
+        # execute_command "./abc -c \"read_eqn opt.eqn;if -K 6 -g;if -K 6 -g;st;dch;print_stats -p; read_lib skywater130.lib ; map;topo;  upsize; dnsize; stime\""
+        # end_time_process_abc_opt_dc2=$(date +%s.%N)
+
+
+    fi
+    end_time_process_abc_opt=$(date +%s.%N)
+    end_time_process_abc_opt1=$(date +%s.%N)
+    #runtime_process_abc_ori_dch=$(echo "$end_time_process_abc - $start_time_process_abc" | bc)
+    runtime_process_abc_ori_resyn2=$(echo "$end_time_process_abc1 - $start_time_process_abc1" | bc)
+    #runtime_process_abc_ori_dc2=$(echo "$end_time_process_abc2 - $start_time_process_abc2" | bc)
+    runtime_process_abc_opt=$(echo "$end_time_process_abc_opt - $start_time_process_abc_opt" | bc)
+    runtime_process_abc_opt1=$(echo "$end_time_process_abc_opt1 - $start_time_process_abc_opt1" | bc)
+    #runtime_process_abc_opt_dch=$(echo "$end_time_process_abc_opt_dch - $start_time_process_abc_opt_dch" | bc)
+    #runtime_process_abc_opt_dc2=$(echo "$end_time_process_abc_opt_dc2 - $start_time_process_abc_opt_dc2" | bc)
     echo -e "${GREEN}Process 5 - Run ABC on the original and optimized circuit completed.${RESET}"
 }
 
@@ -233,14 +284,26 @@ compare_circuits() {
 
 # Function to report total runtime
 report_runtime() {
-    echo -e "${GREEN}All processes completed successfully.${RESET}"
+echo "All processes completed successfully."
 
-    echo -e "${GREEN}Rewrite circuit completed in ${RED}$runtime_process_rw${GREEN} seconds.${RESET}"
-    echo -e "${GREEN}Extract DAG completed in ${RED}$runtime_process_extract${GREEN} seconds.${RESET}"
-    echo -e "${GREEN}Process JSON completed in ${RED}$runtime_process_process_json${GREEN} seconds.${RESET}"
-    echo -e "${GREEN}Graph to Equation in ${RED}$runtime_process_graph2eqn${GREEN} seconds.${RESET}"
-    echo -e "${GREEN}Run ABC on the original and optimized circuit completed in ${RED}$runtime_process_abc${GREEN} seconds.${RESET}"
-    echo -e "${GREEN}Total runtime: ${RED}$(echo "scale=2; $runtime_process_rw + $runtime_process_extract + $runtime_process_process_json + $runtime_process_graph2eqn + $runtime_process_abc" | bc)${GREEN} seconds.${RESET}"
+echo "Rewrite circuit completed in $runtime_process_rw seconds."
+echo "Extract DAG completed in $runtime_process_extract seconds."
+echo "Process JSON completed in $runtime_process_process_json seconds."
+echo "Graph to Equation in $runtime_process_graph2eqn seconds."
+#echo "Run ABC on the original dch in $runtime_process_abc_ori_dch seconds."
+# echo "Run ABC on the original resyn2 in $runtime_process_abc_ori_baseline seconds."
+echo "Run ABC on the ifg dch map in $runtime_process_abc_ori_resyn2 seconds."
+echo "Run ABC on the opt in $runtime_process_abc_opt seconds."
+echo "Run ABC on the ifg map in $runtime_process_abc_opt1 seconds."
+# echo "Run ABC on the original dc2 in $runtime_process_abc_ori_dc2 seconds."
+total_runtime=$(echo "scale=2; $runtime_process_rw + $runtime_process_extract + $runtime_process_process_json + $runtime_process_graph2eqn + $runtime_process_abc_opt" | bc)
+echo "Total runtime base: $total_runtime seconds."
+echo "Run ABC on the ifg esyn in $total_runtime seconds."
+#total_runtime_dch=$(echo "scale=2; $runtime_process_rw + $runtime_process_extract + $runtime_process_process_json + $runtime_process_graph2eqn + $runtime_process_abc_opt_dch" | bc)
+#echo "Total runtime dch: $total_runtime_dch seconds."
+#total_runtime_dc2=$(echo "scale=2; $runtime_process_rw + $runtime_process_extract + $runtime_process_process_json + $runtime_process_graph2eqn + $runtime_process_abc_opt_dc2" | bc)
+#echo "Total runtime dc2: $total_runtime_dc2 seconds."
+
 }
 
 # Main script

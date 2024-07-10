@@ -54,6 +54,11 @@ fn get_fast_extractors() -> IndexMap<&'static str, Box<dyn Extractor>> {
             "random-based-faster-bottom-up",
             extract::faster_bottom_up::FasterBottomUpExtractor_random.boxed(),
         ),
+        // #[cfg(feature = "ilp-cbc")]
+        // (
+        //     "ilp-cbc-timeout",
+        //         extractor: extract::ilp_cbc::CbcExtractorWithTimeout::<10>.boxed(),
+        // ),
     ]
     .into_iter()
     .enumerate()
@@ -424,5 +429,10 @@ fn main() {
             );
             write_json_result(&dag_cost_file_name, &dag_cost_extraction_result_depth);
         }
+        let us = start_time.elapsed().as_micros();
+        println!(
+            "Time consumption of tree-based extraction: {} seconds",
+            us as f64 / 1000000.0
+        );
     }
 }

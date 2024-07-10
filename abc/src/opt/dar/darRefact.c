@@ -642,4 +642,3 @@ p->timeOther = p->timeTotal - p->timeCuts - p->timeEval;
 
 
 ABC_NAMESPACE_IMPL_END
-

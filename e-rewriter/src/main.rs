@@ -140,13 +140,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut runner = Runner::default()
             .with_explanations_enabled()
             .with_egraph(converted_egg.clone())
-            .with_time_limit(std::time::Duration::from_secs(10))
+            .with_time_limit(std::time::Duration::from_secs(300))
             .with_iter_limit(runner_iteration_limit)
             .with_node_limit(egraph_node_limit);
 
         runner.roots = root_ids.iter().cloned().map(Id::from).collect();
-        let runner_result = runner.run(&make_rules());
-
+       // let runner_result = runner.run(&make_rules());
+       let runner_result = runner.run(&make_rules_test());
         let duration = start.elapsed();
         println!(
             "Runner stopped: {:?}. Time taken for runner: {:?}, Classes: {}, Nodes: {}, Size: {} \n\n",

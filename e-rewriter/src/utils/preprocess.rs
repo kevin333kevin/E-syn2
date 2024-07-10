@@ -160,6 +160,9 @@ pub fn process_json_prop_cost(json_str: &str) -> String {
             let cost = node["cost"].as_f64().unwrap();
 
             let new_cost = match op {
+                // "+" => 6.0,
+                // "!" => 2.0,
+                // "*" => 4.0,
                 "+" => 6.0,
                 "!" => 2.0,
                 "*" => 4.0,
@@ -289,9 +292,12 @@ pub fn process_file(file_name: &str) -> (egg::Id, Vec<Id>, i32) {
         element
     } else {
         one_out_sig = 1;
-        let mut id: Id = id2concat.pop().unwrap().into();
+        let id: Id = id2concat.pop().unwrap().into();
         vars.insert(out.keys().next().unwrap().to_string(), id.into());
+        println!("one_out_id: {}", id) ;   
         id
+        //print id
+   
     };
     egraph.rebuild();
     let json_str = serde_json::to_string_pretty(&egraph).unwrap();
@@ -389,16 +395,14 @@ pub fn preprocess_file_order(file_name: &str) -> Result<(), io::Error> {
 
     // Search for the first line starting with "new_"
     let mut variables = Vec::new();
-    let mut found_new = false;
-
     for line in reader.lines() {
         let line = line?;
-        if found_new && !line.starts_with("new_") {
+        if  !line.starts_with("OUTORDER")&&!line.starts_with("INORDER")&&!line.starts_with("new_") &&!line.starts_with("# Equations") {
             let variable = line.split('=').next().unwrap().trim().to_string();
-            variables.push(variable);
-        } else if line.starts_with("new_") {
-            found_new = true;
-        }
+            variables.push(variable.clone());
+            //print varibale
+           // println!("variable: {}", variable);
+        } 
     }
 
     // Generate new OUTORDER line

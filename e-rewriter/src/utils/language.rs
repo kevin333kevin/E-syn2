@@ -98,6 +98,7 @@ define_language! {
         rewrite!("distributivity1"; "(+ (* ?b ?c) (* ?b ?d))" => "(* ?b (+ ?c ?d))"),
         rewrite!("distributivity2"; "(* (+ ?b ?c) (+ ?b ?d))" => "(+ ?b (* ?c ?d))"),
         rewrite!("distributivity3"; "(* ?a (+ ?b ?c))" => "(+ (* ?a ?b) (* ?a ?c))"),
+        rewrite!("distributivity4"; "(+ ?a (* ?b ?c))" => "(* (+ ?a ?b) (+ ?a ?c))"),
     ];
 
 
@@ -110,6 +111,48 @@ define_language! {
     rws
 }
 
+pub fn make_rules_test() -> Vec<Rewrite<Prop, ()>> {
+    let mut rws: Vec<Rewrite<Prop, ()>> = vec![
+        // 1 var laws
+        rewrite!("Identity 1"; "(* ?b 1)" => "?b"),
+        rewrite!("Identity 2"; "(+ ?b 0)" => "?b"),
+        rewrite!("annihilator 1"; "(* ?b 0)" => "0"),
+        rewrite!("annihilator 2"; "(+ ?b 1)" => "1"),
+        rewrite!("idempotent 1"; "(* ?b ?b)" => "?b"),
+        rewrite!("idempotent 2"; "(! (! ?b))" => "?b"),
+        rewrite!("negation1"; "(! (! ?b))" => "?b"),
+
+        rewrite!("complements1"; "(* ?b (! ?b))" => "0"),
+        rewrite!("complements2"; "(+ ?b (! ?b))" => "1"),
+        // 2 distinct var laws
+        rewrite!("Absorption1"; "(* ?b (+ ?b ?c))" => "?b"),
+        rewrite!("Absorption2"; "(+ ?b (* ?b ?c))" => "?b"),
+        rewrite!("combining1"; "(+ (* ?b ?c) (* ?b (! ?c)))" => "?b"),
+        rewrite!("combining2"; "(* (+ ?b ?c) (+ ?b (! ?c)))" => "?b"), 
+        rewrite!("commutativity1"; "(* ?b ?c)" => "(* ?c ?b)"),
+        rewrite!("commutativity2"; "(+ ?b ?c)" => "(+ ?c ?b)"),
+        rewrite!("de-morgan1"; "(! (* ?b ?c))" => "(+ (! ?b) (! ?c))"),
+        rewrite!("de-morgan2"; "(! (+ ?b ?c))" => "(* (! ?b) (! ?c))"),
+        // 3 distinct var laws //dual?
+        // rewrite!("associativity1"; "(*(* ?b ?c) ?d)" => "(* ?b (* ?c ?d))"),
+        // rewrite!("associativity2"; "(+(+ ?b ?c) ?d)" => "(+ ?b (+ ?c ?d))"),
+        rewrite!("distributivity1"; "(+ ?a (* ?b ?c))" => "(* (+ ?a ?b) (+ ?a ?c))"),
+        rewrite!("distributivity2"; "(* ?a (+ ?b ?c))" => "(+ (* ?a ?b) (* ?a ?c))"),
+
+];
+
+// 2 distinct var laws
+// rws.extend(rewrite!("commutativity1"; "(* ?b ?c)" <=> "(* ?c ?b)"));
+// rws.extend(rewrite!("commutativity2"; "(+ ?b ?c)" <=> "(+ ?c ?b)"));
+
+
+// 3 distinct var laws
+rws.extend(rewrite!("associativity1"; "(*(* ?b ?c) ?d)" <=> "(* ?b (* ?c ?d))"));
+rws.extend(rewrite!("associativity2"; "(+(+ ?b ?c) ?d)" <=> "(+ ?b (+ ?c ?d))"));
+// rws.extend(rewrite!("de-morgan1"; "(! (* ?b ?c))" <=> "(+ (! ?b) (! ?c))"));
+// rws.extend(rewrite!("de-morgan2"; "(! (+ ?b ?c))" <=> "(* (! ?b) (! ?c))"));
+rws
+}
 
 
 pub fn make_rules_simplify() -> Vec<Rewrite<Prop, ()>> {

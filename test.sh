@@ -266,3 +266,5 @@ elif [ $test_type -eq 2 ]; then
     echo -e "${GREEN}Total runtime: ${RED}$(echo "scale=2; $runtime_process_rw + $runtime_process_process_json + $runtime_process_graph2eqn + $runtime_process_abc" | bc)${GREEN} seconds.${RESET}"
 
 fi 
+
+Unfortunately, I fell ill and my state of mind was not clear.
