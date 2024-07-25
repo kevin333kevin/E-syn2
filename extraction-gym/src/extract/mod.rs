@@ -8,6 +8,7 @@ use indexmap::IndexMap;
 use rustc_hash::FxHashMap;
 use core::num;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 
 pub use crate::*;
 
@@ -104,6 +105,11 @@ impl ExtractionResult {
         self.choices.insert(class_id, node_id);
     }
 
+    // return the node ID for a given class ID
+    pub fn get_node(&self, class_id: &ClassId) -> Option<&NodeId> {
+        self.choices.get(class_id)
+    }
+
     // find_cycles method finds cycles in the EGraph starting from the given roots
     // and returns a vector of ClassIds representing the cycles
     pub fn find_cycles(&self, egraph: &EGraph, roots: &[ClassId]) -> Vec<ClassId> {
@@ -128,6 +134,10 @@ impl ExtractionResult {
             Some(Status::Doing) => cycles.push(class_id.clone()),
             None => {
                 status.insert(class_id.clone(), Status::Doing);
+                // print classid if key is not found
+                if !self.choices.contains_key(class_id) {
+                    println!("Class ID not found: {:?}", class_id);
+                }
                 let node_id = &self.choices[class_id];
                 let node = &egraph[node_id];
                 for child in &node.children {
@@ -316,4 +326,112 @@ impl ExtractionResult {
 
         }
     }
+    // // return extracted_egraph
+    pub fn get_extracted_egraph(&self, egraph: &EGraph) -> EGraph {
+        let mut extracted_egraph = EGraph::default();
+
+        for (class_id, node_id) in &self.choices {
+            if let Some(node) = egraph.nodes.get(node_id) {
+                extracted_egraph.add_node(node_id.clone(), node.clone());
+
+                // Add class data if it exists
+                if let Some(class_data) = egraph.class_data.get(class_id) {
+                    extracted_egraph.class_data.insert(class_id.clone(), class_data.clone());
+                }
+            }
+        }
+
+        // Set root e-classes
+        extracted_egraph.root_eclasses = egraph.root_eclasses.clone();
+
+        extracted_egraph
+    }
+}
+
+fn topological_sort_dfs(egraph: &EGraph) -> Vec<ClassId> {
+    println!("Starting DFS-based topological sort");
+    let mut sorted = Vec::new();
+    let mut visited = FxHashMap::default();
+    let mut stack = Vec::new();
+
+    fn dfs(egraph: &EGraph, class_id: &ClassId, visited: &mut FxHashMap<ClassId, bool>, stack: &mut Vec<ClassId>) {
+        visited.insert(class_id.clone(), true);
+
+        if let Some(class) = egraph.classes().get(class_id) {
+            for node in &class.nodes {
+                for child in &egraph[node].children {
+                    let child_class_id = egraph.nid_to_cid(child);
+                    if !visited.contains_key(child_class_id) {
+                        dfs(egraph, child_class_id, visited, stack);
+                    }
+                }
+            }
+        }
+
+        stack.push(class_id.clone());
+    }
+
+    for class_id in egraph.classes().keys() {
+        if !visited.contains_key(class_id) {
+            dfs(egraph, class_id, &mut visited, &mut stack);
+        }
+    }
+
+    while let Some(class_id) = stack.pop() {
+        sorted.push(class_id.clone());
+    }
+
+    println!("DFS-based topological sort completed");
+    sorted
+}
+
+fn topological_sort_bfs(egraph: &EGraph) -> Vec<ClassId> {
+    println!("Starting BFS-based topological sort");
+    let mut sorted = Vec::new();
+    let mut in_degree = FxHashMap::default();
+    let mut queue = VecDeque::new();
+
+    // Initialize in-degree for all classes
+    for class_id in egraph.classes().keys() {
+        in_degree.insert(class_id.clone(), 0);
+    }
+
+    // Calculate in-degree for each class
+    for class in egraph.classes().values() {
+        for node in &class.nodes {
+            for child in &egraph[node].children {
+                let child_class_id = egraph.nid_to_cid(child);
+                *in_degree.entry(child_class_id.clone()).or_insert(0) += 1;
+            }
+        }
+    }
+
+    // Enqueue all classes with in-degree 0
+    for (class_id, degree) in &in_degree {
+        if *degree == 0 {
+            queue.push_back(class_id.clone());
+        }
+    }
+
+    // BFS
+    while let Some(class_id) = queue.pop_front() {
+        sorted.push(class_id.clone());
+
+        if let Some(class) = egraph.classes().get(&class_id) {
+            for node in &class.nodes {
+                for child in &egraph[node].children {
+                    let child_class_id = egraph.nid_to_cid(child);
+                    if let Some(degree) = in_degree.get_mut(child_class_id) {
+                        *degree -= 1;
+                        if *degree == 0 {
+                            queue.push_back(child_class_id.clone());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    println!("BFS-based topological sort completed");
+    sorted
 }

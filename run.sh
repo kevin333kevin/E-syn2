@@ -77,8 +77,13 @@ rewrite_circuit() {
     #execute_command "../abc/abc -c \"read_eqn circuit0.eqn; write_eqn circuit0.eqn\""
     copy_file "circuit0.eqn" "../abc/circuit0_opt.eqn"
     change_dir "../abc"
+    # alan
     #execute_command "./abc -c \"read_eqn circuit0_opt.eqn; if -K 6 -g -C 8; st; write_eqn circuit0_opt.eqn\"" 
-    execute_command "./abc -c \"read_eqn circuit0_opt.eqn; recadd3_opt ; write_eqn circuit0_opt.eqn\"" 
+    # lazyman
+    #execute_command "./abc -c \"read_eqn circuit0_opt.eqn; recadd3_opt ; write_eqn circuit0_opt.eqn\"" 
+
+    # baseline
+    execute_command "./abc -c \"read_eqn circuit0_opt.eqn; st; write_eqn circuit0_opt.eqn\""
     copy_file "circuit0_opt.eqn" "../e-rewriter/circuit0_opt.eqn"
     change_dir "../e-rewriter"
     start_time_process_rw=$(date +%s.%N)
@@ -209,22 +214,43 @@ run_abc() {
     change_dir "abc/"
 
     start_time_process_abc_original_cir=$(date +%s.%N)
-    execute_command "./abc -c \"read_eqn ori.eqn; recadd3_ori; read_lib asap7_clean.lib;  st; dch; ps; map; topo; upsize; dnsize; stime;\"" 
+    # baseline
+    #execute_command "./abc -c \"read_eqn ori.eqn; read_lib asap7_clean.lib;  st; dch; ps; map; st; dch; ps; amap; st;dch; ps; amap; st;dch; ps; amap; st; topo; upsize; dnsize; stime;\"" 
+
+    # lazy man
+    # execute_command "./abc -c \"read_eqn ori.eqn; recadd3_ori; read_lib asap7_clean.lib;  st; dch; ps; map; topo; upsize; dnsize; stime;\"" 
+
+    # alan
+    #execute_command "./abc -c \"read_eqn ori.eqn;  if -K 6 -g -C 8; read_lib asap7_clean.lib;  ;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;\"" 
+    
+    # baline - single operator - if -g
+    execute_command "./abc -c \"read_eqn ori.eqn; read_lib asap7_clean.lib; if -g; st;dch; ps; map; topo; upsize; dnsize; stime;\""
+
     end_time_process_abc_original_cir=$(date +%s.%N)
     runtime_process_abc_original_cir=$(echo "$end_time_process_abc_original_cir - $start_time_process_abc_original_cir" | bc)
     #execute_command "./abc -c \"read_eqn ori.eqn; st; dch -f; st; timing; timing; read_lib asap7_clean.lib; map; topo; upsize; dnsize; stime\""
     start_time_process_abc=$(date +%s.%N)
     if [[ "$pattern" == *"random"* ]]; then
         timestamp=$(date +%Y%m%d%H%M%S)
-        #echo "    i   o  Gates Area  Delay" > ../abc/stats.txt
+        echo "    i   o  Gates Area  Delay" > ../abc/stats.txt
         # Parallel execution of ABC for each optimized circuit
-        ls ./opt_*.eqn | parallel --eta "./abc -c \"read_eqn {}; read_lib asap7_clean.lib ; map ; topo; upsize; dnsize; stime -d\"" >> ../tmp_log/abc_opt_all_${timestamp}.log
+        # lazy man
+        ls ./opt_*.eqn | parallel --eta "./abc -c \"read_eqn {}; read_lib asap7_clean.lib;  st; dch; ps; map; topo; upsize; dnsize; stime -d\"" >> ../tmp_log/abc_opt_all_${timestamp}.log
+        
+        # alan
+        #ls ./opt_*.eqn | parallel --eta "./abc -c \"read_eqn {}; read_lib asap7_clean.lib; st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime;st;dch;ps;  map ;topo;  upsize; dnsize; stime -d\"" >> ../tmp_log/abc_opt_all_${timestamp}.log
+        
         # copy right from ./stats.txt to ../tmp_log/abc_opt_all_{timestamp}.log
         mv "stats.txt" "../tmp_log/abc_opt_all_formatted_${timestamp}.log"
     else
         # alan
         # execute_command "./abc -c \"read_eqn opt.eqn; read_lib asap7_clean.lib;  st; dch; ps; map; topo; upsize; dnsize; stime; st; dch; ps; map; topo; upsize; dnsize; stime; st; dch; ps; map; topo; upsize; dnsize; stime; st; dch; ps; map; topo; upsize; dnsize; stime;\""
         # lazyman
+        #execute_command "./abc -c \"read_eqn opt.eqn; read_lib asap7_clean.lib;  st; dch; ps; amap; topo; upsize; dnsize; stime;\""
+        # baseline
+        #execute_command "./abc -c \"read_eqn opt.eqn; read_lib asap7_clean.lib;  st; dch; ps; amap; topo; upsize; dnsize; stime;\""
+
+        # baseline - single operator
         execute_command "./abc -c \"read_eqn opt.eqn; read_lib asap7_clean.lib;  st; dch; ps; map; topo; upsize; dnsize; stime;\""
         
         #execute_command "./abc -c \"read_eqn opt.eqn; st; dch -f; st; timing; timing; read_lib asap7_clean.lib; map; topo; upsize; dnsize; stime\""

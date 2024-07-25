@@ -1,4 +1,3 @@
-abc/
 extraction-gym/input/*.json
 extraction-gym/out_json/*.json
 process_json/out_process_result/*.json
@@ -60,3 +59,15 @@ test_func.ipynb
 test_for_graph2eqn.eqn
 test_for_graph2eqn.json
 circuit0.eqn
+extraction-gym/src/egraph-serialize/tests-viz/
+extraction-gym/src/egraph-serialize/tests/
+result_visualization/*.svg
+abc.zip
+extraction-gym/*.dot
+abc/opt.eqn
+abc/circuit0_opt.eqn
+abc/ori.eqn
+e-rewriter/circuit0_opt.eqn
+e-rewriter/modified_circuit0_opt.eqn.json
+e-rewriter/circuit0_opt.eqn.json
+test_abc.eqn

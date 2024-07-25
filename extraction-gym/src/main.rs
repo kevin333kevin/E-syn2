@@ -5,6 +5,8 @@ mod extract;
 pub use extract::*;
 
 // Import necessary dependencies
+// use egraph_serialize::EGraph;
+// use egraph_serialize::ClassId;
 use egraph_serialize::*;
 
 use crate::faster_bottom_up::FasterBottomUpExtractor_random;
@@ -316,6 +318,9 @@ fn main() {
     // Parse the e-graph from the input file
     let egraph = parse_egraph(&filename);
 
+    // visulize the egraph
+    egraph.to_dot_file("egraph_saturated.dot").unwrap();
+
     // Get the extractor based on the extractor name
     let extractor = get_extractor(&extractors, &extractor_name);
 
@@ -329,17 +334,34 @@ fn main() {
     let start_time = std::time::Instant::now();
 
     // if the extractor is not random
-    if extractor_name != "random-based-faster-bottom-up" {
+    if extractor_name != "random-based-faster-bottom-up"  { // && extractor_name != "sim_ann_based_bottom-up"
         // Extract the result using the selected extractor
         let tree_cost_extraction_result =
             extract_result(extractor, &egraph, &egraph.root_eclasses, &cost_function);
 
         // Calculate the elapsed time in microseconds
         let us = start_time.elapsed().as_micros();
+
+        // print cycles if any
+        let cycles = tree_cost_extraction_result
+            .find_cycles(&egraph, &egraph.root_eclasses);
+        println!("Cycles: {:?}", cycles);
         // Assert that the result has no cycles
-        assert!(tree_cost_extraction_result
-            .find_cycles(&egraph, &egraph.root_eclasses)
-            .is_empty());
+        // assert!(tree_cost_extraction_result
+        //     .find_cycles(&egraph, &egraph.root_eclasses)
+        //     .is_empty());
+        assert!(cycles.is_empty());
+
+        // parse extracted egraph
+        // let egraph_extracted = parse_egraph(&to_string_pretty(&tree_cost_extraction_result).unwrap());
+        // egraph_extracted.to_dot_file("egraph_extracted.dot").unwrap();
+
+        // save extract egraph as dot
+        //egraph.to_dot_file("egraph_extracted.dot").unwrap();
+
+        // save the extracted egraph as dot 
+        // let mut egraph_extracted = tree_cost_extraction_result.get_extracted_egraph(&egraph);
+        // egraph_extracted.to_dot_file("egraph_extracted.dot").unwrap();
 
         // Calculate the DAG cost and the DAG cost with extraction result
         let (dag_cost, dag_cost_extraction_result) = tree_cost_extraction_result
