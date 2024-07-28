@@ -1,6 +1,7 @@
 use rustc_hash::{FxHashMap, FxHashSet};
-
+use rand::prelude::*;
 use super::*;
+use rayon::prelude::*;
 
 /// A faster bottom up extractor inspired by the faster-greedy-dag extractor.
 /// It should return an extraction result with the same cost as the bottom-up extractor.
@@ -16,6 +17,7 @@ use super::*;
 /// in a work list (UniqueQueue).
 pub struct FasterBottomUpExtractor;
 pub struct FasterBottomUpExtractor_random;
+pub struct FasterBottomUpSimulatedAnnealingExtractor;
 
 impl Extractor for FasterBottomUpExtractor {
     fn extract(
@@ -130,11 +132,11 @@ impl Extractor for FasterBottomUpExtractor_random {
             // }
 
             //version1
-            if ((random_value >= k) && (cost < *prev_cost)) || (*prev_cost == std::f64::INFINITY) {
-                result.choose(class_id.clone(), node_id.clone());
-                costs.insert(class_id.clone(), cost);
-                analysis_pending.extend(parents[class_id].iter().cloned());
-            }
+            // if ((random_value >= k) && (cost < *prev_cost)) || (*prev_cost == std::f64::INFINITY) {
+            //     result.choose(class_id.clone(), node_id.clone());
+            //     costs.insert(class_id.clone(), cost);
+            //     analysis_pending.extend(parents[class_id].iter().cloned());
+            // }
 
             //version2
             //  if      ((random_value >= k) &&(cost < *prev_cost)) {
@@ -151,7 +153,183 @@ impl Extractor for FasterBottomUpExtractor_random {
             //         analysis_pending.extend(parents[class_id].iter().cloned());
             //         chosen_classes.insert(class_id.clone());
             //     }
+
+            //version3
+            if  prev_cost ==&INFINITY &&(cost < *prev_cost)  {
+                result.choose(class_id.clone(), node_id.clone());
+                costs.insert(class_id.clone(), cost);
+                analysis_pending.extend(parents[class_id].iter().cloned());
+            }else if random_value>=k &&(cost < *prev_cost) {
+                result.choose(class_id.clone(), node_id.clone());
+                costs.insert(class_id.clone(), cost);
+                analysis_pending.extend(parents[class_id].iter().cloned());
+                
+            }
         }
+
+        result
+    }
+}
+
+impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
+    fn extract(
+        &self,
+        egraph: &EGraph,
+        _roots: &[ClassId],
+        cost_function: &str,
+        random_prob: f64,
+    ) -> ExtractionResult {
+        let mut rng = thread_rng();
+        let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
+        let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
+        let mut analysis_pending = UniqueQueue::default();
+
+        let use_bfs = true;
+        // Perform topological sort
+        if use_bfs {
+            topological_sort_bfs(&egraph)
+        } else {
+            topological_sort_dfs(&egraph)
+        };
+
+        // replace the unsorted classes with sorted classes
+        
+
+        for class in egraph.classes().values() {
+            parents.insert(class.id.clone(), Vec::new());
+        }
+
+        for class in egraph.classes().values() {
+            for node in &class.nodes {
+                for c in &egraph[node].children {
+                    parents[n2c(c)].push(node.clone());
+                }
+                if egraph[node].is_leaf() {
+                    analysis_pending.insert(node.clone());
+                }
+            }
+        }
+
+        let mut result = ExtractionResult::default();
+        let mut costs = FxHashMap::<ClassId, Cost>::with_capacity_and_hasher(
+            egraph.classes().len(),
+            Default::default(),
+        );
+
+        // Initial bottom-up pass
+        while let Some(node_id) = analysis_pending.pop() {
+            let class_id = n2c(&node_id);
+            let node = &egraph[&node_id];
+            let prev_cost = costs.get(class_id).unwrap_or(&INFINITY);
+            let cost = match cost_function {
+                "node_sum_cost" => result.node_sum_cost(egraph, node, &costs),
+                "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
+                _ => panic!("Unknown cost function: {}", cost_function),
+            };
+            // make the inital point is sum of cost
+            //let cost = result.node_sum_cost(egraph, node, &costs);
+            if cost < *prev_cost {
+                result.choose(class_id.clone(), node_id.clone());
+                costs.insert(class_id.clone(), cost);
+                analysis_pending.extend(parents[class_id].iter().cloned());
+            }
+        }
+        // get the cost of the initial point
+        let (dag_cost_before_per_sim_ann, _) = result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+
+        // make best_dag_cost
+        let mut best_dag_cost = dag_cost_before_per_sim_ann;
+
+        // Simulated annealing with optimizations
+        let initial_temp = 100.0;
+        let cooling_rate = 0.8;
+        let mut temperature = initial_temp;
+        let sample_size = (egraph.classes().len() as f64 * 0.2).max(1.0) as usize;
+        let cost_change_threshold = 0.0;
+
+        while temperature > 1.0 {
+            println!("Temperature: {}", temperature);
+            println!("Egraph classes size: {}", egraph.classes().len());
+            
+            let sampled_classes: Vec<_> = egraph.classes().values().choose_multiple(&mut rng, sample_size);
+            println!("Sampled classes size: {}", sampled_classes.len());
+
+            let mut proposed_changes = Vec::new();
+
+            for class in sampled_classes {
+                let current_cost = *costs.get(&class.id).unwrap_or(&INFINITY);
+
+                if let Some(neighbor_node) = class.nodes.choose(&mut thread_rng()) {
+                    let neighbor_cost = match cost_function {
+                        "node_sum_cost" => result.node_sum_cost(egraph, &egraph[neighbor_node], &costs),
+                        "node_depth_cost" => result.node_depth_cost(egraph, &egraph[neighbor_node], &costs),
+                        _ => panic!("Unknown cost function: {}", cost_function),
+                    };
+
+                    if neighbor_cost > NotNan::new(1000000000.0).unwrap() {
+                        continue;
+                    }
+
+                    let cost_change = (current_cost - neighbor_cost) / current_cost;
+                    if cost_change.abs() < cost_change_threshold { // deprecated now
+                        // assertion false, break the program
+                        assert!(false);
+                        continue;
+                    }
+
+                    let random_value: f64 = rand::random();
+                    let disturbance_threshold = ((current_cost - neighbor_cost) / temperature).exp() / 1.5;
+                    if neighbor_cost < current_cost || 
+                       (random_value < disturbance_threshold && neighbor_cost < INFINITY) {
+                        proposed_changes.push((class.id.clone(), neighbor_node.clone(), neighbor_cost));
+                    }
+                }
+            }
+
+            // Apply changes sequentially and check for cycles
+            let mut temp_result = result.clone();
+            let mut valid_changes = Vec::new();
+
+            for (class_id, node_id, cost) in proposed_changes {
+                temp_result.choose(class_id.clone(), node_id.clone());
+                let cycles = temp_result.find_cycles(egraph, &egraph.root_eclasses);
+                
+                if cycles.is_empty() {
+                    valid_changes.push((class_id, node_id, cost));
+                } else {
+                    // Revert the change if it introduces a cycle
+                    //temp_result = result.clone(); // this not work due to cycles will produce with interaction effect
+                    
+                    continue;
+                    //break;
+                }
+            }
+
+            let (dag_cost_after_per_sim_ann, _) = temp_result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+            let (current_dag_cost, _) = result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+            //if ((dag_cost_after_per_sim_ann - current_dag_cost)/current_dag_cost).abs() > 0.1{
+            //if true{
+                // Apply valid changes to the actual result
+                for (class_id, node_id, cost) in valid_changes {
+                    // if result will not contain cycle after choose, then choose
+                    // if !temp_result.find_cycles(egraph, &egraph.root_eclasses).is_empty() {
+                    //     continue;
+                    // }
+                    result.choose(class_id.clone(), node_id.clone());
+                    costs.insert(class_id.clone(), cost.clone());
+                    analysis_pending.extend(parents[&class_id].iter().cloned());
+                }
+                if dag_cost_after_per_sim_ann < best_dag_cost{
+                best_dag_cost = dag_cost_after_per_sim_ann;}
+            //}else{
+                // print the cost of the current result
+                println!("Current result cost: {}, Inital result cost: {}, Best result cost: {}", dag_cost_after_per_sim_ann, dag_cost_before_per_sim_ann, best_dag_cost);
+            //}
+
+
+            temperature *= cooling_rate;
+        }
+        //assert!(result.find_cycles(egraph, &egraph.root_eclasses).is_empty());
 
         result
     }

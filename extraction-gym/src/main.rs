@@ -10,6 +10,8 @@ pub use extract::*;
 use egraph_serialize::*;
 
 use crate::faster_bottom_up::FasterBottomUpExtractor_random;
+use crate::faster_bottom_up::FasterBottomUpSimulatedAnnealingExtractor;
+use crate::bottom_up::SimulatedAnnealingExtractor;
 use anyhow::Context;
 use im_rc::iter;
 use indexmap::IndexMap;
@@ -36,6 +38,8 @@ pub const INFINITY: Cost = unsafe { NotNan::new_unchecked(std::f64::INFINITY) };
 fn get_fast_extractors() -> IndexMap<&'static str, Box<dyn Extractor>> {
     [
         ("bottom-up", extract::bottom_up::BottomUpExtractor.boxed()),
+        ("sim_ann_based_bottom-up", extract::bottom_up::SimulatedAnnealingExtractor.boxed()),
+        ("sim_ann_based_faster_bottom-up", extract::faster_bottom_up::FasterBottomUpSimulatedAnnealingExtractor.boxed()),
         (
             "faster-bottom-up",
             extract::faster_bottom_up::FasterBottomUpExtractor.boxed(),
