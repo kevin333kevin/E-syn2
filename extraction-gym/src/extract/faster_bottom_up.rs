@@ -11,21 +11,21 @@ use std::process;
 
 use crate::extract::lib::Abc;
 
-fn call_abc() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
-        eprintln!("Usage: {} <equation_file.eqn>", args[0]);
-        process::exit(1);
-    }
+use std::fs;
+use std::io::Write;
+use tempfile::NamedTempFile;
 
-    let equation_file = &args[1];
+fn call_abc(eqn_content: &str) -> Result<f32, Box<dyn std::error::Error>> {
+    let mut temp_file = NamedTempFile::new()?;
+    temp_file.write_all(eqn_content.as_bytes())?;
+    let temp_path = temp_file.path().to_str().unwrap();
 
     let mut abc = Abc::new();
 
     println!("Reading equation file...");
-    abc.execute_command(&format!("read_eqn {}", equation_file));
+    abc.execute_command(&format!("read_eqn {}", temp_path));
     println!("Reading library...");
-    abc.execute_command("read_lib asap7_clean.lib");
+    abc.execute_command("read_lib ../abc/asap7_clean.lib");
     println!("Performing structural hashing...");
     abc.execute_command("strash");
     println!("Performing technology mapping...");
@@ -37,26 +37,21 @@ fn call_abc() {
     
     println!("Executing stime command...");
     let stime_output = abc.execute_command_with_output("stime -d");
-    //println!("stime output: {}", stime_output);
 
     if let Some(delay) = parse_delay(&stime_output) {
-        //println!("Delay: {} ps", delay);
         let delay_ns = delay / 1000.0;
         println!("Delay in nanoseconds: {} ns", delay_ns);
+        Ok(delay_ns)
     } else {
-        println!("Failed to parse delay value");
+        Err("Failed to parse delay value".into())
     }
 }
 
 fn parse_delay(output: &str) -> Option<f32> {
-    //println!("Parsing delay from output: {}", output);
     for line in output.lines() {
-        //println!("Checking line: {}", line);
         if line.contains("Delay") {
-            //println!("Found Delay line: {}", line);
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 3 {
-                //println!("Attempting to parse: {}", parts[1]);
                 return parts[1].parse::<f32>().ok();
             }
         }
@@ -157,24 +152,29 @@ impl Extractor for FasterBottomUpExtractor {
             eprintln!("Failed to read saturated graph file: {}", e);
             String::new()
         });
-        
-        match process_circuit_conversion(
-            &result, 
+
+        let eqn_content = match process_circuit_conversion(
+            &result,
             &saturated_graph_json,
-            &prefix_mapping_path,
+            prefix_mapping_path,
             mode
-        ) 
-            {
-            Ok(circuit_json) => {
-                // Write the circuit JSON to a file
-                fs::write("src/extract/tmp/circuit_output.json", circuit_json).unwrap_or_else(|e| {
-                    eprintln!("Failed to write circuit output: {}", e);
-                });
-            },
-            Err(e) => eprintln!("Error in circuit conversion: {}", e),
+        ) {
+            Ok(content) => content,
+            Err(e) => {
+                eprintln!("Error in circuit conversion: {}", e);
+                return Default::default(); // or handle the error appropriately
+            }
+        };
+        
+        if let Err(e) = std::fs::write("src/extract/tmp/output.eqn", &eqn_content) {
+            eprintln!("Error writing to file: {}", e);
+            // Handle the error appropriately
         }
 
-
+        match call_abc(&eqn_content){
+            Ok(delay) => println!("Circuit delay: {} ns", delay),
+            Err(e) => eprintln!("Error in ABC processing: {}", e),
+        }
 
         
         result

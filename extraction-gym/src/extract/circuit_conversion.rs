@@ -241,94 +241,7 @@ fn read_prefix_mapping(file_path: &str) -> FxHashMap<String, String> {
     mapping
 }
 
-fn generate_eqn_content(
-    variables: &Vec<String>,
-    parts: Vec<String>,
-    f_prefix: &str,
-    visited: FxHashMap<String, String>,
-    prefix_mapping: &FxHashMap<String, String>,
-) -> String {
-    let mut content = String::new();
 
-    content.push_str(&format!("INORDER = {};\n", variables.join(" ")));
-
-    for (index, part) in parts.iter().enumerate() {
-        let f_number = format!("{}[{}]", f_prefix, index);
-        let mapped_prefix = prefix_mapping.get(&f_number).unwrap_or(&f_number);
-        content.push_str(&format!("{} = {};\n", mapped_prefix, part));
-    }
-
-    let outorder: Vec<String> = (0..parts.len())
-        .map(|i| format!("{}[{}]", f_prefix, i))
-        .map(|f_number| {
-            prefix_mapping
-                .get(&f_number)
-                .unwrap_or(&f_number)
-                .to_string()
-        })
-        .collect();
-
-    content.push_str(&format!("OUTORDER = {};\n", outorder.join(" ")));
-
-    for (node_id, expr) in visited.iter() {
-        content.push_str(&format!("new_n_{} = {};\n", node_id, expr));
-    }
-
-    content
-}
-
-fn json_to_eqn(json_str: &str, prefix_mapping_path: &str, mode: &str) -> Result<String, Box<dyn StdError>> {
-    let graph: Graph = serde_json::from_str(json_str)?;
-
-    if is_cyclic_graph(&graph.nodes) {
-        return Err("The graph is cyclic.".into());
-    }
-
-    let root_nodes = &graph.root_eclasses;
-    let prefix_mapping = read_prefix_mapping(prefix_mapping_path);
-
-    let mut final_content = String::new();
-
-    for (i, root) in root_nodes.iter().enumerate() {
-        let mut visited = FxHashMap::default();
-        let mut visit_count = FxHashMap::default();
-
-        println!("Mode: {}", mode);
-        
-        let equation = match mode {
-            "small" => dag_to_equations_small(&graph.nodes, root, &mut visited, &mut visit_count),
-            "large" => dag_to_equations_large(&graph.nodes, root, &mut visited, &mut visit_count),
-            _ => {
-                println!("Invalid mode '{}'. Using 'large' mode as default.", mode);
-                dag_to_equations_large(&graph.nodes, root, &mut visited, &mut visit_count)
-            }
-        };
-
-        let mut variables = vec![];
-        for node in graph.nodes.values() {
-            if node.children.is_empty() && !variables.contains(&node.op) && node.op != "1" && node.op != "0" {
-                variables.push(node.op.clone());
-            }
-        }
-
-        let parts = format_synopsys_single(&equation);
-
-        let content = generate_eqn_content(
-            &variables,
-            parts,
-            "p",
-            visited,
-            &prefix_mapping,
-        );
-
-        final_content.push_str(&content);
-        final_content.push_str("\n");
-        
-        println!("Finished graph to equation conversion for circuit {} using {} mode", i + 1, mode);
-    }
-
-    Ok(final_content)
-}
 
 
 fn process_json_with_choices(
@@ -443,6 +356,95 @@ fn update_root_eclasses(graph_json: &str, target_json: &str) -> Result<String, B
     Ok(serde_json::to_string_pretty(&target_data)?)
 }
 
+fn json_to_eqn(json_str: &str, prefix_mapping_path: &str, mode: &str) -> Result<String, Box<dyn StdError>> {
+    let graph: Graph = serde_json::from_str(json_str)?;
+
+    if is_cyclic_graph(&graph.nodes) {
+        return Err("The graph is cyclic.".into());
+    }
+
+    let root_nodes = &graph.root_eclasses;
+    let prefix_mapping = read_prefix_mapping(prefix_mapping_path);
+
+    let mut final_content = String::new();
+
+    for (i, root) in root_nodes.iter().enumerate() {
+        let mut visited = FxHashMap::default();
+        let mut visit_count = FxHashMap::default();
+
+        println!("Mode: {}", mode);
+        
+        let equation = match mode {
+            "small" => dag_to_equations_small(&graph.nodes, root, &mut visited, &mut visit_count),
+            "large" => dag_to_equations_large(&graph.nodes, root, &mut visited, &mut visit_count),
+            _ => {
+                println!("Invalid mode '{}'. Using 'large' mode as default.", mode);
+                dag_to_equations_large(&graph.nodes, root, &mut visited, &mut visit_count)
+            }
+        };
+
+        let mut variables = vec![];
+        for node in graph.nodes.values() {
+            if node.children.is_empty() && !variables.contains(&node.op) && node.op != "1" && node.op != "0" {
+                variables.push(node.op.clone());
+            }
+        }
+
+        let parts = format_synopsys_single(&equation);
+
+        let content = generate_eqn_content(
+            &variables,
+            parts,
+            "p",
+            visited,
+            &prefix_mapping,
+        );
+
+        final_content.push_str(&content);
+        final_content.push_str("\n");
+        
+        println!("Finished graph to equation conversion for circuit {} using {} mode", i + 1, mode);
+    }
+
+    Ok(final_content)
+}
+
+fn generate_eqn_content(
+    variables: &Vec<String>,
+    parts: Vec<String>,
+    f_prefix: &str,
+    visited: FxHashMap<String, String>,
+    prefix_mapping: &FxHashMap<String, String>,
+) -> String {
+    let mut content = String::new();
+
+    content.push_str(&format!("INORDER = {};\n", variables.join(" ")));
+
+    for (index, part) in parts.iter().enumerate() {
+        let f_number = format!("{}[{}]", f_prefix, index);
+        let mapped_prefix = prefix_mapping.get(&f_number).unwrap_or(&f_number);
+        content.push_str(&format!("{} = {};\n", mapped_prefix, part));
+    }
+
+    let outorder: Vec<String> = (0..parts.len())
+        .map(|i| format!("{}[{}]", f_prefix, i))
+        .map(|f_number| {
+            prefix_mapping
+                .get(&f_number)
+                .unwrap_or(&f_number)
+                .to_string()
+        })
+        .collect();
+
+    content.push_str(&format!("OUTORDER = {};\n", outorder.join(" ")));
+
+    for (node_id, expr) in visited.iter() {
+        content.push_str(&format!("new_n_{} = {};\n", node_id, expr));
+    }
+
+    content
+}
+
 pub fn extraction_result_to_eqn(
     dag_cost_json: &str,
     saturated_graph_json: &str,
@@ -466,7 +468,6 @@ pub fn extraction_result_to_eqn(
     println!("Extraction result to eqn process completed successfully");
     Ok(eqn_content)
 }
-
 
 pub fn process_circuit_conversion(
     extraction_result: &crate::ExtractionResult,

@@ -118,9 +118,9 @@ extract_dag() {
     echo "Running extractor for ${data} with ${ext}"
 
     if [[ "$pattern" == *"random"* ]]; then
-        target/x86_64-unknown-linux-musl/release/extraction-gym "${data}" --cost-function="${cost_function}" --extractor="${pattern}" --out="${out_file}" --num-samples="${num_samplings}" --random-prob="${prob_randomization}"
+        target/release/extraction-gym "${data}" --cost-function="${cost_function}" --extractor="${pattern}" --out="${out_file}" --num-samples="${num_samplings}" --random-prob="${prob_randomization}"
     else
-        target/x86_64-unknown-linux-musl/release/extraction-gym "${data}" --cost-function="${cost_function}" --extractor="${pattern}" --out="${out_file}"
+        target/release/extraction-gym "${data}" --cost-function="${cost_function}" --extractor="${pattern}" --out="${out_file}"
     fi
 
     change_dir ".."
