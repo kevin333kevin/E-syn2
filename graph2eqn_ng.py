@@ -25,8 +25,11 @@ def resolve_op(node_id, data):
     if node_data['op'] == '!':
         child_id = node_data['children'][0]
         if data['nodes'][child_id]['op'] == '!':
+            #assert False, "Double negation is not supported"
             return resolve_op(child_id, data)
+            #return f"new_n_{child_id}"
         else:
+            #return f"!new_n_{child_id}"
             return f"!{resolve_op(child_id, data)}"
     return f"new_n_{node_id}"
 

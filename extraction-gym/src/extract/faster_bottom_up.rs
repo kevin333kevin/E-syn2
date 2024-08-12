@@ -2,6 +2,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use rand::prelude::*;
 use super::*;
 use rayon::prelude::*;
+//use crate::extract::circuit_conversion::extraction_result_to_eqn;
 
 /// A faster bottom up extractor inspired by the faster-greedy-dag extractor.
 /// It should return an extraction result with the same cost as the bottom-up extractor.
@@ -71,6 +72,26 @@ impl Extractor for FasterBottomUpExtractor {
             }
         }
 
+        // Compute JSON buffers for tree cost and DAG cost extraction results
+        let tree_cost_json = to_string_pretty(&result).unwrap();
+        
+        let (dag_cost, dag_cost_extraction_result) = result
+            .calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+        let dag_cost_json = to_string_pretty(&dag_cost_extraction_result).unwrap();
+
+        // Store JSON buffers in the ExtractionResult
+        result.tree_cost_json = Some(tree_cost_json);
+        result.dag_cost_json = Some(dag_cost_json);
+
+        // print the dag cost
+        //print!("print from extractor: dag cost: {}\n", dag_cost);
+
+        // use circuit convertor to conver the json -> processed json -> eqn -> abc rust binding to get the delay
+
+        // first, feed input saturated graph and extracted e-graph to process json
+        
+
+        
         result
     }
 }
@@ -279,7 +300,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 
                     let random_value: f64 = rand::random();
                     let disturbance_threshold = ((current_cost - neighbor_cost) / temperature).exp() / 1.5;
-                    if neighbor_cost < current_cost || 
+                    if neighbor_cost <= current_cost || 
                        (random_value < disturbance_threshold && neighbor_cost < INFINITY) {
                         proposed_changes.push((class.id.clone(), neighbor_node.clone(), neighbor_cost));
                     }
@@ -319,7 +340,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
                     costs.insert(class_id.clone(), cost.clone());
                     analysis_pending.extend(parents[&class_id].iter().cloned());
                 }
-                if dag_cost_after_per_sim_ann < best_dag_cost{
+                if dag_cost_after_per_sim_ann < NotNan::new(1.0 * best_dag_cost.into_inner()).unwrap() {
                 best_dag_cost = dag_cost_after_per_sim_ann;}
             //}else{
                 // print the cost of the current result

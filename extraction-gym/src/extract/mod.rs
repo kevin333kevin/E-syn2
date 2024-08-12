@@ -17,6 +17,10 @@ pub mod faster_bottom_up;
 pub mod faster_greedy_dag;
 pub mod global_greedy_dag;
 pub mod greedy_dag;
+//mod circuit_conversion;
+mod lib;
+mod demo;
+mod build;
 // pub mod sim_ann_based_bottom_up;
 // pub mod sim_ann_based_faster_bottom_up;
 use rand::Rng;
@@ -82,6 +86,12 @@ where
 pub struct ExtractionResult {
     // choices is an IndexMap that maps ClassId to NodeId
     pub choices: IndexMap<ClassId, NodeId>,
+    #[serde(skip)]
+    pub tree_cost_json: Option<String>,
+    #[serde(skip)]
+    pub dag_cost_json: Option<String>,
+    // #[serde(skip)]
+    // pub saturated_json: Option<String>,
 }
 
 // Cost_extract struct is an empty struct (placeholder)
@@ -210,6 +220,9 @@ impl ExtractionResult {
         let mut todo: Vec<ClassId> = roots.to_vec();
         let mut extraction_result = ExtractionResult {
             choices: IndexMap::new(),
+            tree_cost_json: None,
+            dag_cost_json: None,
+           // saturated_json: None,
         };
 
         while let Some(cid) = todo.pop() {

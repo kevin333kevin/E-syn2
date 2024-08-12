@@ -1,19 +1,18 @@
 use serde::Deserialize;
-//use std::collections::HashMap;
-use dashmap::DashMap;
 use rustc_hash::FxHashMap;
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
-use std::path::Path;
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 
 // Define Data Structures
 #[derive(Deserialize, Debug)]
 struct Node {
     op: String,
     children: Vec<String>,
-    eclass: String, // Add this to handle the 'eclass' field in JSON
-    cost: f64,      // Add this to handle the 'cost' field in JSON
+    eclass: String,
+    cost: f64,
 }
 
 #[derive(Deserialize, Debug)]
@@ -30,16 +29,15 @@ fn is_cyclic_graph(nodes: &FxHashMap<String, Node>) -> bool {
         if !visited.contains_key(node_id) {
             let cyclic_nodes = is_cyclic_util(nodes, node_id, &mut visited, &mut rec_stack);
             if !cyclic_nodes.is_empty() {
-                // Find the cyclic nodes and print them.
                 for node in cyclic_nodes {
                     println!("{}", node);
                 }
-                return true; // Found a cycle
+                return true;
             }
         }
     }
 
-    false // No cycle found.
+    false
 }
 
 fn is_cyclic_util(
@@ -58,13 +56,11 @@ fn is_cyclic_util(
             if !visited.get(child_id).unwrap_or(&false) {
                 let mut child_cyclic_nodes = is_cyclic_util(nodes, child_id, visited, rec_stack);
                 if !child_cyclic_nodes.is_empty() {
-                    // Find the cyclic nodes and add them to the list of cyclic nodes.
                     cyclic_nodes.push(child_id.to_string());
                     cyclic_nodes.append(&mut child_cyclic_nodes);
                     return cyclic_nodes;
                 }
             } else if *rec_stack.get(child_id).unwrap_or(&false) {
-                // Find the cyclic nodes and add them to the list of cyclic nodes.
                 cyclic_nodes.push(child_id.to_string());
                 return cyclic_nodes;
             }
@@ -72,16 +68,20 @@ fn is_cyclic_util(
     }
 
     rec_stack.remove(node_id);
-    cyclic_nodes // return the cyclic nodes if any.
+    cyclic_nodes
 }
 
-// Parse json
 fn parse_json(json_str: &str) -> Graph {
     serde_json::from_str(json_str).expect("JSON was not well-formatted")
 }
 
-// Convert DAG to eqn with proper hierarchical representation
-fn dag_to_equations(
+fn string_to_unique_id(s: &str) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    s.hash(&mut hasher);
+    hasher.finish()
+}
+
+fn dag_to_equations_small(
     nodes: &FxHashMap<String, Node>,
     node_id: &str,
     visited: &mut FxHashMap<String, String>,
@@ -89,23 +89,17 @@ fn dag_to_equations(
 ) -> String {
     *visit_count.entry(node_id.to_string()).or_insert(0) += 1;
 
-    // if let Some(expr) = visited.get(node_id) {
-    //     return expr.clone(); // Return the expression if already recorded.
-    // }
     if visited.contains_key(node_id) {
-        return format!("new_n_{}", node_id); // Return the modified key value if already recorded.
+        return format!("new_n_{}", node_id);
     }
 
-    //println!("Node ID: {}", node_id);
-
     let node = nodes.get(node_id).unwrap();
-    //  println!("Node ID: {:?}", node_id);
     let expression = match node.op.as_str() {
         "&" => {
             let operands: Vec<String> = node
                 .children
                 .iter()
-                .map(|child_id| dag_to_equations(nodes, child_id, visited, visit_count))
+                .map(|child_id| dag_to_equations_small(nodes, child_id, visited, visit_count))
                 .collect();
             operands.join(" & ")
         }
@@ -113,29 +107,104 @@ fn dag_to_equations(
             let operands: Vec<String> = node
                 .children
                 .iter()
-                .map(|child_id| dag_to_equations(nodes, child_id, visited, visit_count))
+                .map(|child_id| dag_to_equations_small(nodes, child_id, visited, visit_count))
                 .collect();
             if operands.is_empty() {
-                node.op.clone() // No children means it's a variable or a constant
+                node.op.clone()
             } else if operands.len() == 1 {
-                format!("{}({})", node.op, operands[0]) // Unary operation
+                format!("{}({})", node.op, operands[0])
             } else {
-                format!("({} {} {})", operands[0], node.op, operands[1]) // Binary operation
+                format!("({} {} {})", operands[0], node.op, operands[1])
             }
         }
     };
 
-    //if expression.contains(" ") || expression.contains("(") {// record the expression if it is intermediate node.
     if visit_count[node_id] > 1 && (expression.contains(" ") || expression.contains("(")) {
-        // Only record the expression if the node has been visited more than once.
-        //if visit_count[node_id] > 1  {
         visited.insert(node_id.to_string(), expression.clone());
     }
 
     expression
 }
 
-// Function to format Synopsys for a single equation
+fn dag_to_equations_large(
+    nodes: &FxHashMap<String, Node>,
+    node_id: &str,
+    visited: &mut FxHashMap<String, String>,
+    visit_count: &mut FxHashMap<String, usize>,
+) -> String {
+    *visit_count.entry(node_id.to_string()).or_insert(0) += 1;
+
+    if visited.contains_key(node_id) {
+        return format!("new_n_{}", node_id);
+    }
+
+    let node = nodes.get(node_id).unwrap();
+    let expression = match node.op.as_str() {
+        "&" => {
+            node.children
+                .iter()
+                .map(|child_id| dag_to_equations_large(nodes, child_id, visited, visit_count))
+                .collect::<Vec<_>>()
+                .join(" & ")
+        }
+        _ => {
+            let operands: Vec<String> = node
+                .children
+                .iter()
+                .map(|child_id| dag_to_equations_large(nodes, child_id, visited, visit_count))
+                .collect();
+    
+            match operands.len() {
+                0 => node.op.clone(),
+                1 => {
+                    let operand = &operands[0];
+                    if operand.len() > 50 {
+                        let new_node_id = string_to_unique_id(operand);
+                        visited.insert(new_node_id.to_string(), operand.clone());
+                        format!("{}(new_n_{})", node.op, new_node_id)
+                    } else {
+                        format!("{}({})", node.op, operand)
+                    }
+                }
+                2 => {
+                    let lhs = &operands[0];
+                    let rhs = &operands[1];
+                    let (lhs_id, rhs_id) = (
+                        if lhs.len() > 50 {
+                            let id = string_to_unique_id(lhs);
+                            visited.insert(id.to_string(), lhs.clone());
+                            Some(id)
+                        } else {
+                            None
+                        },
+                        if rhs.len() > 50 {
+                            let id = string_to_unique_id(rhs);
+                            visited.insert(id.to_string(), rhs.clone());
+                            Some(id)
+                        } else {
+                            None
+                        },
+                    );
+    
+                    format!(
+                        "({} {} {})",
+                        lhs_id.map_or_else(|| lhs.clone(), |id| format!("new_n_{}", id)),
+                        node.op,
+                        rhs_id.map_or_else(|| rhs.clone(), |id| format!("new_n_{}", id))
+                    )
+                }
+                _ => unreachable!(),
+            }
+        }
+    };
+
+    if visit_count[node_id] > 1 && (expression.contains(" ") || expression.contains("(")) {
+        visited.insert(node_id.to_string(), expression.clone());
+    }
+
+    expression
+}
+
 fn format_synopsys_single(equation: &str) -> Vec<String> {
     equation
         .split('&')
@@ -143,7 +212,6 @@ fn format_synopsys_single(equation: &str) -> Vec<String> {
         .collect()
 }
 
-// Function to read the mapping from the reference file
 fn read_prefix_mapping(file_path: &str) -> FxHashMap<String, String> {
     let file = File::open(file_path).expect("Unable to open file");
     let reader = BufReader::new(file);
@@ -167,7 +235,6 @@ fn read_prefix_mapping(file_path: &str) -> FxHashMap<String, String> {
     mapping
 }
 
-// Function to write Synopsys format to a file with updated prefix mapping
 fn write_to_file(
     variables: &Vec<String>,
     parts: Vec<String>,
@@ -204,102 +271,69 @@ fn write_to_file(
 }
 
 fn main() {
-    // Read the file path from the command line arguments
     let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        println!("Usage: <program> <path_to_input_json_file> <path_to_output_circuit_file> <check_cyclic>");
+    if args.len() < 3 {
+        println!("Usage: <program> <path_to_input_json_file> <path_to_output_circuit_file> [mode] [check_cyclic]");
+        println!("Mode can be 'small' or 'large'. If not specified, 'small' is used as default.");
         std::process::exit(1);
     }
+    
     let file_path = &args[1];
-
     let output_path = &args[2];
+    let mode = if args.len() >= 4 { &args[3] } else { "large" };
+    let check_cyclic = args.len() >= 5 && args[4] == "1";
 
-    // Open the file and read the JSON content
     let mut file = File::open(file_path).expect("Unable to open file");
     let mut json_str = String::new();
-    file.read_to_string(&mut json_str)
-        .expect("Unable to read file");
+    file.read_to_string(&mut json_str).expect("Unable to read file");
 
-    // Parse the JSON string
     let graph = parse_json(&json_str);
 
-    // read final args that check if the graph is cyclic or not
-    // let check_cyclic = &args[2] if args.len() > 2 else "0";
-    if args.len() == 4 {
-        let check_cyclic = &args[3];
-        if check_cyclic == "1" {
-            println!("Checking for cyclic graph");
-            // Check if the graph is cyclic
-            if is_cyclic_graph(&graph.nodes) {
-                println!("Error: The graph is cyclic.");
-                return; // Exit the program or handle the error as needed
-            }
+    if check_cyclic {
+        println!("Checking for cyclic graph");
+        if is_cyclic_graph(&graph.nodes) {
+            println!("Error: The graph is cyclic.");
+            return;
         }
     }
 
-    // Determine the nodes that are not children of any other nodes
-    // Use the root_eclasses as root nodes
-    let root_nodes = graph.root_eclasses;
+    let root_nodes = &graph.root_eclasses;
+    let prefix_mapping = read_prefix_mapping("../e-rewriter/circuit0.eqn");
 
-    // Print the root nodes
-    // println!("Root nodes: {:?}", root_nodes);
-
-    // Format and write each Circuit to a file
-    let prefix_mapping = read_prefix_mapping("../e-rewriter/circuit0_opt.eqn");
-
-    // Process each identified root node
     for (i, root) in root_nodes.iter().enumerate() {
         let mut visited = FxHashMap::default();
         let mut visit_count = FxHashMap::default();
-        let equation = dag_to_equations(&graph.nodes, root, &mut visited, &mut visit_count);
-        //println!("Equation: {}", equation);
-        // if the length of visited is 0, not printing the visited nodes
-        if visited.len() != 0 {
-            //    println!("Visit count: {:?}", visit_count);
-            //    println!("Visited nodes: {:?}", visited);
-        }
 
-        // for (node_id, expr) in visited.iter() {
-        //     println!("{}: {}", node_id, expr);
-        // }
-        //println!("{}", equation);
-        //println!("Visited nodes: {:?}", visited);
-        //  println!("Circuit {}: ", i + 1);
+        //print the mode
+        println!("Mode: {}", mode);
+        
+        let equation = match mode {
+            "small" => dag_to_equations_small(&graph.nodes, root, &mut visited, &mut visit_count),
+            "large" => dag_to_equations_large(&graph.nodes, root, &mut visited, &mut visit_count),
+            _ => {
+                println!("Invalid mode '{}'. Using 'small' mode as default.", mode);
+                dag_to_equations_small(&graph.nodes, root, &mut visited, &mut visit_count)
+            }
+        };
 
-        // Extract unique variables
         let mut variables = vec![];
         for node in graph.nodes.values() {
-            if node.children.is_empty()
-                && !variables.contains(&node.op)
-                && node.op != "1"
-                && node.op != "0"
-            {
+            if node.children.is_empty() && !variables.contains(&node.op) && node.op != "1" && node.op != "0" {
                 variables.push(node.op.clone());
             }
         }
 
-        // Format each equation
         let parts = format_synopsys_single(&equation);
-
-        // Print Synopsys format for each Circuit
-        // println!("INORDER = {};", variables.join(" "));
-        // println!("OUTORDER = {};", (1..=parts.len()).map(|i| format!("F_{}", i)).collect::<Vec<String>>().join(" "));
-        // for (i, part) in parts.iter().enumerate() {
-        //     println!("F_{} = {};", i + 1, part);
-        // }
-        // println!();
 
         write_to_file(
             &variables,
             parts,
-            //&format!("circuit{}.eqn", i),
-            // use output_path instead of hardcoded circuit{}.eqn
             &format!("{}", output_path),
             "p",
             visited,
             &prefix_mapping,
         );
-        //post_process_eqn(&format!("circuit{}.eqn", i));
-        println!("Finished graph to equation conversion")
+        
+        println!("Finished graph to equation conversion for circuit {} using {} mode", i + 1, mode);
     }
 }

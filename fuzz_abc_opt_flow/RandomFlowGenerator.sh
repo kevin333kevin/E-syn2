@@ -32,11 +32,11 @@ num_flows=$1
 #lengths=(10 15 20 25)
 
 # Random length minimum and maximum (inclusive)
-min_length=10
-max_length=25
+min_length=25
+max_length=35
 
 # Output file
-output_file="GeneratedFlows.txt"
+output_file="GeneratedFlows_25_35_500.txt"
 
 # Make sure the output file is empty
 > "$output_file"
