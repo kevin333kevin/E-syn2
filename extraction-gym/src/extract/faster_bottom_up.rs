@@ -2,7 +2,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use rand::prelude::*;
 use super::*;
 use rayon::prelude::*;
-//use crate::extract::circuit_conversion::extraction_result_to_eqn;
+use crate::extract::circuit_conversion::process_circuit_conversion;
 
 /// A faster bottom up extractor inspired by the faster-greedy-dag extractor.
 /// It should return an extraction result with the same cost as the bottom-up extractor.
@@ -89,7 +89,21 @@ impl Extractor for FasterBottomUpExtractor {
         // use circuit convertor to conver the json -> processed json -> eqn -> abc rust binding to get the delay
 
         // first, feed input saturated graph and extracted e-graph to process json
+        let saturated_graph_path = "input/rewritten_egraph_with_weight_cost_serd.json";
+        let saturated_graph_json = fs::read_to_string(saturated_graph_path).unwrap_or_else(|e| {
+            eprintln!("Failed to read saturated graph file: {}", e);
+            String::new()
+        });
         
+        match process_circuit_conversion(&result, &saturated_graph_json) {
+            Ok(circuit_json) => {
+                // Write the circuit JSON to a file
+                fs::write("src/extract/tmp/circuit_output.json", circuit_json).unwrap_or_else(|e| {
+                    eprintln!("Failed to write circuit output: {}", e);
+                });
+            },
+            Err(e) => eprintln!("Error in circuit conversion: {}", e),
+        }
 
         
         result

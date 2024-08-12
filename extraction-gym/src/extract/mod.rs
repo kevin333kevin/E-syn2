@@ -17,7 +17,7 @@ pub mod faster_bottom_up;
 pub mod faster_greedy_dag;
 pub mod global_greedy_dag;
 pub mod greedy_dag;
-//mod circuit_conversion;
+mod circuit_conversion;
 mod lib;
 mod demo;
 mod build;
