@@ -4,6 +4,66 @@ use super::*;
 use rayon::prelude::*;
 use crate::extract::circuit_conversion::process_circuit_conversion;
 
+use std::env;
+use std::process;
+
+//use abc::Abc;
+
+use crate::extract::lib::Abc;
+
+fn call_abc() {
+    let args: Vec<String> = env::args().collect();
+    if args.len() != 2 {
+        eprintln!("Usage: {} <equation_file.eqn>", args[0]);
+        process::exit(1);
+    }
+
+    let equation_file = &args[1];
+
+    let mut abc = Abc::new();
+
+    println!("Reading equation file...");
+    abc.execute_command(&format!("read_eqn {}", equation_file));
+    println!("Reading library...");
+    abc.execute_command("read_lib asap7_clean.lib");
+    println!("Performing structural hashing...");
+    abc.execute_command("strash");
+    println!("Performing technology mapping...");
+    abc.execute_command("map");
+    println!("Performing post-processing...(topo; gate sizing)");
+    abc.execute_command("topo");
+    abc.execute_command("upsize");
+    abc.execute_command("dnsize");
+    
+    println!("Executing stime command...");
+    let stime_output = abc.execute_command_with_output("stime -d");
+    //println!("stime output: {}", stime_output);
+
+    if let Some(delay) = parse_delay(&stime_output) {
+        //println!("Delay: {} ps", delay);
+        let delay_ns = delay / 1000.0;
+        println!("Delay in nanoseconds: {} ns", delay_ns);
+    } else {
+        println!("Failed to parse delay value");
+    }
+}
+
+fn parse_delay(output: &str) -> Option<f32> {
+    //println!("Parsing delay from output: {}", output);
+    for line in output.lines() {
+        //println!("Checking line: {}", line);
+        if line.contains("Delay") {
+            //println!("Found Delay line: {}", line);
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                //println!("Attempting to parse: {}", parts[1]);
+                return parts[1].parse::<f32>().ok();
+            }
+        }
+    }
+    None
+}
+
 /// A faster bottom up extractor inspired by the faster-greedy-dag extractor.
 /// It should return an extraction result with the same cost as the bottom-up extractor.
 ///
@@ -90,12 +150,21 @@ impl Extractor for FasterBottomUpExtractor {
 
         // first, feed input saturated graph and extracted e-graph to process json
         let saturated_graph_path = "input/rewritten_egraph_with_weight_cost_serd.json";
+        let prefix_mapping_path = "../e-rewriter/circuit0.eqn";
+        let mode = "small";
+
         let saturated_graph_json = fs::read_to_string(saturated_graph_path).unwrap_or_else(|e| {
             eprintln!("Failed to read saturated graph file: {}", e);
             String::new()
         });
         
-        match process_circuit_conversion(&result, &saturated_graph_json) {
+        match process_circuit_conversion(
+            &result, 
+            &saturated_graph_json,
+            &prefix_mapping_path,
+            mode
+        ) 
+            {
             Ok(circuit_json) => {
                 // Write the circuit JSON to a file
                 fs::write("src/extract/tmp/circuit_output.json", circuit_json).unwrap_or_else(|e| {
@@ -104,6 +173,8 @@ impl Extractor for FasterBottomUpExtractor {
             },
             Err(e) => eprintln!("Error in circuit conversion: {}", e),
         }
+
+
 
         
         result
