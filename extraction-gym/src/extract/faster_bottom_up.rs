@@ -424,8 +424,18 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
             String::new()
         });
 
+        // Generate base solution using faster bottom-up
+        let mut base_result = generate_initial_solution(egraph, cost_function);
+        update_json_buffers_in_result(&mut base_result, egraph);
+        let base_abc_cost = calculate_abc_cost(&base_result, &saturated_graph_json, &prefix_mapping_path);
+
+        // Generate random initial solution for SA
+        let mut current_result = generate_random_solution(egraph);
+        update_json_buffers_in_result(&mut current_result, egraph);
+        let mut current_abc_cost = calculate_abc_cost(&current_result, &saturated_graph_json, &prefix_mapping_path);
+
         let initial_temp = 100.0;
-        let cooling_rate = 0.9;
+        let cooling_rate = 0.7;
         let mut temperature = initial_temp;
         let sample_size = (egraph.classes().len() as f64 * 0.3).max(1.0) as usize;
         let max_iterations = 100;
@@ -433,15 +443,12 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         let min_temperature = 0.1;
         let verbose = true;
 
-        // Generate initial solution
-        let mut current_result = generate_initial_solution(egraph, cost_function);
-        update_json_buffers_in_result(&mut current_result, egraph); // Add this line
-        let mut current_abc_cost = calculate_abc_cost(&current_result, &saturated_graph_json, &prefix_mapping_path);
         let mut best_result = current_result.clone();
         let mut best_abc_cost = current_abc_cost;
 
         println!("========== Starting Simulated Annealing ==========");
-        println!("Initial ABC cost: {:.6}", current_abc_cost);
+        println!("Base solution ABC cost: {:.6}", base_abc_cost);
+        println!("Initial random solution ABC cost: {:.6}", current_abc_cost);
 
         while temperature > min_temperature {
             for _ in 0..iterations_per_temp {
@@ -472,13 +479,35 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         }
 
         println!("========== Simulated Annealing Complete ==========");
-        println!("Best ABC cost: {:.6}", best_abc_cost);
+        println!("SA-final ABC cost: {:.6}", best_abc_cost);
+        println!("Base solution ABC cost: {:.6}", base_abc_cost);
 
-        // Compute final JSON buffers for the best result
-        update_json_buffers_in_result(&mut best_result, egraph);
-
-        best_result
+        // Compare SA-final with base solution
+        if best_abc_cost <= base_abc_cost {
+            println!("SA-final solution is better. Returning SA-final.");
+            best_result
+        } else {
+            println!("Base solution is better. Returning base solution.");
+            base_result
+        }
     }
+}
+
+// ========================== Helper Functions For SA-based faster bottom-up ==========================
+// Generate random solution for SA
+// ========================== Helper Functions For SA-based faster bottom-up ==========================
+
+fn generate_random_solution(egraph: &EGraph) -> ExtractionResult {
+    let mut rng = thread_rng();
+    let mut result = ExtractionResult::default();
+
+    for class in egraph.classes().values() {
+        if let Some(random_node) = class.nodes.choose(&mut rng) {
+            result.choose(class.id.clone(), random_node.clone());
+        }
+    }
+
+    result
 }
 
 // ========================== Helper Functions For SA-based faster bottom-up ==========================
