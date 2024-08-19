@@ -1,8 +1,8 @@
-use rustc_hash::{FxHashMap, FxHashSet};
-use rand::prelude::*;
 use super::*;
-use rayon::prelude::*;
 use crate::extract::circuit_conversion::process_circuit_conversion;
+use rand::prelude::*;
+use rayon::prelude::*;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use std::env;
 use std::process;
@@ -13,9 +13,9 @@ use tokio::runtime::Runtime;
 use crate::extract::lib::Abc;
 
 use std::fs;
+use std::future::Future;
 use std::io::Write;
 use tempfile::NamedTempFile;
-use std::future::Future;
 
 use tonic::Request;
 use vectorservice::vector_service_client::VectorServiceClient;
@@ -63,13 +63,13 @@ fn call_abc(eqn_content: &str) -> Result<f32, Box<dyn std::error::Error>> {
     abc.execute_command("topo");
     abc.execute_command("upsize");
     abc.execute_command("dnsize");
-    
-    println!("Executing stime command...");
+
+    //println!("Executing stime command...");
     let stime_output = abc.execute_command_with_output("stime -d");
 
     if let Some(delay) = parse_delay(&stime_output) {
         let delay_ns = delay / 1000.0;
-        println!("Delay in nanoseconds: {} ns", delay_ns);
+        //println!("Delay in nanoseconds: {} ns", delay_ns);
         Ok(delay)
     } else {
         Err("Failed to parse delay value".into())
@@ -161,17 +161,20 @@ impl Extractor for FasterBottomUpExtractor {
     }
 }
 
-
-
 impl Extractor for FasterBottomUpExtractorGRPC {
-    fn extract(&self, egraph: &EGraph, roots: &[ClassId], cost_function: &str, random_prob: f64) -> ExtractionResult {
+    fn extract(
+        &self,
+        egraph: &EGraph,
+        roots: &[ClassId],
+        cost_function: &str,
+        random_prob: f64,
+    ) -> ExtractionResult {
         // Create a new runtime for this extraction
         let rt = Runtime::new().unwrap();
         // Use the runtime to block on the async extraction
         rt.block_on(self.extract_async(egraph, roots, cost_function, random_prob))
     }
 }
-
 
 impl AsyncExtractor for FasterBottomUpExtractorGRPC {
     fn extract_async<'a>(
@@ -182,126 +185,131 @@ impl AsyncExtractor for FasterBottomUpExtractorGRPC {
         random_prob: f64,
     ) -> impl Future<Output = ExtractionResult> + Send + 'a {
         async move {
-        let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
-        let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
-        let mut analysis_pending = UniqueQueue::default();
+            let mut parents =
+                IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
+            let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
+            let mut analysis_pending = UniqueQueue::default();
 
-        for class in egraph.classes().values() {
-            parents.insert(class.id.clone(), Vec::new());
-        }
+            for class in egraph.classes().values() {
+                parents.insert(class.id.clone(), Vec::new());
+            }
 
-        for class in egraph.classes().values() {
-            for node in &class.nodes {
-                for c in &egraph[node].children {
-                    // compute parents of this enode
-                    parents[n2c(c)].push(node.clone());
-                }
+            for class in egraph.classes().values() {
+                for node in &class.nodes {
+                    for c in &egraph[node].children {
+                        // compute parents of this enode
+                        parents[n2c(c)].push(node.clone());
+                    }
 
-                // start the analysis from leaves
-                if egraph[node].is_leaf() {
-                    analysis_pending.insert(node.clone());
+                    // start the analysis from leaves
+                    if egraph[node].is_leaf() {
+                        analysis_pending.insert(node.clone());
+                    }
                 }
             }
-        }
 
-        let mut result = ExtractionResult::default();
-        let mut costs = FxHashMap::<ClassId, Cost>::with_capacity_and_hasher(
-            egraph.classes().len(),
-            Default::default(),
-        );
+            let mut result = ExtractionResult::default();
+            let mut costs = FxHashMap::<ClassId, Cost>::with_capacity_and_hasher(
+                egraph.classes().len(),
+                Default::default(),
+            );
 
-        while let Some(node_id) = analysis_pending.pop() {
-            let class_id = n2c(&node_id);
-            let node = &egraph[&node_id];
-            let prev_cost = costs.get(class_id).unwrap_or(&INFINITY);
-            let cost = match cost_function {
-                "node_sum_cost" => result.node_sum_cost(egraph, node, &costs),
-                "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
-                _ => panic!("Unknown cost function: {}", cost_function),
+            while let Some(node_id) = analysis_pending.pop() {
+                let class_id = n2c(&node_id);
+                let node = &egraph[&node_id];
+                let prev_cost = costs.get(class_id).unwrap_or(&INFINITY);
+                let cost = match cost_function {
+                    "node_sum_cost" => result.node_sum_cost(egraph, node, &costs),
+                    "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
+                    _ => panic!("Unknown cost function: {}", cost_function),
+                };
+                if cost < *prev_cost {
+                    result.choose(class_id.clone(), node_id.clone());
+                    costs.insert(class_id.clone(), cost);
+                    analysis_pending.extend(parents[class_id].iter().cloned());
+                }
+            }
+
+            // Compute JSON buffers for tree cost and DAG cost extraction results
+            let tree_cost_json = to_string_pretty(&result).unwrap();
+
+            let (dag_cost, dag_cost_extraction_result) =
+                result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+            let dag_cost_json = to_string_pretty(&dag_cost_extraction_result).unwrap();
+
+            // Store JSON buffers in the ExtractionResult
+            result.tree_cost_json = Some(tree_cost_json);
+            result.dag_cost_json = Some(dag_cost_json);
+
+            // print the dag cost
+            //print!("print from extractor: dag cost: {}\n", dag_cost);
+
+            // use circuit convertor to conver the json -> processed json -> eqn -> abc rust binding to get the delay
+
+            // first, feed input saturated graph and extracted e-graph to process json
+            let saturated_graph_path = "input/rewritten_egraph_with_weight_cost_serd.json";
+            let prefix_mapping_path = "../e-rewriter/circuit0.eqn";
+            let mode = "small";
+
+            let saturated_graph_json =
+                fs::read_to_string(saturated_graph_path).unwrap_or_else(|e| {
+                    eprintln!("Failed to read saturated graph file: {}", e);
+                    String::new()
+                });
+
+            let eqn_content = match process_circuit_conversion(
+                &result,
+                &saturated_graph_json,
+                &prefix_mapping_path,
+                mode == "large",
+            ) {
+                Ok(content) => content,
+                Err(e) => {
+                    eprintln!("Error in circuit conversion: {}", e);
+                    return Default::default(); // or handle the error appropriately
+                }
             };
-            if cost < *prev_cost {
-                result.choose(class_id.clone(), node_id.clone());
-                costs.insert(class_id.clone(), cost);
-                analysis_pending.extend(parents[class_id].iter().cloned());
+
+            if let Err(e) = std::fs::write("src/extract/tmp/output.eqn", &eqn_content) {
+                eprintln!("Error writing to file: {}", e);
+                // Handle the error appropriately
             }
-        }
 
-        // Compute JSON buffers for tree cost and DAG cost extraction results
-        let tree_cost_json = to_string_pretty(&result).unwrap();
-        
-        let (dag_cost, dag_cost_extraction_result) = result
-            .calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
-        let dag_cost_json = to_string_pretty(&dag_cost_extraction_result).unwrap();
-
-        // Store JSON buffers in the ExtractionResult
-        result.tree_cost_json = Some(tree_cost_json);
-        result.dag_cost_json = Some(dag_cost_json);
-
-        // print the dag cost
-        //print!("print from extractor: dag cost: {}\n", dag_cost);
-
-        // use circuit convertor to conver the json -> processed json -> eqn -> abc rust binding to get the delay
-
-        // first, feed input saturated graph and extracted e-graph to process json
-        let saturated_graph_path = "input/rewritten_egraph_with_weight_cost_serd.json";
-        let prefix_mapping_path = "../e-rewriter/circuit0.eqn";
-        let mode = "small";
-
-        let saturated_graph_json = fs::read_to_string(saturated_graph_path).unwrap_or_else(|e| {
-            eprintln!("Failed to read saturated graph file: {}", e);
-            String::new()
-        });
-
-        let eqn_content = match process_circuit_conversion(
-            &result,
-            &saturated_graph_json,
-            &prefix_mapping_path,
-            mode == "large" 
-        ) {
-            Ok(content) => content,
-            Err(e) => {
-                eprintln!("Error in circuit conversion: {}", e);
-                return Default::default(); // or handle the error appropriately
+            match call_abc(&eqn_content) {
+                Ok(delay) => println!("Circuit delay: {} ns", delay),
+                Err(e) => eprintln!("Error in ABC processing: {}", e),
             }
-        };
-        
-        if let Err(e) = std::fs::write("src/extract/tmp/output.eqn", &eqn_content) {
-            eprintln!("Error writing to file: {}", e);
-            // Handle the error appropriately
+
+            let el_content =
+                fs::read_to_string("src/extract/tmp/opt_1.el").expect("Failed to read el file");
+            let csv_content = fs::read_to_string("src/extract/tmp/opt-feats.csv")
+                .expect("Failed to read csv file");
+            let json_content =
+                fs::read_to_string("src/extract/tmp/opt_1.json").expect("Failed to read json file");
+
+            // Call the gRPC client function
+            // let delay = match send_circuit_files_to_server(&el_content, &csv_content, &json_content) {
+            //     Ok(d) => d,
+            //     Err(e) => {
+            //         eprintln!("Error sending circuit files to server: {}", e);
+            //         0.0 // Use a default value or handle the error as appropriate
+            //     }
+            // };
+            let delay = match send_circuit_files_to_server(&el_content, &csv_content, &json_content)
+                .await
+            {
+                Ok(d) => d,
+                Err(e) => {
+                    eprintln!("Error sending circuit files to server: {}", e);
+                    0.0 // Use a default value or handle the error as appropriate
+                }
+            };
+
+            println!("Received delay from ML server: {} ns", delay);
+
+            result
         }
-
-        match call_abc(&eqn_content){
-            Ok(delay) => println!("Circuit delay: {} ns", delay),
-            Err(e) => eprintln!("Error in ABC processing: {}", e),
-        }
-
-        let el_content = fs::read_to_string("src/extract/tmp/opt_1.el").expect("Failed to read el file");
-        let csv_content = fs::read_to_string("src/extract/tmp/opt-feats.csv").expect("Failed to read csv file");
-        let json_content = fs::read_to_string("src/extract/tmp/opt_1.json").expect("Failed to read json file");
-
-        // Call the gRPC client function
-        // let delay = match send_circuit_files_to_server(&el_content, &csv_content, &json_content) {
-        //     Ok(d) => d,
-        //     Err(e) => {
-        //         eprintln!("Error sending circuit files to server: {}", e);
-        //         0.0 // Use a default value or handle the error as appropriate
-        //     }
-        // };
-        let delay = match send_circuit_files_to_server(&el_content, &csv_content, &json_content).await {
-            Ok(d) => d,
-            Err(e) => {
-                eprintln!("Error sending circuit files to server: {}", e);
-                0.0 // Use a default value or handle the error as appropriate
-            }
-        };
-        
-        println!("Received delay from ML server: {} ns", delay);
-
-
-        
-        result
     }
-}
 }
 
 impl Extractor for FasterBottomUpExtractorRandom {
@@ -384,15 +392,14 @@ impl Extractor for FasterBottomUpExtractorRandom {
             //     }
 
             //version3
-            if  prev_cost ==&INFINITY &&(cost < *prev_cost)  {
+            if prev_cost == &INFINITY && (cost < *prev_cost) {
                 result.choose(class_id.clone(), node_id.clone());
                 costs.insert(class_id.clone(), cost);
                 analysis_pending.extend(parents[class_id].iter().cloned());
-            }else if random_value>=k &&(cost < *prev_cost) {
+            } else if random_value >= k && (cost < *prev_cost) {
                 result.choose(class_id.clone(), node_id.clone());
                 costs.insert(class_id.clone(), cost);
                 analysis_pending.extend(parents[class_id].iter().cloned());
-                
             }
         }
 
@@ -431,7 +438,6 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         };
 
         // replace the unsorted classes with sorted classes
-        
 
         for class in egraph.classes().values() {
             parents.insert(class.id.clone(), Vec::new());
@@ -473,7 +479,8 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
             }
         }
         // get the cost of the initial point
-        let (dag_cost_before_per_sim_ann, _) = result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+        let (dag_cost_before_per_sim_ann, _) =
+            result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
 
         // make best_dag_cost
         let mut best_dag_cost = dag_cost_before_per_sim_ann;
@@ -488,9 +495,9 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 
         // Compute initial JSON buffers for tree cost and DAG cost extraction results
         let tree_cost_json = to_string_pretty(&result).unwrap();
-        
-        let (dag_cost, dag_cost_extraction_result) = result
-            .calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+
+        let (dag_cost, dag_cost_extraction_result) =
+            result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
         let dag_cost_json = to_string_pretty(&dag_cost_extraction_result).unwrap();
 
         // Store initial JSON buffers in the ExtractionResult
@@ -499,13 +506,40 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 
         println!("========== Starting Simulated Annealing ==========");
 
+        // Get initial ABC delay
+        let initial_eqn_content = match process_circuit_conversion(
+            &result,
+            &saturated_graph_json,
+            &prefix_mapping_path,
+            false,
+        ) {
+            Ok(content) => content,
+            Err(e) => {
+                eprintln!("Error in initial circuit conversion: {}", e);
+                return result;
+            }
+        };
+
+        let mut previous_cost = match call_abc(&initial_eqn_content) {
+            Ok(delay) => delay as f64,
+            Err(e) => {
+                eprintln!("Error in initial ABC processing: {}", e);
+                return result;
+            }
+        };
+
+        println!("Initial ABC delay: {:.6}", previous_cost);
+
         for iteration in 0..max_iterations {
             if verbose {
                 println!("Temperature: {:.2}", temperature);
                 println!("Iteration: {}", iteration);
             }
 
-            let sampled_classes: Vec<_> = egraph.classes().values().choose_multiple(&mut rng, sample_size);
+            let sampled_classes: Vec<_> = egraph
+                .classes()
+                .values()
+                .choose_multiple(&mut rng, sample_size);
 
             let mut proposed_changes = Vec::new();
 
@@ -517,15 +551,15 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 
             // Apply changes and generate EQN file
             let mut temp_result = result.clone();
-            for (class_id, node_id) in proposed_changes {
-                temp_result.choose(class_id, node_id);
+            for (class_id, node_id) in &proposed_changes {
+                temp_result.choose(class_id.clone(), node_id.clone());
             }
 
             let eqn_content = match process_circuit_conversion(
                 &temp_result,
                 &saturated_graph_json,
                 &prefix_mapping_path,
-                false // Assuming small mode
+                false,
             ) {
                 Ok(content) => content,
                 Err(e) => {
@@ -536,20 +570,21 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 
             // Call ABC and get the delay
             let current_cost = match call_abc(&eqn_content) {
-                Ok(delay) => delay as f64,  // Convert f32 to f64
+                Ok(delay) => delay as f64,
                 Err(e) => {
                     eprintln!("Error in ABC processing: {}", e);
                     continue;
                 }
             };
 
-            let (previous_cost, _) = result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
-            let cost_change = current_cost - previous_cost.into_inner();
+            let cost_change = current_cost - previous_cost;
 
             if verbose {
-                println!("Current Cost: {:.2}", current_cost);
-                println!("Previous Cost: {:.2}", previous_cost);
-                println!("Cost Change: {:.2}", cost_change);
+                //println!("Iteration: {}", iteration);
+                //println!("Proposed changes: {:?}", proposed_changes);
+                println!("Current Cost: {:.6}", current_cost);
+                println!("Previous Cost: {:.6}", previous_cost);
+                println!("Cost Change: {:.6}", cost_change);
             }
 
             let random_value: f64 = rand::random();
@@ -557,6 +592,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 
             if cost_change < 0.0 || random_value < acceptance_probability {
                 result = temp_result;
+                previous_cost = current_cost;
                 if verbose {
                     println!("Change accepted!");
                 }
@@ -575,9 +611,9 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 
         // Compute final JSON buffers for tree cost and DAG cost extraction results
         let final_tree_cost_json = to_string_pretty(&result).unwrap();
-        
-        let (final_dag_cost, final_dag_cost_extraction_result) = result
-            .calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+
+        let (final_dag_cost, final_dag_cost_extraction_result) =
+            result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
         let final_dag_cost_json = to_string_pretty(&final_dag_cost_extraction_result).unwrap();
 
         // Store final JSON buffers in the ExtractionResult
@@ -587,7 +623,6 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         result
     }
 }
-
 
 /** A data structure to maintain a queue of unique elements.
 
