@@ -17,10 +17,10 @@ use std::future::Future;
 use std::io::Write;
 use tempfile::NamedTempFile;
 
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use tonic::Request;
 use vectorservice::vector_service_client::VectorServiceClient;
 use vectorservice::CircuitFilesRequest;
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 async fn send_circuit_files_to_server(
     el_content: &str,
@@ -429,12 +429,22 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         // Generate base solution using faster bottom-up
         let mut base_result = generate_base_solution(egraph, cost_function);
         update_json_buffers_in_result(&mut base_result, egraph);
-        let base_abc_cost = calculate_abc_cost_or_dump(&base_result, &saturated_graph_json, &prefix_mapping_path, false);
+        let base_abc_cost = calculate_abc_cost_or_dump(
+            &base_result,
+            &saturated_graph_json,
+            &prefix_mapping_path,
+            false,
+        );
 
         // Generate random initial solution for SA
         let mut current_result = generate_random_solution(egraph);
         update_json_buffers_in_result(&mut current_result, egraph);
-        let mut current_abc_cost = calculate_abc_cost_or_dump(&current_result, &saturated_graph_json, &prefix_mapping_path, false);
+        let mut current_abc_cost = calculate_abc_cost_or_dump(
+            &current_result,
+            &saturated_graph_json,
+            &prefix_mapping_path,
+            false,
+        );
 
         let initial_temp = 100.0;
         let cooling_rate = 0.7;
@@ -456,21 +466,32 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
             .progress_chars("#>-"));
 
         let panel = m.add(ProgressBar::new(1));
-        panel.set_style(ProgressStyle::default_spinner()
-            .template("{spinner:.green} {wide_msg}")
-            .unwrap());
+        panel.set_style(
+            ProgressStyle::default_spinner()
+                .template("{spinner:.green} {wide_msg}")
+                .unwrap(),
+        );
 
         println!("========== Starting Simulated Annealing ==========");
-        panel.set_message(format!("Base solution ABC cost: {:.6}\nInitial random solution ABC cost: {:.6}", base_abc_cost, current_abc_cost));
+        panel.set_message(format!(
+            "Base solution ABC cost: {:.6}\nInitial random solution ABC cost: {:.6}",
+            base_abc_cost, current_abc_cost
+        ));
 
         // Set the progress bar length to the initial temperature
         pb.set_length(initial_temp as u64);
 
         while temperature > min_temperature {
             for _ in 0..iterations_per_temp {
-                let mut new_result = generate_neighbor_solution(&current_result, egraph, sample_size, &mut rng);
-                update_json_buffers_in_result(&mut new_result, egraph); 
-                let new_abc_cost = calculate_abc_cost_or_dump(&new_result, &saturated_graph_json, &prefix_mapping_path, false);
+                let mut new_result =
+                    generate_neighbor_solution(&current_result, egraph, sample_size, &mut rng);
+                update_json_buffers_in_result(&mut new_result, egraph);
+                let new_abc_cost = calculate_abc_cost_or_dump(
+                    &new_result,
+                    &saturated_graph_json,
+                    &prefix_mapping_path,
+                    false,
+                );
 
                 let cost_change = new_abc_cost - current_abc_cost;
 
@@ -488,7 +509,10 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
                     if current_abc_cost < best_abc_cost {
                         best_result = current_result.clone();
                         best_abc_cost = current_abc_cost;
-                        panel.println(format!("New best solution found! Cost: {:.6}", best_abc_cost));
+                        panel.println(format!(
+                            "New best solution found! Cost: {:.6}",
+                            best_abc_cost
+                        ));
                     }
                 }
             }
@@ -509,12 +533,22 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         if best_abc_cost <= base_abc_cost {
             println!("SA-final solution is better. Returning SA-final.");
             // save the best result to file
-            _ = calculate_abc_cost_or_dump(&best_result, &saturated_graph_json, &prefix_mapping_path, true);
+            _ = calculate_abc_cost_or_dump(
+                &best_result,
+                &saturated_graph_json,
+                &prefix_mapping_path,
+                true,
+            );
             best_result
         } else {
             println!("Base solution is better. Returning base solution.");
             // save the base result to file
-            _ = calculate_abc_cost_or_dump(&base_result, &saturated_graph_json, &prefix_mapping_path, true);
+            _ = calculate_abc_cost_or_dump(
+                &base_result,
+                &saturated_graph_json,
+                &prefix_mapping_path,
+                true,
+            );
             base_result
         }
     }
@@ -546,7 +580,7 @@ fn generate_random_solution(egraph: &EGraph) -> ExtractionResult {
 // }
 
 // ========================== Helper Functions For SA-based faster bottom-up ==========================
-// Generate base solution for Simulated Annealing 
+// Generate base solution for Simulated Annealing
 // ========================== Helper Functions For SA-based faster bottom-up ==========================
 
 fn generate_base_solution(egraph: &EGraph, cost_function: &str) -> ExtractionResult {
@@ -599,10 +633,10 @@ fn generate_base_solution(egraph: &EGraph, cost_function: &str) -> ExtractionRes
 // ========================== Helper Functions For SA-based faster bottom-up ==========================
 
 fn generate_neighbor_solution(
-    current: &ExtractionResult, 
-    egraph: &EGraph, 
-    sample_size: usize, 
-    rng: &mut impl Rng
+    current: &ExtractionResult,
+    egraph: &EGraph,
+    sample_size: usize,
+    rng: &mut impl Rng,
 ) -> ExtractionResult {
     let mut new_result = current.clone();
     let sampled_classes: Vec<_> = egraph.classes().values().choose_multiple(rng, sample_size);
@@ -621,12 +655,11 @@ fn generate_neighbor_solution(
 // ========================== Helper Functions For SA-based faster bottom-up ==========================
 
 fn calculate_abc_cost_or_dump(
-    result: &ExtractionResult, 
-    saturated_graph_json: &str, 
+    result: &ExtractionResult,
+    saturated_graph_json: &str,
     prefix_mapping_path: &str,
-    dump_to_file: bool
+    dump_to_file: bool,
 ) -> f64 {
-
     let eqn_content = match process_circuit_conversion(
         result,
         saturated_graph_json,
@@ -647,8 +680,7 @@ fn calculate_abc_cost_or_dump(
         }
         return f64::INFINITY;
     // abc cost calculation mode
-    }else {
-
+    } else {
         match call_abc(&eqn_content) {
             Ok(delay) => delay as f64,
             Err(e) => {
@@ -656,10 +688,7 @@ fn calculate_abc_cost_or_dump(
                 f64::INFINITY
             }
         }
-        
     }
-
-    
 }
 
 // ========================== Helper Functions For SA-based faster bottom-up ==========================
