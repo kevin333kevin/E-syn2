@@ -31,6 +31,12 @@ struct Node {
     cost: f64,
 }
 
+/// Checks if the given graph contains cycles
+/// 
+/// Input:
+///   - nodes: A reference to the graph's nodes
+/// Output:
+///   - bool: True if the graph is cyclic, false otherwise
 fn is_cyclic_graph(nodes: &FxHashMap<String, Node>) -> bool {
     let mut visited = FxHashMap::default();
     let mut rec_stack = FxHashMap::default();
@@ -50,6 +56,15 @@ fn is_cyclic_graph(nodes: &FxHashMap<String, Node>) -> bool {
     false
 }
 
+/// Helper function for is_cyclic_graph to perform depth-first search
+/// 
+/// Inputs:
+///   - nodes: A reference to the graph's nodes
+///   - node_id: The current node being visited
+///   - visited: A mutable reference to the map of visited nodes
+///   - rec_stack: A mutable reference to the recursion stack
+/// Output:
+///   - Vec<String>: A vector of node IDs involved in a cycle, if found
 fn is_cyclic_util(
     nodes: &FxHashMap<String, Node>,
     node_id: &str,
@@ -81,12 +96,27 @@ fn is_cyclic_util(
     cyclic_nodes
 }
 
+/// Generates a unique ID for a given string
+/// 
+/// Input:
+///   - s: The input string
+/// Output:
+///   - u64: A unique hash value for the input string
 fn string_to_unique_id(s: &str) -> u64 {
     let mut hasher = DefaultHasher::new();
     s.hash(&mut hasher);
     hasher.finish()
 }
 
+/// Converts a DAG to equations for small circuits
+/// 
+/// Inputs:
+///   - nodes: A reference to the graph's nodes
+///   - node_id: The current node being processed
+///   - visited: A mutable reference to the map of visited nodes
+///   - visit_count: A mutable reference to the map of node visit counts
+/// Output:
+///   - String: The equation representation of the DAG
 fn dag_to_equations_small(
     nodes: &FxHashMap<String, Node>,
     node_id: &str,
@@ -132,6 +162,15 @@ fn dag_to_equations_small(
     expression
 }
 
+/// Converts a DAG to equations for large circuits
+/// 
+/// Inputs:
+///   - nodes: A reference to the graph's nodes
+///   - node_id: The current node being processed
+///   - visited: A mutable reference to the map of visited nodes
+///   - visit_count: A mutable reference to the map of node visit counts
+/// Output:
+///   - String: The equation representation of the DAG
 fn dag_to_equations_large(
     nodes: &FxHashMap<String, Node>,
     node_id: &str,
@@ -211,6 +250,12 @@ fn dag_to_equations_large(
     expression
 }
 
+/// Formats a single Synopsys equation
+/// 
+/// Input:
+///   - equation: The input equation string
+/// Output:
+///   - Vec<String>: A vector of formatted equation parts
 fn format_synopsys_single(equation: &str) -> Vec<String> {
     equation
         .split('&')
@@ -218,6 +263,12 @@ fn format_synopsys_single(equation: &str) -> Vec<String> {
         .collect()
 }
 
+/// Reads the prefix mapping from a file
+/// 
+/// Input:
+///   - file_path: The path to the prefix mapping file
+/// Output:
+///   - FxHashMap<String, String>: A map of prefix mappings
 fn read_prefix_mapping(file_path: &str) -> FxHashMap<String, String> {
     let file = File::open(file_path).expect("Unable to open file");
     let reader = BufReader::new(file);
@@ -243,7 +294,13 @@ fn read_prefix_mapping(file_path: &str) -> FxHashMap<String, String> {
 
 
 
-
+/// Processes JSON with choices to filter nodes
+/// 
+/// Inputs:
+///   - extraction_result_json: The JSON string of extraction results
+///   - saturated_graph_json: The JSON string of the saturated graph
+/// Output:
+///   - Result<String, Box<dyn StdError>>: The processed JSON string or an error
 fn process_json_with_choices(
     extraction_result_json: &str,
     saturated_graph_json: &str,
@@ -292,6 +349,12 @@ fn process_json_with_choices(
     Ok(serde_json::to_string_pretty(&result)?)
 }
 
+/// Simplifies keys in the input JSON
+/// 
+/// Input:
+///   - input_json: The input JSON string
+/// Output:
+///   - Result<String, Box<dyn StdError>>: The JSON string with simplified keys or an error
 fn process_json_simplify_keys(input_json: &str) -> Result<String, Box<dyn StdError>> {
     println!("Processing JSON to simplify keys...");
     
@@ -329,6 +392,13 @@ fn process_json_simplify_keys(input_json: &str) -> Result<String, Box<dyn StdErr
     Ok(serde_json::to_string_pretty(&result)?)
 }
 
+/// Updates root eclasses in the target JSON
+/// 
+/// Inputs:
+///   - graph_json: The source graph JSON string
+///   - target_json: The target JSON string to be updated
+/// Output:
+///   - Result<String, Box<dyn StdError>>: The updated JSON string or an error
 fn update_root_eclasses(graph_json: &str, target_json: &str) -> Result<String, Box<dyn StdError>> {
     println!("Updating root eclasses...");
 
@@ -356,6 +426,14 @@ fn update_root_eclasses(graph_json: &str, target_json: &str) -> Result<String, B
     Ok(serde_json::to_string_pretty(&target_data)?)
 }
 
+/// Converts JSON representation to equation format
+/// 
+/// Inputs:
+///   - json_str: The input JSON string
+///   - prefix_mapping_path: The path to the prefix mapping file
+///   - mode: The conversion mode ("small" or "large")
+/// Output:
+///   - Result<String, Box<dyn StdError>>: The equation format string or an error
 fn json_to_eqn(json_str: &str, prefix_mapping_path: &str, mode: &str) -> Result<String, Box<dyn StdError>> {
     let graph: Graph = serde_json::from_str(json_str)?;
 
@@ -409,6 +487,16 @@ fn json_to_eqn(json_str: &str, prefix_mapping_path: &str, mode: &str) -> Result<
     Ok(final_content)
 }
 
+/// Generates the content for the equation file
+/// 
+/// Inputs:
+///   - variables: A vector of variable names
+///   - parts: A vector of equation parts
+///   - f_prefix: The prefix for output variables
+///   - visited: A map of visited nodes and their expressions
+///   - prefix_mapping: A map of prefix mappings
+/// Output:
+///   - String: The generated equation content
 fn generate_eqn_content(
     variables: &Vec<String>,
     parts: Vec<String>,
@@ -445,6 +533,15 @@ fn generate_eqn_content(
     content
 }
 
+/// Converts extraction result to equation format
+/// 
+/// Inputs:
+///   - dag_cost_json: The JSON string of DAG costs
+///   - saturated_graph_json: The JSON string of the saturated graph
+///   - prefix_mapping_path: The path to the prefix mapping file
+///   - mode: The conversion mode ("small" or "large")
+/// Output:
+///   - Result<String, Box<dyn StdError>>: The equation format string or an error
 pub fn extraction_result_to_eqn(
     dag_cost_json: &str,
     saturated_graph_json: &str,
@@ -469,6 +566,15 @@ pub fn extraction_result_to_eqn(
     Ok(eqn_content)
 }
 
+/// Processes the circuit conversion
+/// 
+/// Inputs:
+///   - extraction_result: The ExtractionResult struct
+///   - saturated_graph_json: The JSON string of the saturated graph
+///   - prefix_mapping_path: The path to the prefix mapping file
+///   - mode: The conversion mode ("small" or "large")
+/// Output:
+///   - Result<String, Box<dyn StdError>>: The equation format string or an error
 pub fn process_circuit_conversion(
     extraction_result: &crate::ExtractionResult,
     saturated_graph_json: &str,
