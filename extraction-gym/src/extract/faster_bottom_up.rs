@@ -20,6 +20,7 @@ use tempfile::NamedTempFile;
 use tonic::Request;
 use vectorservice::vector_service_client::VectorServiceClient;
 use vectorservice::CircuitFilesRequest;
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 async fn send_circuit_files_to_server(
     el_content: &str,
@@ -52,20 +53,20 @@ fn call_abc(eqn_content: &str) -> Result<f32, Box<dyn std::error::Error>> {
     //println!("Reading equation file...");
     abc.execute_command(&format!("read_eqn {}", temp_path));
     //println!("Reading library...");
-    abc.execute_command("read_lib ../abc/asap7_clean.lib");
+    abc.execute_command(&format!("read_lib ../abc/asap7_clean.lib"));
     //println!("Performing structural hashing...");
-    abc.execute_command("strash");
+    abc.execute_command(&format!("strash"));
     //println!("Performing dump the edgelist...");
-    abc.execute_command("&get; &edgelist  -F src/extract/tmp/opt_1.el -f src/extract/tmp/opt-feats.csv -c src/extract/tmp/opt_1.json; &put");
+    abc.execute_command(&format!("&get; &edgelist  -F src/extract/tmp/opt_1.el -f src/extract/tmp/opt-feats.csv -c src/extract/tmp/opt_1.json; &put"));
     //println!("Performing technology mapping...");
-    abc.execute_command("map");
+    abc.execute_command(&format!("map"));
     //println!("Performing post-processing...(topo; gate sizing)");
-    abc.execute_command("topo");
-    abc.execute_command("upsize");
-    abc.execute_command("dnsize");
+    abc.execute_command(&format!("topo"));
+    abc.execute_command(&format!("upsize"));
+    abc.execute_command(&format!("dnsize"));
 
     //println!("Executing stime command...");
-    let stime_output = abc.execute_command_with_output("stime -d");
+    let stime_output = abc.execute_command_with_output(&format!("stime -d"));
 
     if let Some(delay) = parse_delay(&stime_output) {
         let delay_ns = delay / 1000.0;
@@ -446,9 +447,23 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         let mut best_result = current_result.clone();
         let mut best_abc_cost = current_abc_cost;
 
+        let m = MultiProgress::new();
+        let pb = m.add(ProgressBar::new(100));
+        pb.set_style(ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:.2}/{len:.2} ({eta})")
+            .unwrap()
+            .progress_chars("#>-"));
+
+        let panel = m.add(ProgressBar::new(1));
+        panel.set_style(ProgressStyle::default_spinner()
+            .template("{spinner:.green} {wide_msg}")
+            .unwrap());
+
         println!("========== Starting Simulated Annealing ==========");
-        println!("Base solution ABC cost: {:.6}", base_abc_cost);
-        println!("Initial random solution ABC cost: {:.6}", current_abc_cost);
+        panel.set_message(format!("Base solution ABC cost: {:.6}\nInitial random solution ABC cost: {:.6}", base_abc_cost, current_abc_cost));
+
+        // Set the progress bar length to the initial temperature
+        pb.set_length(initial_temp as u64);
 
         while temperature > min_temperature {
             for _ in 0..iterations_per_temp {
@@ -459,8 +474,10 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
                 let cost_change = new_abc_cost - current_abc_cost;
 
                 if verbose {
-                    println!("Current temp: {:.2}; Current ABC cost: {:.6}; New ABC cost: {:.6}, Change: {:.6}", 
-                             temperature, current_abc_cost, new_abc_cost, cost_change);
+                    panel.set_message(format!(
+                        "Temp: {:.2}\nCurrent ABC cost: {:.6}\nNew ABC cost: {:.6}\nChange: {:.6}",
+                        temperature, current_abc_cost, new_abc_cost, cost_change
+                    ));
                 }
 
                 if cost_change <= 0.0 || rng.gen::<f64>() < (-cost_change / temperature).exp() {
@@ -470,17 +487,22 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
                     if current_abc_cost < best_abc_cost {
                         best_result = current_result.clone();
                         best_abc_cost = current_abc_cost;
-                        println!("New best solution found! Cost: {:.6}", best_abc_cost);
+                        panel.println(format!("New best solution found! Cost: {:.6}", best_abc_cost));
                     }
                 }
             }
 
             temperature *= cooling_rate;
+            // Update the progress bar based on the current temperature
+            let progress = initial_temp - temperature;
+            pb.set_position(progress as u64);
         }
 
-        println!("========== Simulated Annealing Complete ==========");
-        println!("SA-final ABC cost: {:.6}", best_abc_cost);
-        println!("Base solution ABC cost: {:.6}", base_abc_cost);
+        pb.finish_with_message("Simulated Annealing Complete");
+        panel.finish_with_message(format!(
+            "SA-final ABC cost: {:.6}\nBase solution ABC cost: {:.6}",
+            best_abc_cost, base_abc_cost
+        ));
 
         // Compare SA-final with base solution
         if best_abc_cost <= base_abc_cost {
