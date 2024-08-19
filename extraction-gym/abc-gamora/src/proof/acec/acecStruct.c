@@ -108,8 +108,8 @@ Vec_Int_t * Acec_StructAssignRanks( Gia_Man_t * p, Vec_Int_t * vXorRoots )
                 Vec_IntWriteEntry( vRanks, Fanins[k], Rank );
             else
                 Vec_IntPush( vDoubles, Fanins[k] );
-            if ( Entry != -1 && Gia_ObjIsAnd(Gia_ManObj(p, Fanins[k])))
-            printf( "Xor node %d belongs to Tree %d and Tree %d.\n", Fanins[k], Entry, Rank );
+            //if ( Entry != -1 && Gia_ObjIsAnd(Gia_ManObj(p, Fanins[k])))
+            //printf( "Xor node %d belongs to Tree %d and Tree %d.\n", Fanins[k], Entry, Rank );
         }
     }
     // remove duplicated entries

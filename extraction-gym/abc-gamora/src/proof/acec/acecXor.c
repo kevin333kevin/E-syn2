@@ -217,8 +217,8 @@ Vec_Int_t * Acec_RankTrees( Gia_Man_t * p, Vec_Int_t * vXors, Vec_Int_t * vXorRo
             else
                 Vec_IntPush( vDoubles, Node );
 
-            if ( Entry != -1 && Gia_ObjIsAnd(Gia_ManObj(p, Node)))
-            printf( "Xor node %d belongs to Tree %d and Tree %d.\n", Node, Entry, Rank );
+            //if ( Entry != -1 && Gia_ObjIsAnd(Gia_ManObj(p, Node)))
+            //printf( "Xor node %d belongs to Tree %d and Tree %d.\n", Node, Entry, Rank );
         }
     }
     // remove duplicated entries

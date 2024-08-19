@@ -250,7 +250,7 @@ impl AsyncExtractor for FasterBottomUpExtractorGRPC {
             // first, feed input saturated graph and extracted e-graph to process json
             let saturated_graph_path = "input/rewritten_egraph_with_weight_cost_serd.json";
             let prefix_mapping_path = "../e-rewriter/circuit0.eqn";
-            let mode = "small";
+            let mode = "large";
 
             let saturated_graph_json =
                 fs::read_to_string(saturated_graph_path).unwrap_or_else(|e| {
