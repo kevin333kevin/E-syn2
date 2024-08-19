@@ -429,12 +429,12 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         // Generate base solution using faster bottom-up
         let mut base_result = generate_base_solution(egraph, cost_function);
         update_json_buffers_in_result(&mut base_result, egraph);
-        let base_abc_cost = calculate_abc_cost(&base_result, &saturated_graph_json, &prefix_mapping_path);
+        let base_abc_cost = calculate_abc_cost_or_dump(&base_result, &saturated_graph_json, &prefix_mapping_path, false);
 
         // Generate random initial solution for SA
         let mut current_result = generate_random_solution(egraph);
         update_json_buffers_in_result(&mut current_result, egraph);
-        let mut current_abc_cost = calculate_abc_cost(&current_result, &saturated_graph_json, &prefix_mapping_path);
+        let mut current_abc_cost = calculate_abc_cost_or_dump(&current_result, &saturated_graph_json, &prefix_mapping_path, false);
 
         let initial_temp = 100.0;
         let cooling_rate = 0.7;
@@ -470,7 +470,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
             for _ in 0..iterations_per_temp {
                 let mut new_result = generate_neighbor_solution(&current_result, egraph, sample_size, &mut rng);
                 update_json_buffers_in_result(&mut new_result, egraph); 
-                let new_abc_cost = calculate_abc_cost(&new_result, &saturated_graph_json, &prefix_mapping_path);
+                let new_abc_cost = calculate_abc_cost_or_dump(&new_result, &saturated_graph_json, &prefix_mapping_path, false);
 
                 let cost_change = new_abc_cost - current_abc_cost;
 
@@ -509,42 +509,12 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         if best_abc_cost <= base_abc_cost {
             println!("SA-final solution is better. Returning SA-final.");
             // save the best result to file
-            let eqn_content = match process_circuit_conversion(
-                &best_result,
-                &saturated_graph_json,
-                &prefix_mapping_path,
-                false,
-            ) {
-                Ok(content) => content,
-                Err(e) => {
-                    eprintln!("Error in circuit conversion: {}", e);
-                    String::new()
-                }
-            };
-            if let Err(e) = std::fs::write("src/extract/tmp/best_result.eqn", &eqn_content) {
-                eprintln!("Error writing to file: {}", e);
-                // Handle the error appropriately
-            }
+            _ = calculate_abc_cost_or_dump(&best_result, &saturated_graph_json, &prefix_mapping_path, true);
             best_result
         } else {
             println!("Base solution is better. Returning base solution.");
             // save the base result to file
-            let eqn_content = match process_circuit_conversion(
-                &base_result,
-                &saturated_graph_json,
-                &prefix_mapping_path,
-                false,
-            ) {
-                Ok(content) => content,
-                Err(e) => {
-                    eprintln!("Error in circuit conversion: {}", e);
-                    String::new()
-                }
-            };
-            if let Err(e) = std::fs::write("src/extract/tmp/base_result.eqn", &eqn_content) {
-                eprintln!("Error writing to file: {}", e);
-                // Handle the error appropriately
-            }
+            _ = calculate_abc_cost_or_dump(&base_result, &saturated_graph_json, &prefix_mapping_path, true);
             base_result
         }
     }
@@ -650,11 +620,13 @@ fn generate_neighbor_solution(
 // Calculate ABC cost for a given solution
 // ========================== Helper Functions For SA-based faster bottom-up ==========================
 
-fn calculate_abc_cost(
+fn calculate_abc_cost_or_dump(
     result: &ExtractionResult, 
     saturated_graph_json: &str, 
-    prefix_mapping_path: &str
+    prefix_mapping_path: &str,
+    dump_to_file: bool
 ) -> f64 {
+
     let eqn_content = match process_circuit_conversion(
         result,
         saturated_graph_json,
@@ -667,19 +639,27 @@ fn calculate_abc_cost(
             return f64::INFINITY;
         }
     };
-
-    // if let Err(e) = std::fs::write("src/extract/tmp/output.eqn", &eqn_content) {
-    //     eprintln!("Error writing to file: {}", e);
-    //     // Handle the error appropriately
-    // }
-
-    match call_abc(&eqn_content) {
-        Ok(delay) => delay as f64,
-        Err(e) => {
-            eprintln!("Error in ABC processing: {}", e);
-            f64::INFINITY
+    // dump file mode
+    if dump_to_file {
+        if let Err(e) = std::fs::write("src/extract/tmp/best_result.eqn", &eqn_content) {
+            eprintln!("Error writing to file: {}", e);
+            // Handle the error appropriately
         }
+        return f64::INFINITY;
+    // abc cost calculation mode
+    }else {
+
+        match call_abc(&eqn_content) {
+            Ok(delay) => delay as f64,
+            Err(e) => {
+                eprintln!("Error in ABC processing: {}", e);
+                f64::INFINITY
+            }
+        }
+        
     }
+
+    
 }
 
 // ========================== Helper Functions For SA-based faster bottom-up ==========================
