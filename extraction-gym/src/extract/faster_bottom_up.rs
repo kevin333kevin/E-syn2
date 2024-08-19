@@ -255,8 +255,8 @@ impl AsyncExtractor for FasterBottomUpExtractorGRPC {
         let eqn_content = match process_circuit_conversion(
             &result,
             &saturated_graph_json,
-            prefix_mapping_path,
-            mode
+            &prefix_mapping_path,
+            mode == "large" 
         ) {
             Ok(content) => content,
             Err(e) => {
