@@ -9,6 +9,9 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use rayon::prelude::*;
 
+//==================================================
+//Data Structures
+//==================================================
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Graph {
@@ -24,6 +27,118 @@ struct Node {
     eclass: String,
     cost: f64,
 }
+
+// ==================================================
+// Step 1: Process JSON with Choices
+// ==================================================
+
+/// Processes JSON with choices to filter nodes
+fn process_json_with_choices(
+    extraction_result_json: &str,
+    saturated_graph_json: &str,
+) -> Result<String, Box<dyn StdError>> {
+    let extraction_data: Value = serde_json::from_str(extraction_result_json)?;
+    let saturated_graph: Graph = serde_json::from_str(saturated_graph_json)?;
+
+    let choices: FxHashMap<String, String> = serde_json::from_value(extraction_data["choices"].clone())?;
+    let values: HashSet<&str> = choices.values().map(|v| v.as_str()).collect();
+
+    let new_nodes: FxHashMap<String, Node> = saturated_graph
+        .nodes
+        .into_iter()
+        .filter(|(key, _)| values.contains(key.as_str()))
+        .collect();
+
+    let result = serde_json::json!({ "nodes": new_nodes });
+    Ok(serde_json::to_string_pretty(&result)?)
+}
+
+// ==================================================
+// Step 2: Simplify JSON Keys
+// ==================================================
+/// Simplifies keys in the input JSON
+fn process_json_simplify_keys(input_json: &str) -> Result<String, Box<dyn StdError>> {
+    let data: Value = serde_json::from_str(input_json)?;
+    let mut new_nodes: FxHashMap<String, Node> = FxHashMap::default();
+
+    if let Some(nodes) = data["nodes"].as_object() {
+        for (key, value) in nodes {
+            let new_key = key.split('.').next().unwrap().to_string();
+            let mut node: Node = serde_json::from_value(value.clone())?;
+            node.children = node.children
+                .iter()
+                .map(|child| child.split('.').next().unwrap().to_string())
+                .collect();
+            new_nodes.insert(new_key, node);
+        }
+    } else {
+        return Err("Input JSON does not contain a 'nodes' object".into());
+    }
+
+    let result = serde_json::json!({ "nodes": new_nodes });
+    Ok(serde_json::to_string_pretty(&result)?)
+}
+
+// ==================================================
+// Step 3: Update Root Eclasses
+// ==================================================
+
+/// Updates root eclasses in the target JSON
+fn update_root_eclasses(graph_json: &str, target_json: &str) -> Result<String, Box<dyn StdError>> {
+    let source_data: Value = serde_json::from_str(graph_json)?;
+    let mut target_data: Value = serde_json::from_str(target_json)?;
+
+    let root_eclasses = source_data["root_eclasses"].as_array().unwrap_or(&Vec::new()).to_owned();
+    target_data["root_eclasses"] = serde_json::json!(root_eclasses);
+
+    Ok(serde_json::to_string_pretty(&target_data)?)
+}
+
+// ==================================================
+// Step 4: Convert JSON to Equation Format
+// ==================================================
+
+/// Converts JSON representation to equation format
+fn json_to_eqn(json_str: &str, prefix_mapping_path: &str, is_large: bool) -> Result<String, Box<dyn StdError>> {
+    let graph: Graph = serde_json::from_str(json_str)?;
+
+    if is_cyclic_graph(&graph.nodes) {
+        return Err("The graph is cyclic.".into());
+    }
+
+    let prefix_mapping = read_prefix_mapping(prefix_mapping_path);
+    let mut final_content = String::with_capacity(graph.root_eclasses.len() * 1000);
+
+    for root in &graph.root_eclasses {
+        let mut visited = FxHashMap::default();
+        let mut visit_count = FxHashMap::default();
+
+        let equation = dag_to_equations(&graph.nodes, root, &mut visited, &mut visit_count, is_large);
+
+        let variables: Vec<String> = graph.nodes.values()
+            .filter(|node| node.children.is_empty() && node.op != "1" && node.op != "0")
+            .map(|node| node.op.clone())
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        let parts: Vec<String> = equation.split('&').map(str::trim).map(String::from).collect();
+
+        let content = generate_eqn_content(&variables, parts, "p", visited, &prefix_mapping);
+        final_content.push_str(&content);
+        final_content.push('\n');
+    }
+
+    Ok(final_content)
+}
+
+// ===================================================
+// Helper functions for JSON to Equation Conversion
+// ===================================================
+
+// ===================================================
+// Helper functions (in json2eqn): Check for Cycles
+// ===================================================
 
 /// Checks if the given graph contains cycles
 fn is_cyclic_graph(nodes: &FxHashMap<String, Node>) -> bool {
@@ -61,12 +176,20 @@ fn is_cyclic_util(
     false
 }
 
+// ===================================================
+// Helper functions (in json2eqn): Generate Unique IDs
+// ===================================================
+
 /// Generates a unique ID for a given string
 fn string_to_unique_id(s: &str) -> u64 {
     let mut hasher = DefaultHasher::new();
     s.hash(&mut hasher);
     hasher.finish()
 }
+
+// ===================================================
+// Helper functions (in json2eqn): Convert DAG to Equations
+// ===================================================
 
 /// Converts a DAG to equations
 fn dag_to_equations(
@@ -134,6 +257,10 @@ fn dag_to_equations(
     expression
 }
 
+// ===================================================
+// Helper functions (in json2eqn): Read Prefix Mapping
+// ===================================================
+
 /// Reads the prefix mapping from a file
 fn read_prefix_mapping(file_path: &str) -> FxHashMap<String, String> {
     let file = File::open(file_path).expect("Unable to open file");
@@ -158,94 +285,10 @@ fn read_prefix_mapping(file_path: &str) -> FxHashMap<String, String> {
     mapping
 }
 
-/// Processes JSON with choices to filter nodes
-fn process_json_with_choices(
-    extraction_result_json: &str,
-    saturated_graph_json: &str,
-) -> Result<String, Box<dyn StdError>> {
-    let extraction_data: Value = serde_json::from_str(extraction_result_json)?;
-    let saturated_graph: Graph = serde_json::from_str(saturated_graph_json)?;
 
-    let choices: FxHashMap<String, String> = serde_json::from_value(extraction_data["choices"].clone())?;
-    let values: HashSet<&str> = choices.values().map(|v| v.as_str()).collect();
-
-    let new_nodes: FxHashMap<String, Node> = saturated_graph
-        .nodes
-        .into_iter()
-        .filter(|(key, _)| values.contains(key.as_str()))
-        .collect();
-
-    let result = serde_json::json!({ "nodes": new_nodes });
-    Ok(serde_json::to_string_pretty(&result)?)
-}
-
-/// Simplifies keys in the input JSON
-fn process_json_simplify_keys(input_json: &str) -> Result<String, Box<dyn StdError>> {
-    let data: Value = serde_json::from_str(input_json)?;
-    let mut new_nodes: FxHashMap<String, Node> = FxHashMap::default();
-
-    if let Some(nodes) = data["nodes"].as_object() {
-        for (key, value) in nodes {
-            let new_key = key.split('.').next().unwrap().to_string();
-            let mut node: Node = serde_json::from_value(value.clone())?;
-            node.children = node.children
-                .iter()
-                .map(|child| child.split('.').next().unwrap().to_string())
-                .collect();
-            new_nodes.insert(new_key, node);
-        }
-    } else {
-        return Err("Input JSON does not contain a 'nodes' object".into());
-    }
-
-    let result = serde_json::json!({ "nodes": new_nodes });
-    Ok(serde_json::to_string_pretty(&result)?)
-}
-
-/// Updates root eclasses in the target JSON
-fn update_root_eclasses(graph_json: &str, target_json: &str) -> Result<String, Box<dyn StdError>> {
-    let source_data: Value = serde_json::from_str(graph_json)?;
-    let mut target_data: Value = serde_json::from_str(target_json)?;
-
-    let root_eclasses = source_data["root_eclasses"].as_array().unwrap_or(&Vec::new()).to_owned();
-    target_data["root_eclasses"] = serde_json::json!(root_eclasses);
-
-    Ok(serde_json::to_string_pretty(&target_data)?)
-}
-
-/// Converts JSON representation to equation format
-fn json_to_eqn(json_str: &str, prefix_mapping_path: &str, is_large: bool) -> Result<String, Box<dyn StdError>> {
-    let graph: Graph = serde_json::from_str(json_str)?;
-
-    if is_cyclic_graph(&graph.nodes) {
-        return Err("The graph is cyclic.".into());
-    }
-
-    let prefix_mapping = read_prefix_mapping(prefix_mapping_path);
-    let mut final_content = String::with_capacity(graph.root_eclasses.len() * 1000);
-
-    for root in &graph.root_eclasses {
-        let mut visited = FxHashMap::default();
-        let mut visit_count = FxHashMap::default();
-
-        let equation = dag_to_equations(&graph.nodes, root, &mut visited, &mut visit_count, is_large);
-
-        let variables: Vec<String> = graph.nodes.values()
-            .filter(|node| node.children.is_empty() && node.op != "1" && node.op != "0")
-            .map(|node| node.op.clone())
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect();
-
-        let parts: Vec<String> = equation.split('&').map(str::trim).map(String::from).collect();
-
-        let content = generate_eqn_content(&variables, parts, "p", visited, &prefix_mapping);
-        final_content.push_str(&content);
-        final_content.push('\n');
-    }
-
-    Ok(final_content)
-}
+// ===================================================
+// Helper function (in json2eqn): Equation Content Generation
+// ===================================================
 
 /// Generates the content for the equation file
 fn generate_eqn_content(
@@ -277,18 +320,9 @@ fn generate_eqn_content(
     content
 }
 
-/// Converts extraction result to equation format
-pub fn extraction_result_to_eqn(
-    dag_cost_json: &str,
-    saturated_graph_json: &str,
-    prefix_mapping_path: &str,
-    is_large: bool,
-) -> Result<String, Box<dyn StdError>> {
-    let processed_json = process_json_with_choices(dag_cost_json, saturated_graph_json)?;
-    let simplified_json = process_json_simplify_keys(&processed_json)?;
-    let final_json = update_root_eclasses(saturated_graph_json, &simplified_json)?;
-    json_to_eqn(&final_json, prefix_mapping_path, is_large)
-}
+// ==================================================
+// Main Process: Circuit Conversion
+// ==================================================
 
 /// Processes the circuit conversion
 pub fn process_circuit_conversion(
@@ -302,3 +336,17 @@ pub fn process_circuit_conversion(
 
     extraction_result_to_eqn(dag_cost_json, saturated_graph_json, prefix_mapping_path, is_large)
 }
+
+/// Converts extraction result to equation format
+pub fn extraction_result_to_eqn(
+    dag_cost_json: &str,
+    saturated_graph_json: &str,
+    prefix_mapping_path: &str,
+    is_large: bool,
+) -> Result<String, Box<dyn StdError>> {
+    let processed_json = process_json_with_choices(dag_cost_json, saturated_graph_json)?;
+    let simplified_json = process_json_simplify_keys(&processed_json)?;
+    let final_json = update_root_eclasses(saturated_graph_json, &simplified_json)?;
+    json_to_eqn(&final_json, prefix_mapping_path, is_large)
+}
+
