@@ -7,6 +7,7 @@ use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use rayon::prelude::*;
 
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -84,11 +85,14 @@ fn dag_to_equations(
     let node = &nodes[node_id];
     let expression = match node.op.as_str() {
         "&" => {
-            node.children
-                .iter()
-                .map(|child_id| dag_to_equations(nodes, child_id, visited, visit_count, is_large))
-                .collect::<Vec<_>>()
-                .join(" & ")
+            let mut result = String::with_capacity(node.children.len() * 20);
+            for (i, child_id) in node.children.iter().enumerate() {
+                if i > 0 {
+                    result.push_str(" & ");
+                }
+                result.push_str(&dag_to_equations(nodes, child_id, visited, visit_count, is_large));
+            }
+            result
         }
         _ => {
             let operands: Vec<String> = node.children
@@ -101,18 +105,18 @@ fn dag_to_equations(
                 1 => format!("{}({})", node.op, operands[0]),
                 2 => {
                     if is_large {
-                        let (lhs, rhs) = (&operands[0], &operands[1]);
+                        let (lhs, rhs) = (operands[0].clone(), operands[1].clone());
                         let (lhs_id, rhs_id) = (
-                            if lhs.len() > 50 { Some(string_to_unique_id(lhs)) } else { None },
-                            if rhs.len() > 50 { Some(string_to_unique_id(rhs)) } else { None },
+                            if lhs.len() > 50 { Some(string_to_unique_id(&lhs)) } else { None },
+                            if rhs.len() > 50 { Some(string_to_unique_id(&rhs)) } else { None },
                         );
                         if let Some(id) = lhs_id { visited.insert(id.to_string(), lhs.clone()); }
                         if let Some(id) = rhs_id { visited.insert(id.to_string(), rhs.clone()); }
                         format!(
                             "({} {} {})",
-                            lhs_id.map_or_else(|| lhs.clone(), |id| format!("new_n_{}", id)),
+                            lhs_id.map_or_else(|| lhs, |id| format!("new_n_{}", id)),
                             node.op,
-                            rhs_id.map_or_else(|| rhs.clone(), |id| format!("new_n_{}", id))
+                            rhs_id.map_or_else(|| rhs, |id| format!("new_n_{}", id))
                         )
                     } else {
                         format!("({} {} {})", operands[0], node.op, operands[1])
@@ -218,7 +222,7 @@ fn json_to_eqn(json_str: &str, prefix_mapping_path: &str, is_large: bool) -> Res
     }
 
     let prefix_mapping = read_prefix_mapping(prefix_mapping_path);
-    let mut final_content = String::new();
+    let mut final_content = String::with_capacity(graph.root_eclasses.len() * 1000);
 
     for root in &graph.root_eclasses {
         let mut visited = FxHashMap::default();
@@ -233,7 +237,7 @@ fn json_to_eqn(json_str: &str, prefix_mapping_path: &str, is_large: bool) -> Res
             .into_iter()
             .collect();
 
-        let parts = equation.split('&').map(str::trim).map(String::from).collect();
+        let parts: Vec<String> = equation.split('&').map(str::trim).map(String::from).collect();
 
         let content = generate_eqn_content(&variables, parts, "p", visited, &prefix_mapping);
         final_content.push_str(&content);
