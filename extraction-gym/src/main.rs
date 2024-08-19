@@ -9,7 +9,7 @@ pub use extract::*;
 // use egraph_serialize::ClassId;
 use egraph_serialize::*;
 
-use crate::faster_bottom_up::FasterBottomUpExtractor_random;
+use crate::faster_bottom_up::FasterBottomUpExtractorRandom;
 use crate::faster_bottom_up::FasterBottomUpSimulatedAnnealingExtractor;
 use crate::bottom_up::SimulatedAnnealingExtractor;
 use anyhow::Context;
@@ -45,6 +45,10 @@ fn get_fast_extractors() -> IndexMap<&'static str, Box<dyn Extractor>> {
         ("sim_ann_based_bottom-up", extract::bottom_up::SimulatedAnnealingExtractor.boxed()),
         ("sim_ann_based_faster_bottom-up", extract::faster_bottom_up::FasterBottomUpSimulatedAnnealingExtractor.boxed()),
         (
+            "faster-bottom-up-grpc",
+            extract::faster_bottom_up::FasterBottomUpExtractorGRPC.boxed(),
+        ),
+        (
             "faster-bottom-up",
             extract::faster_bottom_up::FasterBottomUpExtractor.boxed(),
         ),
@@ -62,7 +66,7 @@ fn get_fast_extractors() -> IndexMap<&'static str, Box<dyn Extractor>> {
         ),
         (
             "random-based-faster-bottom-up",
-            extract::faster_bottom_up::FasterBottomUpExtractor_random.boxed(),
+            extract::faster_bottom_up::FasterBottomUpExtractorRandom.boxed(),
         ),
     ]
     .into_iter()
@@ -408,7 +412,7 @@ fn main() {
         );
     } else { // extractor is random-based-faster-bottom-up
         // if the extractor is random
-        let extractor: Arc<dyn Extractor + Send + Sync> = Arc::new(FasterBottomUpExtractor_random);
+        let extractor: Arc<dyn Extractor + Send + Sync> = Arc::new(FasterBottomUpExtractorRandom);
         let (result_sender, result_receiver) = channel();
         let cost_function: Arc<str> = Arc::from(cost_function);
 

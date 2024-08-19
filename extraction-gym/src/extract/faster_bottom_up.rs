@@ -101,12 +101,69 @@ fn parse_delay(output: &str) -> Option<f32> {
 /// it does this by tracking parent-child relationships and storing relevant nodes
 /// in a work list (UniqueQueue).
 pub struct FasterBottomUpExtractor;
-pub struct FasterBottomUpExtractor_random;
+pub struct FasterBottomUpExtractorGRPC;
+pub struct FasterBottomUpExtractorRandom;
 pub struct FasterBottomUpSimulatedAnnealingExtractor;
 
-
-
 impl Extractor for FasterBottomUpExtractor {
+    fn extract(
+        &self,
+        egraph: &EGraph,
+        _roots: &[ClassId],
+        cost_function: &str,
+        random_prob: f64,
+    ) -> ExtractionResult {
+        let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
+        let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
+        let mut analysis_pending = UniqueQueue::default();
+
+        for class in egraph.classes().values() {
+            parents.insert(class.id.clone(), Vec::new());
+        }
+
+        for class in egraph.classes().values() {
+            for node in &class.nodes {
+                for c in &egraph[node].children {
+                    // compute parents of this enode
+                    parents[n2c(c)].push(node.clone());
+                }
+
+                // start the analysis from leaves
+                if egraph[node].is_leaf() {
+                    analysis_pending.insert(node.clone());
+                }
+            }
+        }
+
+        let mut result = ExtractionResult::default();
+        let mut costs = FxHashMap::<ClassId, Cost>::with_capacity_and_hasher(
+            egraph.classes().len(),
+            Default::default(),
+        );
+
+        while let Some(node_id) = analysis_pending.pop() {
+            let class_id = n2c(&node_id);
+            let node = &egraph[&node_id];
+            let prev_cost = costs.get(class_id).unwrap_or(&INFINITY);
+            let cost = match cost_function {
+                "node_sum_cost" => result.node_sum_cost(egraph, node, &costs),
+                "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
+                _ => panic!("Unknown cost function: {}", cost_function),
+            };
+            if cost < *prev_cost {
+                result.choose(class_id.clone(), node_id.clone());
+                costs.insert(class_id.clone(), cost);
+                analysis_pending.extend(parents[class_id].iter().cloned());
+            }
+        }
+
+        result
+    }
+}
+
+
+
+impl Extractor for FasterBottomUpExtractorGRPC {
     fn extract(&self, egraph: &EGraph, roots: &[ClassId], cost_function: &str, random_prob: f64) -> ExtractionResult {
         // Create a new runtime for this extraction
         let rt = Runtime::new().unwrap();
@@ -116,7 +173,7 @@ impl Extractor for FasterBottomUpExtractor {
 }
 
 
-impl AsyncExtractor for FasterBottomUpExtractor {
+impl AsyncExtractor for FasterBottomUpExtractorGRPC {
     fn extract_async<'a>(
         &'a self,
         egraph: &'a EGraph,
@@ -247,7 +304,7 @@ impl AsyncExtractor for FasterBottomUpExtractor {
 }
 }
 
-impl Extractor for FasterBottomUpExtractor_random {
+impl Extractor for FasterBottomUpExtractorRandom {
     fn extract(
         &self,
         egraph: &EGraph,
