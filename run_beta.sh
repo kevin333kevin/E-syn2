@@ -100,6 +100,25 @@ extract_dag() {
     echo -e "${GREEN}Process 2 - Extract DAG completed.${RESET}"
 }
 
+run_abc() {
+    echo -e "${YELLOW}<-----------------------------Process 3: Run ABC------------------------------>${RESET}"
+    copy_file "e-rewriter/circuit0.eqn" "abc/ori.eqn"
+    copy_file "extraction-gym/src/extract/tmp/output.eqn" "abc/opt.eqn"
+    change_dir "abc"
+
+    # baline - single operator - if -g
+    execute_command "./abc -c \"read_eqn ori.eqn; read_lib asap7_clean.lib; if -g; st;dch; ps; map; topo; upsize; dnsize; stime;\""
+
+    # baseline - single operator
+    execute_command "./abc -c \"read_eqn opt.eqn; read_lib asap7_clean.lib; st; dch; ps; map; topo; upsize; dnsize; stime;\""
+    
+    # combinational equivalence checking
+    execute_command "./abc -c \"cec ori.eqn opt.eqn\""
+
+    change_dir ".."
+    echo -e "${GREEN}Process 3 - Run ABC completed.${RESET}"
+}
+
 # Function to report total runtime
 report_runtime() {
     echo -e "${GREEN}All processes completed successfully.${RESET}"
@@ -117,4 +136,5 @@ setup_directories
 get_user_input 
 rewrite_circuit
 extract_dag
+run_abc
 report_runtime

@@ -298,8 +298,8 @@ fn main() {
     }
 
     let root_nodes = &graph.root_eclasses;
-    let prefix_mapping = read_prefix_mapping("../e-rewriter/circuit0.eqn");
-
+    let prefix_mapping = read_prefix_mapping("../e-rewriter/circuit0_opt.eqn");
+    //println!("prefix mapping: {:?}", prefix_mapping);
     for (i, root) in root_nodes.iter().enumerate() {
         let mut visited = FxHashMap::default();
         let mut visit_count = FxHashMap::default();

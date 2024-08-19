@@ -91,6 +91,12 @@ if [ -d "tmp_log" ]; then
   echo -e "${GREEN}Cleaned tmp_log directory${RESET}"
 fi
 
+# remove all file under extraction-gym/src/extract/tmp
+if [ -d "extraction-gym/src/extract/tmp" ]; then
+  rm -f extraction-gym/src/extract/tmp/* 2>/dev/null
+  echo -e "${GREEN}Cleaned extraction-gym/src/extract/tmp directory${RESET}"
+fi
+
 # ask user whether to execute cargo clean in each directory
 echo -ne "${YELLOW}Do you want to execute cargo clean in each directory? (y/n)${RESET} "
 read answer
@@ -129,6 +135,8 @@ if [ -d "e-rewriter/src/egraph-serialize" ]; then
   (cd e-rewriter/src/egraph-serialize && cargo clean)
   echo -e "${GREEN}Ran cargo clean in e-rewriter/src/egraph-serialize directory${RESET}"
 fi
+
+
 
 
 echo -e "${GREEN}Cleaning complete.${RESET}"

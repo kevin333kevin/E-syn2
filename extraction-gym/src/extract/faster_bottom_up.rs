@@ -58,6 +58,7 @@ fn call_abc(eqn_content: &str) -> Result<f32, Box<dyn std::error::Error>> {
     abc.execute_command(&format!("strash"));
     //println!("Performing dump the edgelist...");
     abc.execute_command(&format!("&get; &edgelist  -F src/extract/tmp/opt_1.el -f src/extract/tmp/opt-feats.csv -c src/extract/tmp/opt_1.json; &put"));
+    abc.execute_command(&format!("dch"));
     //println!("Performing technology mapping...");
     abc.execute_command(&format!("map"));
     //println!("Performing post-processing...(topo; gate sizing)");
@@ -249,7 +250,7 @@ impl AsyncExtractor for FasterBottomUpExtractorGRPC {
 
             // first, feed input saturated graph and extracted e-graph to process json
             let saturated_graph_path = "input/rewritten_egraph_with_weight_cost_serd.json";
-            let prefix_mapping_path = "../e-rewriter/circuit0.eqn";
+            let prefix_mapping_path = "../e-rewriter/circuit0_opt.eqn";
             let mode = "large";
 
             let saturated_graph_json =
@@ -418,7 +419,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
     ) -> ExtractionResult {
         let mut rng = thread_rng();
         let saturated_graph_path = "input/rewritten_egraph_with_weight_cost_serd.json";
-        let prefix_mapping_path = "../e-rewriter/circuit0.eqn";
+        let prefix_mapping_path = "../e-rewriter/circuit0_opt.eqn";
 
         let saturated_graph_json = fs::read_to_string(saturated_graph_path).unwrap_or_else(|e| {
             eprintln!("Failed to read saturated graph file: {}", e);
@@ -426,7 +427,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         });
 
         // Generate base solution using faster bottom-up
-        let mut base_result = generate_initial_solution(egraph, cost_function);
+        let mut base_result = generate_base_solution(egraph, cost_function);
         update_json_buffers_in_result(&mut base_result, egraph);
         let base_abc_cost = calculate_abc_cost(&base_result, &saturated_graph_json, &prefix_mapping_path);
 
@@ -507,9 +508,43 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         // Compare SA-final with base solution
         if best_abc_cost <= base_abc_cost {
             println!("SA-final solution is better. Returning SA-final.");
+            // save the best result to file
+            let eqn_content = match process_circuit_conversion(
+                &best_result,
+                &saturated_graph_json,
+                &prefix_mapping_path,
+                false,
+            ) {
+                Ok(content) => content,
+                Err(e) => {
+                    eprintln!("Error in circuit conversion: {}", e);
+                    String::new()
+                }
+            };
+            if let Err(e) = std::fs::write("src/extract/tmp/best_result.eqn", &eqn_content) {
+                eprintln!("Error writing to file: {}", e);
+                // Handle the error appropriately
+            }
             best_result
         } else {
             println!("Base solution is better. Returning base solution.");
+            // save the base result to file
+            let eqn_content = match process_circuit_conversion(
+                &base_result,
+                &saturated_graph_json,
+                &prefix_mapping_path,
+                false,
+            ) {
+                Ok(content) => content,
+                Err(e) => {
+                    eprintln!("Error in circuit conversion: {}", e);
+                    String::new()
+                }
+            };
+            if let Err(e) = std::fs::write("src/extract/tmp/base_result.eqn", &eqn_content) {
+                eprintln!("Error writing to file: {}", e);
+                // Handle the error appropriately
+            }
             base_result
         }
     }
@@ -533,10 +568,18 @@ fn generate_random_solution(egraph: &EGraph) -> ExtractionResult {
 }
 
 // ========================== Helper Functions For SA-based faster bottom-up ==========================
-// Generate initial solution for Simulated Annealing 
+// Save best result to file
 // ========================== Helper Functions For SA-based faster bottom-up ==========================
 
-fn generate_initial_solution(egraph: &EGraph, cost_function: &str) -> ExtractionResult {
+// fn save_best_result_to_file(
+//     pass;
+// }
+
+// ========================== Helper Functions For SA-based faster bottom-up ==========================
+// Generate base solution for Simulated Annealing 
+// ========================== Helper Functions For SA-based faster bottom-up ==========================
+
+fn generate_base_solution(egraph: &EGraph, cost_function: &str) -> ExtractionResult {
     let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
     let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
     let mut analysis_pending = UniqueQueue::default();
@@ -624,6 +667,11 @@ fn calculate_abc_cost(
             return f64::INFINITY;
         }
     };
+
+    // if let Err(e) = std::fs::write("src/extract/tmp/output.eqn", &eqn_content) {
+    //     eprintln!("Error writing to file: {}", e);
+    //     // Handle the error appropriately
+    // }
 
     match call_abc(&eqn_content) {
         Ok(delay) => delay as f64,

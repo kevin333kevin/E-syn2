@@ -107,6 +107,7 @@ fn json_to_eqn(json_str: &str, prefix_mapping_path: &str, is_large: bool) -> Res
     }
 
     let prefix_mapping = read_prefix_mapping(prefix_mapping_path);
+    //println!("prefix mapping: {:?}", prefix_mapping);
     let mut final_content = String::with_capacity(graph.root_eclasses.len() * 1000);
 
     for root in &graph.root_eclasses {
@@ -263,6 +264,7 @@ fn dag_to_equations(
 
 /// Reads the prefix mapping from a file
 fn read_prefix_mapping(file_path: &str) -> FxHashMap<String, String> {
+    //println!("file path: {}", file_path);
     let file = File::open(file_path).expect("Unable to open file");
     let reader = BufReader::new(file);
     let mut mapping = FxHashMap::default();
