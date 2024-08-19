@@ -6,6 +6,7 @@ use crate::extract::circuit_conversion::process_circuit_conversion;
 
 use std::env;
 use std::process;
+use tokio::runtime::Runtime;
 
 //use abc::Abc;
 
@@ -14,6 +15,32 @@ use crate::extract::lib::Abc;
 use std::fs;
 use std::io::Write;
 use tempfile::NamedTempFile;
+use std::future::Future;
+
+use tonic::Request;
+use vectorservice::vector_service_client::VectorServiceClient;
+use vectorservice::CircuitFilesRequest;
+
+async fn send_circuit_files_to_server(
+    el_content: &str,
+    csv_content: &str,
+    json_content: &str,
+) -> Result<f64, Box<dyn std::error::Error>> {
+    let mut client = VectorServiceClient::connect("http://[::1]:50051").await?;
+
+    let request = Request::new(CircuitFilesRequest {
+        el_content: el_content.to_string(),
+        csv_content: csv_content.to_string(),
+        json_content: json_content.to_string(),
+    });
+
+    let response = client.process_circuit_files(request).await?;
+    Ok(response.into_inner().delay)
+}
+
+pub mod vectorservice {
+    tonic::include_proto!("vectorservice");
+}
 
 fn call_abc(eqn_content: &str) -> Result<f32, Box<dyn std::error::Error>> {
     let mut temp_file = NamedTempFile::new()?;
@@ -28,6 +55,8 @@ fn call_abc(eqn_content: &str) -> Result<f32, Box<dyn std::error::Error>> {
     abc.execute_command("read_lib ../abc/asap7_clean.lib");
     println!("Performing structural hashing...");
     abc.execute_command("strash");
+    println!("Performing dump the edgelist...");
+    abc.execute_command("&get; &edgelist  -F src/extract/tmp/opt_1.el -f src/extract/tmp/opt-feats.csv -c src/extract/tmp/opt_1.json; &put");
     println!("Performing technology mapping...");
     abc.execute_command("map");
     println!("Performing post-processing...(topo; gate sizing)");
@@ -75,14 +104,27 @@ pub struct FasterBottomUpExtractor;
 pub struct FasterBottomUpExtractor_random;
 pub struct FasterBottomUpSimulatedAnnealingExtractor;
 
+
+
 impl Extractor for FasterBottomUpExtractor {
-    fn extract(
-        &self,
-        egraph: &EGraph,
-        _roots: &[ClassId],
-        cost_function: &str,
+    fn extract(&self, egraph: &EGraph, roots: &[ClassId], cost_function: &str, random_prob: f64) -> ExtractionResult {
+        // Create a new runtime for this extraction
+        let rt = Runtime::new().unwrap();
+        // Use the runtime to block on the async extraction
+        rt.block_on(self.extract_async(egraph, roots, cost_function, random_prob))
+    }
+}
+
+
+impl AsyncExtractor for FasterBottomUpExtractor {
+    fn extract_async<'a>(
+        &'a self,
+        egraph: &'a EGraph,
+        roots: &'a [ClassId],
+        cost_function: &'a str,
         random_prob: f64,
-    ) -> ExtractionResult {
+    ) -> impl Future<Output = ExtractionResult> + Send + 'a {
+        async move {
         let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
         let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
         let mut analysis_pending = UniqueQueue::default();
@@ -176,9 +218,33 @@ impl Extractor for FasterBottomUpExtractor {
             Err(e) => eprintln!("Error in ABC processing: {}", e),
         }
 
+        let el_content = fs::read_to_string("src/extract/tmp/opt_1.el").expect("Failed to read el file");
+        let csv_content = fs::read_to_string("src/extract/tmp/opt-feats.csv").expect("Failed to read csv file");
+        let json_content = fs::read_to_string("src/extract/tmp/opt_1.json").expect("Failed to read json file");
+
+        // Call the gRPC client function
+        // let delay = match send_circuit_files_to_server(&el_content, &csv_content, &json_content) {
+        //     Ok(d) => d,
+        //     Err(e) => {
+        //         eprintln!("Error sending circuit files to server: {}", e);
+        //         0.0 // Use a default value or handle the error as appropriate
+        //     }
+        // };
+        let delay = match send_circuit_files_to_server(&el_content, &csv_content, &json_content).await {
+            Ok(d) => d,
+            Err(e) => {
+                eprintln!("Error sending circuit files to server: {}", e);
+                0.0 // Use a default value or handle the error as appropriate
+            }
+        };
+        
+        println!("Received delay from ML server: {} ns", delay);
+
+
         
         result
     }
+}
 }
 
 impl Extractor for FasterBottomUpExtractor_random {

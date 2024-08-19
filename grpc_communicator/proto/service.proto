@@ -4,6 +4,18 @@ package vectorservice;
 
 service VectorService {
   rpc ProcessJson (JsonRequest) returns (VectorResponse) {}
+  rpc ProcessCircuitFiles (CircuitFilesRequest) returns (CircuitProcessingResponse) {}
+}
+
+message CircuitFilesRequest {
+  string el_content = 1;
+  string csv_content = 2;
+  string json_content = 3;
+}
+
+message CircuitProcessingResponse {
+  double delay = 1;
+  // Add other fields as needed
 }
 
 message JsonRequest {

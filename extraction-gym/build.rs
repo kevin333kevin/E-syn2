@@ -1,9 +1,9 @@
 use std::env;
 use std::path::PathBuf;
 
-fn main() -> Result<(), String> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let src_dir = env::var("CARGO_MANIFEST_DIR")
-        .map_err(|_| "Environmental variable `CARGO_MANIFEST_DIR` not defined.".to_string())?;
+        .map_err(|e| e.to_string())?;
 
     println!(
         "cargo:rustc-link-search=native={}",
@@ -25,6 +25,9 @@ fn main() -> Result<(), String> {
 
     // Specify C++17 standard (uncomment if needed)
     // println!("cargo:rustc-flags=-std=c++17");
+
+    // Add gRPC build steps
+    tonic_build::compile_protos("../grpc_communicator/proto/service.proto")?;
 
     Ok(())
 }

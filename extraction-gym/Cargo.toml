@@ -7,6 +7,7 @@ edition = "2021"
 
 [features]
 ilp-cbc = ["coin_cbc"]
+#serde-1 = ["serde"]
 
 [dependencies]
 rand = "0.8"
@@ -39,6 +40,17 @@ clap =  { version = "4.4.8", features = ["derive"] }
 micromap = "0.0.15"
 dashmap = "5.5.3"
 
-aig = { path = "./src/aig-rs" }
+# grpc
+tonic = "0.12.1"
+prost = "0.13.1"
+tokio = { version = "1.0", features = ["full"] }
+#tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+#serde_json = "1.0"
+
+#aig = { path = "./src/aig-rs" }
 tempfile = "3.10.1"
 lazy_static = "1.4.0"
+
+
+[build-dependencies]
+tonic-build = "0.12.1"

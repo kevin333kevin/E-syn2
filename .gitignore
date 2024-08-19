@@ -71,3 +71,7 @@ e-rewriter/circuit0_opt.eqn
 e-rewriter/modified_circuit0_opt.eqn.json
 e-rewriter/circuit0_opt.eqn.json
 test_abc.eqn
+extraction-gym/src/aig-rs
+extraction-gym/src/giputils
+extraction-gym/src/logic-form
+extraction-gym/abc

@@ -20,7 +20,7 @@ pub mod greedy_dag;
 mod circuit_conversion;
 mod lib;
 mod demo;
-mod build;
+//mod build;
 // pub mod sim_ann_based_bottom_up;
 // pub mod sim_ann_based_faster_bottom_up;
 use rand::Rng;
@@ -29,6 +29,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 #[cfg(feature = "ilp-cbc")]
 pub mod ilp_cbc;
+
+use tonic::Request;
+use std::future::Future;
+// use crate::vectorservice::vector_service_client::VectorServiceClient;
+// use crate::vectorservice::CircuitFilesRequest;
 
 // Extractor trait defines the interface for extracting a result from an EGraph
 pub trait Extractor: Sync {
@@ -43,6 +48,17 @@ pub trait Extractor: Sync {
     {
         Box::new(self)
     }
+}
+
+// Add a new trait for async extraction
+pub trait AsyncExtractor: Sync {
+    fn extract_async<'a>(
+        &'a self,
+        egraph: &'a EGraph,
+        roots: &'a [ClassId],
+        cost_function: &'a str,
+        random_prob: f64,
+    ) -> impl Future<Output = ExtractionResult> + Send + 'a;
 }
 
 // MapGet trait defines a generic interface for getting a value from a map-like data structure

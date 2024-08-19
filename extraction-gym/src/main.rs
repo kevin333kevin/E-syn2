@@ -33,6 +33,10 @@ pub type Cost = NotNan<f64>;
 // Define a constant for infinity cost
 pub const INFINITY: Cost = unsafe { NotNan::new_unchecked(std::f64::INFINITY) };
 
+pub mod vectorservice {
+    tonic::include_proto!("vectorservice");
+}
+
 // Function to get the fast extractors
 // Returns: An `IndexMap` mapping extractor names to their corresponding `Extractor` implementations
 fn get_fast_extractors() -> IndexMap<&'static str, Box<dyn Extractor>> {
