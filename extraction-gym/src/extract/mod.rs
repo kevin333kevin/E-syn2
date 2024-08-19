@@ -98,7 +98,7 @@ where
 }
 
 // ExtractionResult struct represents the result of an extraction operation
-#[derive(Default, Clone, Deserialize, Serialize)]
+#[derive(Default, Clone, Deserialize, Serialize, PartialEq)]
 pub struct ExtractionResult {
     // choices is an IndexMap that maps ClassId to NodeId
     pub choices: IndexMap<ClassId, NodeId>,

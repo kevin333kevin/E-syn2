@@ -520,7 +520,12 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
             }
         };
 
-        let mut previous_cost = match call_abc(&initial_eqn_content) {
+        if let Err(e) = std::fs::write("src/extract/tmp/output_initial.eqn", &initial_eqn_content) {
+            eprintln!("Error writing to file: {}", e);
+            // Handle the error appropriately
+        }
+
+        let mut previous_abc_cost = match call_abc(&initial_eqn_content) {
             Ok(delay) => delay as f64,
             Err(e) => {
                 eprintln!("Error in initial ABC processing: {}", e);
@@ -528,7 +533,9 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
             }
         };
 
-        println!("Initial ABC delay: {:.6}", previous_cost);
+        let (initial_dag_cost, _) = result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+
+        println!("Initial ABC delay: {:.6}, initial DAG cost: {:.6}", previous_abc_cost, initial_dag_cost);
 
         for iteration in 0..max_iterations {
             if verbose {
@@ -555,6 +562,9 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
                 temp_result.choose(class_id.clone(), node_id.clone());
             }
 
+            // assert the temp result is not same as the result
+            assert!(temp_result != result);
+
             let eqn_content = match process_circuit_conversion(
                 &temp_result,
                 &saturated_graph_json,
@@ -568,8 +578,13 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
                 }
             };
 
+            if let Err(e) = std::fs::write("src/extract/tmp/output_proposed.eqn", &eqn_content) {
+                eprintln!("Error writing to file: {}", e);
+                // Handle the error appropriately
+            }
+
             // Call ABC and get the delay
-            let current_cost = match call_abc(&eqn_content) {
+            let current_abc_cost = match call_abc(&eqn_content) {
                 Ok(delay) => delay as f64,
                 Err(e) => {
                     eprintln!("Error in ABC processing: {}", e);
@@ -577,13 +592,15 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
                 }
             };
 
-            let cost_change = current_cost - previous_cost;
+            let cost_change = current_abc_cost - previous_abc_cost;
 
             if verbose {
                 //println!("Iteration: {}", iteration);
                 //println!("Proposed changes: {:?}", proposed_changes);
-                println!("Current Cost: {:.6}", current_cost);
-                println!("Previous Cost: {:.6}", previous_cost);
+                let (current_dag_cost, _) = temp_result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+                let (previous_dag_cost, _) = result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+                println!("Current ABC cost: {:.6}, current DAG cost: {:.6}", current_abc_cost, current_dag_cost);
+                println!("Previous ABC cost: {:.6}, previous DAG cost: {:.6}", previous_abc_cost, previous_dag_cost);
                 println!("Cost Change: {:.6}", cost_change);
             }
 
@@ -592,7 +609,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 
             if cost_change < 0.0 || random_value < acceptance_probability {
                 result = temp_result;
-                previous_cost = current_cost;
+                previous_abc_cost = current_abc_cost;
                 if verbose {
                     println!("Change accepted!");
                 }
