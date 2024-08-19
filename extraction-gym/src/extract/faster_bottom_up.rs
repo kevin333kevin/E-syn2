@@ -49,17 +49,17 @@ fn call_abc(eqn_content: &str) -> Result<f32, Box<dyn std::error::Error>> {
 
     let mut abc = Abc::new();
 
-    println!("Reading equation file...");
+    //println!("Reading equation file...");
     abc.execute_command(&format!("read_eqn {}", temp_path));
-    println!("Reading library...");
+    //println!("Reading library...");
     abc.execute_command("read_lib ../abc/asap7_clean.lib");
-    println!("Performing structural hashing...");
+    //println!("Performing structural hashing...");
     abc.execute_command("strash");
-    println!("Performing dump the edgelist...");
+    //println!("Performing dump the edgelist...");
     abc.execute_command("&get; &edgelist  -F src/extract/tmp/opt_1.el -f src/extract/tmp/opt-feats.csv -c src/extract/tmp/opt_1.json; &put");
-    println!("Performing technology mapping...");
+    //println!("Performing technology mapping...");
     abc.execute_command("map");
-    println!("Performing post-processing...(topo; gate sizing)");
+    //println!("Performing post-processing...(topo; gate sizing)");
     abc.execute_command("topo");
     abc.execute_command("upsize");
     abc.execute_command("dnsize");
@@ -70,7 +70,7 @@ fn call_abc(eqn_content: &str) -> Result<f32, Box<dyn std::error::Error>> {
     if let Some(delay) = parse_delay(&stime_output) {
         let delay_ns = delay / 1000.0;
         println!("Delay in nanoseconds: {} ns", delay_ns);
-        Ok(delay_ns)
+        Ok(delay)
     } else {
         Err("Failed to parse delay value".into())
     }
@@ -413,6 +413,15 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
         let mut analysis_pending = UniqueQueue::default();
 
+        // Add these lines to define the required variables
+        let saturated_graph_path = "input/rewritten_egraph_with_weight_cost_serd.json";
+        let prefix_mapping_path = "../e-rewriter/circuit0.eqn";
+
+        let saturated_graph_json = fs::read_to_string(saturated_graph_path).unwrap_or_else(|e| {
+            eprintln!("Failed to read saturated graph file: {}", e);
+            String::new()
+        });
+
         let use_bfs = true;
         // Perform topological sort
         if use_bfs {
@@ -469,100 +478,116 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         // make best_dag_cost
         let mut best_dag_cost = dag_cost_before_per_sim_ann;
 
-        // Simulated annealing with optimizations
+        // Simulated annealing with ABC cost
         let initial_temp = 100.0;
-        let cooling_rate = 0.8;
+        let cooling_rate = 0.95;
         let mut temperature = initial_temp;
         let sample_size = (egraph.classes().len() as f64 * 0.2).max(1.0) as usize;
-        let cost_change_threshold = 0.0;
+        let max_iterations = 100;
+        let verbose = true;
 
-        while temperature > 1.0 {
-            println!("Temperature: {}", temperature);
-            println!("Egraph classes size: {}", egraph.classes().len());
-            
+        // Compute initial JSON buffers for tree cost and DAG cost extraction results
+        let tree_cost_json = to_string_pretty(&result).unwrap();
+        
+        let (dag_cost, dag_cost_extraction_result) = result
+            .calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+        let dag_cost_json = to_string_pretty(&dag_cost_extraction_result).unwrap();
+
+        // Store initial JSON buffers in the ExtractionResult
+        result.tree_cost_json = Some(tree_cost_json);
+        result.dag_cost_json = Some(dag_cost_json);
+
+        println!("========== Starting Simulated Annealing ==========");
+
+        for iteration in 0..max_iterations {
+            if verbose {
+                println!("Temperature: {:.2}", temperature);
+                println!("Iteration: {}", iteration);
+            }
+
             let sampled_classes: Vec<_> = egraph.classes().values().choose_multiple(&mut rng, sample_size);
-            println!("Sampled classes size: {}", sampled_classes.len());
 
             let mut proposed_changes = Vec::new();
 
             for class in sampled_classes {
-                let current_cost = *costs.get(&class.id).unwrap_or(&INFINITY);
-
                 if let Some(neighbor_node) = class.nodes.choose(&mut thread_rng()) {
-                    let neighbor_cost = match cost_function {
-                        "node_sum_cost" => result.node_sum_cost(egraph, &egraph[neighbor_node], &costs),
-                        "node_depth_cost" => result.node_depth_cost(egraph, &egraph[neighbor_node], &costs),
-                        _ => panic!("Unknown cost function: {}", cost_function),
-                    };
-
-                    if neighbor_cost > NotNan::new(1000000000.0).unwrap() {
-                        continue;
-                    }
-
-                    let cost_change = (current_cost - neighbor_cost) / current_cost;
-                    if cost_change.abs() < cost_change_threshold { // deprecated now
-                        // assertion false, break the program
-                        assert!(false);
-                        continue;
-                    }
-
-                    let random_value: f64 = rand::random();
-                    let disturbance_threshold = ((current_cost - neighbor_cost) / temperature).exp() / 1.5;
-                    if neighbor_cost <= current_cost || 
-                       (random_value < disturbance_threshold && neighbor_cost < INFINITY) {
-                        proposed_changes.push((class.id.clone(), neighbor_node.clone(), neighbor_cost));
-                    }
+                    proposed_changes.push((class.id.clone(), neighbor_node.clone()));
                 }
             }
 
-            // Apply changes sequentially and check for cycles
+            // Apply changes and generate EQN file
             let mut temp_result = result.clone();
-            let mut valid_changes = Vec::new();
-
-            for (class_id, node_id, cost) in proposed_changes {
-                temp_result.choose(class_id.clone(), node_id.clone());
-                let cycles = temp_result.find_cycles(egraph, &egraph.root_eclasses);
-                
-                if cycles.is_empty() {
-                    valid_changes.push((class_id, node_id, cost));
-                } else {
-                    // Revert the change if it introduces a cycle
-                    //temp_result = result.clone(); // this not work due to cycles will produce with interaction effect
-                    
-                    continue;
-                    //break;
-                }
+            for (class_id, node_id) in proposed_changes {
+                temp_result.choose(class_id, node_id);
             }
 
-            let (dag_cost_after_per_sim_ann, _) = temp_result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
-            let (current_dag_cost, _) = result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
-            //if ((dag_cost_after_per_sim_ann - current_dag_cost)/current_dag_cost).abs() > 0.1{
-            //if true{
-                // Apply valid changes to the actual result
-                for (class_id, node_id, cost) in valid_changes {
-                    // if result will not contain cycle after choose, then choose
-                    // if !temp_result.find_cycles(egraph, &egraph.root_eclasses).is_empty() {
-                    //     continue;
-                    // }
-                    result.choose(class_id.clone(), node_id.clone());
-                    costs.insert(class_id.clone(), cost.clone());
-                    analysis_pending.extend(parents[&class_id].iter().cloned());
+            let eqn_content = match process_circuit_conversion(
+                &temp_result,
+                &saturated_graph_json,
+                &prefix_mapping_path,
+                false // Assuming small mode
+            ) {
+                Ok(content) => content,
+                Err(e) => {
+                    eprintln!("Error in circuit conversion: {}", e);
+                    continue;
                 }
-                if dag_cost_after_per_sim_ann < NotNan::new(1.0 * best_dag_cost.into_inner()).unwrap() {
-                best_dag_cost = dag_cost_after_per_sim_ann;}
-            //}else{
-                // print the cost of the current result
-                println!("Current result cost: {}, Inital result cost: {}, Best result cost: {}", dag_cost_after_per_sim_ann, dag_cost_before_per_sim_ann, best_dag_cost);
-            //}
+            };
 
+            // Call ABC and get the delay
+            let current_cost = match call_abc(&eqn_content) {
+                Ok(delay) => delay as f64,  // Convert f32 to f64
+                Err(e) => {
+                    eprintln!("Error in ABC processing: {}", e);
+                    continue;
+                }
+            };
+
+            let (previous_cost, _) = result.calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+            let cost_change = current_cost - previous_cost.into_inner();
+
+            if verbose {
+                println!("Current Cost: {:.2}", current_cost);
+                println!("Previous Cost: {:.2}", previous_cost);
+                println!("Cost Change: {:.2}", cost_change);
+            }
+
+            let random_value: f64 = rand::random();
+            let acceptance_probability = (-cost_change / temperature).exp();
+
+            if cost_change < 0.0 || random_value < acceptance_probability {
+                result = temp_result;
+                if verbose {
+                    println!("Change accepted!");
+                }
+            } else if verbose {
+                println!("Change rejected.");
+            }
 
             temperature *= cooling_rate;
+
+            if verbose {
+                println!("----------------------------------------");
+            }
         }
-        //assert!(result.find_cycles(egraph, &egraph.root_eclasses).is_empty());
+
+        println!("========== Simulated Annealing Complete ==========");
+
+        // Compute final JSON buffers for tree cost and DAG cost extraction results
+        let final_tree_cost_json = to_string_pretty(&result).unwrap();
+        
+        let (final_dag_cost, final_dag_cost_extraction_result) = result
+            .calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
+        let final_dag_cost_json = to_string_pretty(&final_dag_cost_extraction_result).unwrap();
+
+        // Store final JSON buffers in the ExtractionResult
+        result.tree_cost_json = Some(final_tree_cost_json);
+        result.dag_cost_json = Some(final_dag_cost_json);
 
         result
     }
 }
+
 
 /** A data structure to maintain a queue of unique elements.
 

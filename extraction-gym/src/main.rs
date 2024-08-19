@@ -42,8 +42,8 @@ pub mod vectorservice {
 fn get_fast_extractors() -> IndexMap<&'static str, Box<dyn Extractor>> {
     [
         ("bottom-up", extract::bottom_up::BottomUpExtractor.boxed()),
-        ("sim_ann_based_bottom-up", extract::bottom_up::SimulatedAnnealingExtractor.boxed()),
-        ("sim_ann_based_faster_bottom-up", extract::faster_bottom_up::FasterBottomUpSimulatedAnnealingExtractor.boxed()),
+        ("sim-ann-based-bottom-up", extract::bottom_up::SimulatedAnnealingExtractor.boxed()),
+        ("sim-ann-based-faster-bottom-up", extract::faster_bottom_up::FasterBottomUpSimulatedAnnealingExtractor.boxed()),
         (
             "faster-bottom-up-grpc",
             extract::faster_bottom_up::FasterBottomUpExtractorGRPC.boxed(),
