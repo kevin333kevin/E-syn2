@@ -22,8 +22,6 @@ use tonic::Request;
 use vectorservice::vector_service_client::VectorServiceClient;
 use vectorservice::CircuitFilesRequest;
 
-
-
 /// A faster bottom up extractor inspired by the faster-greedy-dag extractor.
 /// It should return an extraction result with the same cost as the bottom-up extractor.
 ///
@@ -48,6 +46,8 @@ enum NeighborSolutionType {
     Naive,
     CycleCheck,
     RandomExtraction,
+    IntermediatePropagation,
+    PermutatePendingNodes,
 }
 
 fn generate_neighbor_solution(
@@ -60,9 +60,37 @@ fn generate_neighbor_solution(
     random_prob: f64,
 ) -> ExtractionResult {
     match solution_type {
-        NeighborSolutionType::Naive => generate_neighbor_solution_naive(current, egraph, sample_size, rng),
-        NeighborSolutionType::CycleCheck => generate_neighbor_solution_with_cycle_check(current, egraph, sample_size, rng),
-        NeighborSolutionType::RandomExtraction => generate_neighbor_solution_random_extraction(current, egraph, cost_function, random_prob, rng),
+        NeighborSolutionType::Naive => {
+            generate_neighbor_solution_naive(current, egraph, sample_size, rng)
+        }
+        NeighborSolutionType::CycleCheck => {
+            generate_neighbor_solution_with_cycle_check(current, egraph, sample_size, rng)
+        }
+        NeighborSolutionType::RandomExtraction => generate_neighbor_solution_random_extraction(
+            current,
+            egraph,
+            cost_function,
+            random_prob,
+            rng,
+        ),
+        NeighborSolutionType::IntermediatePropagation => {
+            generate_neighbor_solution_intermediate_propagation(
+                current,
+                egraph,
+                cost_function,
+                random_prob,
+                rng,
+            )
+        }
+        NeighborSolutionType::PermutatePendingNodes => {
+            generate_neighbor_solution_permutate_pending_nodes(
+                current,
+                egraph,
+                cost_function,
+                random_prob,
+                rng,
+            )
+        }
     }
 }
 
@@ -372,7 +400,8 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         });
 
         // Generate base solution using faster bottom-up
-        let mut base_result = generate_initial_solution(egraph, InitialSolutionType::Base, cost_function);
+        let mut base_result =
+            generate_initial_solution(egraph, InitialSolutionType::Base, cost_function);
         update_json_buffers_in_result(&mut base_result, egraph);
         let base_abc_cost = calculate_abc_cost_or_dump(
             &base_result,
@@ -382,7 +411,8 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         );
 
         // Generate random initial solution for SA
-        let mut current_result = generate_initial_solution(egraph, InitialSolutionType::Base, "node_sum_cost"); // TODO: adjust here
+        let mut current_result =
+            generate_initial_solution(egraph, InitialSolutionType::Base, "node_sum_cost"); // TODO: adjust here
         update_json_buffers_in_result(&mut current_result, egraph);
         let mut current_abc_cost = calculate_abc_cost_or_dump(
             &current_result,
@@ -404,16 +434,21 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 
         // let total interation = ceil( (log(min_temp) - log(initial_temp))/log(cooling_rate) ) * iterations_per_temp
         let total_iterations = ((min_temperature.ln() - initial_temp.ln()) / cooling_rate.ln())
-        .ceil() as u64 * iterations_per_temp as u64;
+            .ceil() as u64
+            * iterations_per_temp as u64;
         let mut best_result = current_result.clone();
         let mut best_abc_cost = current_abc_cost;
 
         let m = MultiProgress::new();
         let pb = m.add(ProgressBar::new(total_iterations));
-        pb.set_style(ProgressStyle::default_bar()
-            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")
-            .unwrap()
-            .progress_chars("#>-"));
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template(
+                    "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
+                )
+                .unwrap()
+                .progress_chars("#>-"),
+        );
 
         let panel = m.add(ProgressBar::new(1));
         panel.set_style(
@@ -435,11 +470,11 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
                 let mut new_result = generate_neighbor_solution(
                     &current_result,
                     egraph,
-                    NeighborSolutionType::RandomExtraction,
+                    NeighborSolutionType::PermutatePendingNodes,
                     sample_size,
                     &mut rng,
                     cost_function,
-                    0.3,
+                    0.5,
                 );
                 update_json_buffers_in_result(&mut new_result, egraph);
                 let new_abc_cost = calculate_abc_cost_or_dump(
@@ -652,35 +687,41 @@ fn generate_neighbor_solution_random_extraction(
     random_prob: f64,
     rng: &mut impl Rng,
 ) -> ExtractionResult {
+    // map each ClassId to its parent nodeID
     let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
     let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
-    let mut analysis_pending = UniqueQueue::default();
+    let mut analysis_pending = UniqueQueue::default(); // a queue of nodes to be analyzed
 
     for class in egraph.classes().values() {
         parents.insert(class.id.clone(), Vec::new());
     }
 
+    // build the parent-child relationships
     for class in egraph.classes().values() {
         for node in &class.nodes {
             for c in &egraph[node].children {
                 parents[n2c(c)].push(node.clone());
             }
             if egraph[node].is_leaf() {
-                analysis_pending.insert(node.clone());
+                analysis_pending.insert(node.clone()); // add leaf nodes to the analysis queue
             }
         }
     }
 
+    // initialize the result and costs
     let mut result = current.clone();
     let mut costs = FxHashMap::<ClassId, Cost>::with_capacity_and_hasher(
         egraph.classes().len(),
         Default::default(),
     );
 
+    // propagate changes from leaves to roots
     while let Some(node_id) = analysis_pending.pop() {
         let class_id = n2c(&node_id);
         let node = &egraph[&node_id];
         let prev_cost = costs.get(class_id).unwrap_or(&INFINITY);
+
+        // generate the cost of the current e-node
         let cost = match cost_function {
             "node_sum_cost" => result.node_sum_cost(egraph, node, &costs),
             "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
@@ -688,14 +729,168 @@ fn generate_neighbor_solution_random_extraction(
         };
         let random_value: f64 = rng.gen();
 
-        if prev_cost == &INFINITY && (cost < *prev_cost) {
+        if prev_cost == &INFINITY && (cost <= *prev_cost) {
+            // if this node is the first time to be chosen
             result.choose(class_id.clone(), node_id.clone());
             costs.insert(class_id.clone(), cost);
             analysis_pending.extend(parents[class_id].iter().cloned());
-        } else if random_value >= random_prob && (cost < *prev_cost) {
+        } else if random_value >= random_prob && (cost <= *prev_cost) {
+            // if this node is chosen randomly
             result.choose(class_id.clone(), node_id.clone());
             costs.insert(class_id.clone(), cost);
             analysis_pending.extend(parents[class_id].iter().cloned());
+        }
+    }
+
+    result
+}
+
+// permutate the pending nodes to generate a neighbor solution
+
+fn generate_neighbor_solution_permutate_pending_nodes(
+    current: &ExtractionResult,
+    egraph: &EGraph,
+    cost_function: &str,
+    random_prob: f64,
+    rng: &mut impl Rng,
+) -> ExtractionResult {
+    let mut result = current.clone();
+    let mut costs = FxHashMap::<ClassId, Cost>::with_capacity_and_hasher(
+        egraph.classes().len(),
+        Default::default(),
+    );
+
+    // Build parent relationships
+    let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
+    let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
+
+    for class in egraph.classes().values() {
+        parents.insert(class.id.clone(), Vec::new());
+        for node in &class.nodes {
+            for c in &egraph[node].children {
+                parents
+                    .entry(n2c(c).clone())
+                    .or_default()
+                    .push(node.clone());
+            }
+        }
+    }
+
+    // Initialize the analysis queue with leaf nodes
+    let mut analysis_pending = UniqueQueue::default();
+    for class in egraph.classes().values() {
+        for node in &class.nodes {
+            if egraph[node].is_leaf() {
+                analysis_pending.insert(node.clone());
+            }
+        }
+    }
+
+    while let Some(node_id) = analysis_pending.pop() {
+        let class_id = n2c(&node_id);
+        let node = &egraph[&node_id];
+        let prev_cost = costs.get(class_id).unwrap_or(&INFINITY);
+
+        // Calculate the cost of the current node
+        let cost = match cost_function {
+            "node_sum_cost" => result.node_sum_cost(egraph, node, &costs),
+            "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
+            _ => panic!("Unknown cost function: {}", cost_function),
+        };
+
+        let random_value: f64 = rng.gen();
+
+        // Decide whether to update the current choice
+        if prev_cost == &INFINITY || (random_value >= random_prob && cost < *prev_cost) {
+            result.choose(class_id.clone(), node_id.clone());
+            costs.insert(class_id.clone(), cost);
+
+            // Permutate and add parents to the analysis queue
+            if let Some(parent_nodes) = parents.get(class_id) {
+                let mut shuffled_parents = parent_nodes.clone();
+                shuffled_parents.shuffle(rng);
+                for parent_id in shuffled_parents {
+                    analysis_pending.insert(parent_id);
+                }
+            }
+        } else {
+            // If we don't update, still add parents to ensure full exploration
+            if let Some(parent_nodes) = parents.get(class_id) {
+                for parent_id in parent_nodes {
+                    analysis_pending.insert(parent_id.clone());
+                }
+            }
+        }
+    }
+
+    result
+}
+
+// with changes propagations
+
+fn generate_neighbor_solution_intermediate_propagation(
+    current: &ExtractionResult,
+    egraph: &EGraph,
+    cost_function: &str,
+    random_prob: f64,
+    rng: &mut impl Rng,
+) -> ExtractionResult {
+    let mut result = current.clone();
+    let mut costs = FxHashMap::<ClassId, Cost>::with_capacity_and_hasher(
+        egraph.classes().len(),
+        Default::default(),
+    );
+
+    // Build parent relationships
+    let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
+    let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
+
+    for class in egraph.classes().values() {
+        parents.insert(class.id.clone(), Vec::new());
+        for node in &class.nodes {
+            for c in &egraph[node].children {
+                parents
+                    .entry(n2c(c).clone())
+                    .or_default()
+                    .push(node.clone());
+            }
+        }
+    }
+
+    // Choose a random intermediate node to start from
+    let start_class = egraph.classes().values().choose(rng).unwrap();
+    let start_node = start_class.nodes.choose(rng).unwrap();
+
+    // Initialize the analysis queue with the chosen node
+    let mut analysis_pending = UniqueQueue::default();
+    analysis_pending.insert(start_node.clone());
+
+    // Propagate changes from the intermediate node to the root
+    while let Some(node_id) = analysis_pending.pop() {
+        let class_id = n2c(&node_id);
+        let node = &egraph[&node_id];
+        let prev_cost = costs.get(class_id).unwrap_or(&INFINITY);
+
+        // Calculate the cost of the current node
+        let cost = match cost_function {
+            "node_sum_cost" => result.node_sum_cost(egraph, node, &costs),
+            "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
+            _ => panic!("Unknown cost function: {}", cost_function),
+        };
+
+        let random_value: f64 = rng.gen();
+
+        // Decide whether to update the current choice
+        if prev_cost == &INFINITY || (random_value >= random_prob && cost < *prev_cost) {
+            result.choose(class_id.clone(), node_id.clone());
+            costs.insert(class_id.clone(), cost);
+
+            // Propagate changes to parents
+            if let Some(parent_nodes) = parents.get(class_id) {
+                for parent_id in parent_nodes {
+                    analysis_pending.insert(parent_id.clone());
+                }
+            }
         }
     }
 
