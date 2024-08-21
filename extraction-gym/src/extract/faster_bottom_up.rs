@@ -48,6 +48,7 @@ enum NeighborSolutionType {
     RandomExtraction,
     IntermediatePropagation,
     PermutatePendingNodes,
+    RandomSkipInf,
 }
 
 fn generate_neighbor_solution(
@@ -66,13 +67,24 @@ fn generate_neighbor_solution(
         NeighborSolutionType::CycleCheck => {
             generate_neighbor_solution_with_cycle_check(current, egraph, sample_size, rng)
         }
-        NeighborSolutionType::RandomExtraction => generate_neighbor_solution_random_extraction(
-            current,
-            egraph,
-            cost_function,
-            random_prob,
-            rng,
-        ),
+        NeighborSolutionType::RandomExtraction => {
+            generate_neighbor_solution_random_extraction(
+                current,
+                egraph,
+                cost_function,
+                random_prob,
+                rng,
+            )
+        }
+        NeighborSolutionType::RandomSkipInf => {
+            generate_neighbor_solution_skip_inf(
+                current,
+                egraph,
+                cost_function,
+                random_prob,
+                rng,
+            )
+        }
         NeighborSolutionType::IntermediatePropagation => {
             generate_neighbor_solution_intermediate_propagation(
                 current,
@@ -412,7 +424,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 
         // Generate random initial solution for SA
         let mut current_result =
-            generate_initial_solution(egraph, InitialSolutionType::Base, "node_sum_cost"); // TODO: adjust here
+            generate_initial_solution(egraph, InitialSolutionType::Base, cost_function); // TODO: adjust here
         update_json_buffers_in_result(&mut current_result, egraph);
         let mut current_abc_cost = calculate_abc_cost_or_dump(
             &current_result,
@@ -470,7 +482,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
                 let mut new_result = generate_neighbor_solution(
                     &current_result,
                     egraph,
-                    NeighborSolutionType::PermutatePendingNodes,
+                    NeighborSolutionType::RandomExtraction,
                     sample_size,
                     &mut rng,
                     cost_function,
@@ -729,18 +741,87 @@ fn generate_neighbor_solution_random_extraction(
         };
         let random_value: f64 = rng.gen();
 
-        if prev_cost == &INFINITY && (cost <= *prev_cost) {
-            // if this node is the first time to be chosen
-            result.choose(class_id.clone(), node_id.clone());
-            costs.insert(class_id.clone(), cost);
-            analysis_pending.extend(parents[class_id].iter().cloned());
-        } else if random_value >= random_prob && (cost <= *prev_cost) {
-            // if this node is chosen randomly
+        if prev_cost == &INFINITY || (random_value >= random_prob && cost <= prev_cost * 1.0) {
             result.choose(class_id.clone(), node_id.clone());
             costs.insert(class_id.clone(), cost);
             analysis_pending.extend(parents[class_id].iter().cloned());
         }
     }
+
+    result
+}
+
+// add randomization when previous cost is infinity
+
+fn generate_neighbor_solution_skip_inf(
+    current: &ExtractionResult,
+    egraph: &EGraph,
+    cost_function: &str,
+    random_prob: f64,
+    rng: &mut impl Rng,
+) -> ExtractionResult {
+    // map each ClassId to its parent nodeID
+    let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
+    let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
+    let mut analysis_pending = UniqueQueue::default(); // a queue of nodes to be analyzed
+
+    for class in egraph.classes().values() {
+        parents.insert(class.id.clone(), Vec::new());
+    }
+
+    // build the parent-child relationships
+    for class in egraph.classes().values() {
+        for node in &class.nodes {
+            for c in &egraph[node].children {
+                parents[n2c(c)].push(node.clone());
+            }
+            if egraph[node].is_leaf() {
+                analysis_pending.insert(node.clone()); // add leaf nodes to the analysis queue
+            }
+        }
+    }
+
+    // initialize the result and costs
+    let mut result = current.clone();
+    let mut costs = FxHashMap::<ClassId, Cost>::with_capacity_and_hasher(
+        egraph.classes().len(),
+        Default::default(),
+    );
+
+    let mut selected_any = false;
+    let mut extended_nodes = Vec::new();
+
+    // propagate changes from leaves to roots
+    while let Some(node_id) = analysis_pending.pop() {
+        let class_id = n2c(&node_id);
+        let node = &egraph[&node_id];
+        let prev_cost = costs.get(class_id).unwrap_or(&INFINITY);
+
+        // generate the cost of the current e-node
+        let cost = match cost_function {
+            "node_sum_cost" => result.node_sum_cost(egraph, node, &costs),
+            "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
+            _ => panic!("Unknown cost function: {}", cost_function),
+        };
+        let random_value: f64 = rng.gen();
+
+        if random_value >= random_prob && cost <= prev_cost * 1.0 {
+            result.choose(class_id.clone(), node_id.clone());
+            costs.insert(class_id.clone(), cost);
+            selected_any = true;
+            extended_nodes.extend(parents[class_id].iter().cloned());
+        }
+    }
+
+    // If no node was selected, choose one randomly from the extended nodes
+    if !selected_any && !extended_nodes.is_empty() {
+        let random_node = extended_nodes.choose(rng).unwrap();
+        let class_id = n2c(random_node);
+        result.choose(class_id.clone(), random_node.clone());
+    }
+
+    // Add all extended nodes to the analysis pending queue
+    analysis_pending.extend(extended_nodes.iter().cloned());
 
     result
 }
@@ -826,7 +907,7 @@ fn generate_neighbor_solution_permutate_pending_nodes(
     result
 }
 
-// with changes propagations
+// with intermediate node changes propagations
 
 fn generate_neighbor_solution_intermediate_propagation(
     current: &ExtractionResult,
