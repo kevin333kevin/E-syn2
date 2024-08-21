@@ -126,17 +126,23 @@ fn generate_neighbor_solution(
 enum InitialSolutionType {
     Base,
     Random,
+    GreedyDepth,
+    GreedyCost,
+    HybridRandomGreedy,
 }
 
 fn generate_initial_solution(
     egraph: &EGraph,
     solution_type: InitialSolutionType,
     cost_function: &str,
-    //rng: &mut impl Rng,
+    rng: &mut impl Rng,
 ) -> ExtractionResult {
     match solution_type {
         InitialSolutionType::Base => generate_base_solution(egraph, cost_function),
         InitialSolutionType::Random => generate_random_solution(egraph),
+        InitialSolutionType::GreedyDepth => generate_greedy_depth_solution(egraph, cost_function),
+        InitialSolutionType::GreedyCost => generate_greedy_cost_solution(egraph, cost_function),
+        InitialSolutionType::HybridRandomGreedy => generate_hybrid_random_greedy_solution(egraph, cost_function, rng),
     }
 }
 
@@ -427,7 +433,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 
         // Generate base solution using faster bottom-up
         let mut base_result =
-            generate_initial_solution(egraph, InitialSolutionType::Base, cost_function);
+            generate_initial_solution(egraph, InitialSolutionType::Base, cost_function, &mut rng);
         update_json_buffers_in_result(&mut base_result, egraph);
         let base_abc_cost = calculate_abc_cost_or_dump(
             &base_result,
@@ -438,7 +444,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 
         // Generate random initial solution for SA
         let mut current_result =
-            generate_initial_solution(egraph, InitialSolutionType::Base, cost_function); // TODO: adjust here
+            generate_initial_solution(egraph, InitialSolutionType::Base, cost_function, &mut rng); // TODO: adjust here
         update_json_buffers_in_result(&mut current_result, egraph);
         let mut current_abc_cost = calculate_abc_cost_or_dump(
             &current_result,
@@ -639,6 +645,131 @@ fn generate_base_solution(egraph: &EGraph, cost_function: &str) -> ExtractionRes
             result.choose(class_id.clone(), node_id.clone());
             costs.insert(class_id.clone(), cost);
             analysis_pending.extend(parents[class_id].iter().cloned());
+        }
+    }
+
+    result
+}
+
+fn generate_greedy_depth_solution(egraph: &EGraph, cost_function: &str) -> ExtractionResult {
+    let mut result = ExtractionResult::default();
+    let mut costs = FxHashMap::<ClassId, Cost>::default();
+    let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
+
+    // Sort classes by depth (leaves first)
+    let mut classes: Vec<_> = egraph.classes().values().collect();
+    classes.sort_by_key(|class| {
+        egraph.nodes.get(&class.nodes[0]).map_or(0, |node| node.children.len())
+    });
+
+    for class in classes {
+        let mut best_cost = INFINITY;
+        let mut best_node = None;
+
+        for node_id in &class.nodes {
+            let node = &egraph[node_id];
+            let cost = match cost_function {
+                "node_sum_cost" => result.node_sum_cost(egraph, node, &costs),
+                "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
+                _ => panic!("Unknown cost function: {}", cost_function),
+            };
+
+            if cost < best_cost {
+                best_cost = cost;
+                best_node = Some(node_id.clone());
+            }
+        }
+
+        if let Some(node_id) = best_node {
+            result.choose(class.id.clone(), node_id);
+            costs.insert(class.id.clone(), best_cost);
+        }
+    }
+
+    result
+}
+
+fn generate_greedy_cost_solution(egraph: &EGraph, cost_function: &str) -> ExtractionResult {
+    let mut result = ExtractionResult::default();
+    let mut costs = FxHashMap::<ClassId, Cost>::default();
+    let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
+
+    // Sort classes by minimum node cost
+    let mut classes: Vec<_> = egraph.classes().values().collect();
+    classes.sort_by_key(|class| {
+        class.nodes.iter()
+            .map(|node_id| egraph[node_id].cost)
+            .min()
+            .unwrap_or(INFINITY)
+    });
+
+    for class in classes {
+        let mut best_cost = INFINITY;
+        let mut best_node = None;
+
+        for node_id in &class.nodes {
+            let node = &egraph[node_id];
+            let cost = match cost_function {
+                "node_sum_cost" => result.node_sum_cost(egraph, node, &costs),
+                "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
+                _ => panic!("Unknown cost function: {}", cost_function),
+            };
+
+            if cost < best_cost {
+                best_cost = cost;
+                best_node = Some(node_id.clone());
+            }
+        }
+
+        if let Some(node_id) = best_node {
+            result.choose(class.id.clone(), node_id);
+            costs.insert(class.id.clone(), best_cost);
+        }
+    }
+
+    result
+}
+
+fn generate_hybrid_random_greedy_solution(egraph: &EGraph, cost_function: &str, rng: &mut impl Rng) -> ExtractionResult {
+    let mut result = ExtractionResult::default();
+    let mut costs = FxHashMap::<ClassId, Cost>::default();
+    let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
+
+    for class in egraph.classes().values() {
+        if rng.gen_bool(0.5) {
+            // Random selection
+            if let Some(random_node) = class.nodes.choose(rng) {
+                result.choose(class.id.clone(), random_node.clone());
+                let cost = match cost_function {
+                    "node_sum_cost" => result.node_sum_cost(egraph, &egraph[random_node], &costs),
+                    "node_depth_cost" => result.node_depth_cost(egraph, &egraph[random_node], &costs),
+                    _ => panic!("Unknown cost function: {}", cost_function),
+                };
+                costs.insert(class.id.clone(), cost);
+            }
+        } else {
+            // Greedy selection
+            let mut best_cost = INFINITY;
+            let mut best_node = None;
+
+            for node_id in &class.nodes {
+                let node = &egraph[node_id];
+                let cost = match cost_function {
+                    "node_sum_cost" => result.node_sum_cost(egraph, node, &costs),
+                    "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
+                    _ => panic!("Unknown cost function: {}", cost_function),
+                };
+
+                if cost < best_cost {
+                    best_cost = cost;
+                    best_node = Some(node_id.clone());
+                }
+            }
+
+            if let Some(node_id) = best_node {
+                result.choose(class.id.clone(), node_id);
+                costs.insert(class.id.clone(), best_cost);
+            }
         }
     }
 
