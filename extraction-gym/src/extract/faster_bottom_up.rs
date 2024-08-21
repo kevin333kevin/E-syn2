@@ -41,10 +41,13 @@ pub struct FasterBottomUpExtractorGRPC; // extraction method based on faster bot
 pub struct FasterBottomUpExtractorRandom; // extraction method based on random extraction
 pub struct FasterBottomUpSimulatedAnnealingExtractor; // extraction method based on SA
 
+// ========================================== Neighbor Solution Type ==========================================
+// Neighbor solution type for generating neighbor solution
+// ========================================== Neighbor Solution Type ==========================================
 enum NeighborSolutionType {
     Naive,
     CycleCheck,
-    PropagationCycleCheck,
+    RandomExtraction,
 }
 
 fn generate_neighbor_solution(
@@ -53,14 +56,19 @@ fn generate_neighbor_solution(
     solution_type: NeighborSolutionType,
     sample_size: usize,
     rng: &mut impl Rng,
+    cost_function: &str,
+    random_prob: f64,
 ) -> ExtractionResult {
     match solution_type {
         NeighborSolutionType::Naive => generate_neighbor_solution_naive(current, egraph, sample_size, rng),
         NeighborSolutionType::CycleCheck => generate_neighbor_solution_with_cycle_check(current, egraph, sample_size, rng),
-        NeighborSolutionType::PropagationCycleCheck => generate_neighbor_solution_with_propagation_and_cycle_check(current, egraph, sample_size, rng),
+        NeighborSolutionType::RandomExtraction => generate_neighbor_solution_random_extraction(current, egraph, cost_function, random_prob, rng),
     }
 }
 
+// ========================================== Initial Solution Type ==========================================
+// Initial solution type for generating initial solution
+// ========================================== Initial Solution Type ==========================================
 enum InitialSolutionType {
     Base,
     Random,
@@ -78,6 +86,9 @@ fn generate_initial_solution(
     }
 }
 
+// ========================================== Extractor Interface ==========================================
+// Extractor interface for extracting solutions
+// ========================================== Extractor Interface ==========================================
 impl Extractor for FasterBottomUpExtractor {
     fn extract(
         &self,
@@ -424,9 +435,11 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
                 let mut new_result = generate_neighbor_solution(
                     &current_result,
                     egraph,
-                    NeighborSolutionType::PropagationCycleCheck,
+                    NeighborSolutionType::RandomExtraction,
                     sample_size,
                     &mut rng,
+                    cost_function,
+                    0.3,
                 );
                 update_json_buffers_in_result(&mut new_result, egraph);
                 let new_abc_cost = calculate_abc_cost_or_dump(
@@ -632,18 +645,17 @@ fn generate_neighbor_solution_with_cycle_check(
 
 // idea from random extraction
 
-fn generate_neighbor_solution_with_propagation_and_cycle_check(
+fn generate_neighbor_solution_random_extraction(
     current: &ExtractionResult,
     egraph: &EGraph,
-    sample_size: usize,
+    cost_function: &str,
+    random_prob: f64,
     rng: &mut impl Rng,
 ) -> ExtractionResult {
-    let mut new_result = current.clone();
     let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
     let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
     let mut analysis_pending = UniqueQueue::default();
 
-    // Build parent relationships
     for class in egraph.classes().values() {
         parents.insert(class.id.clone(), Vec::new());
     }
@@ -659,27 +671,35 @@ fn generate_neighbor_solution_with_propagation_and_cycle_check(
         }
     }
 
-    // Sample nodes
-    let sampled_nodes: Vec<_> = analysis_pending.queue.iter().cloned().choose_multiple(rng, sample_size);
+    let mut result = current.clone();
+    let mut costs = FxHashMap::<ClassId, Cost>::with_capacity_and_hasher(
+        egraph.classes().len(),
+        Default::default(),
+    );
 
-    // Process sampled nodes and propagate changes
-    let mut nodes_to_process = sampled_nodes;
-    while let Some(node_id) = nodes_to_process.pop() {
+    while let Some(node_id) = analysis_pending.pop() {
         let class_id = n2c(&node_id);
-        
-        if let Some(new_node) = egraph[class_id].nodes.choose(rng) {
-            let mut temp_result = new_result.clone();
-            temp_result.choose(class_id.clone(), new_node.clone());
-            
-            // Check for cycles
-            if temp_result.find_cycles(egraph, &egraph.root_eclasses).is_empty() {
-                new_result = temp_result;
-                nodes_to_process.extend(parents[class_id].iter().cloned());
-            }
+        let node = &egraph[&node_id];
+        let prev_cost = costs.get(class_id).unwrap_or(&INFINITY);
+        let cost = match cost_function {
+            "node_sum_cost" => result.node_sum_cost(egraph, node, &costs),
+            "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
+            _ => panic!("Unknown cost function: {}", cost_function),
+        };
+        let random_value: f64 = rng.gen();
+
+        if prev_cost == &INFINITY && (cost < *prev_cost) {
+            result.choose(class_id.clone(), node_id.clone());
+            costs.insert(class_id.clone(), cost);
+            analysis_pending.extend(parents[class_id].iter().cloned());
+        } else if random_value >= random_prob && (cost < *prev_cost) {
+            result.choose(class_id.clone(), node_id.clone());
+            costs.insert(class_id.clone(), cost);
+            analysis_pending.extend(parents[class_id].iter().cloned());
         }
     }
 
-    new_result
+    result
 }
 
 // ========================== Helper Functions For SA-based faster bottom-up ==========================
@@ -798,6 +818,9 @@ where
     }
 }
 
+// ========================================== Helper Functions For SA-based faster bottom-up ==========================================
+// Send circuit files to server
+// ========================================== Helper Functions For SA-based faster bottom-up ==========================================
 async fn send_circuit_files_to_server(
     el_content: &str,
     csv_content: &str,
@@ -814,6 +837,10 @@ async fn send_circuit_files_to_server(
     let response = client.process_circuit_files(request).await?;
     Ok(response.into_inner().delay)
 }
+
+// ========================================== Helper Functions For SA-based faster bottom-up ==========================================
+// Call ABC
+// ========================================== Helper Functions For SA-based faster bottom-up ==========================================
 
 pub mod vectorservice {
     tonic::include_proto!("vectorservice");
