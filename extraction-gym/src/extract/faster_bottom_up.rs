@@ -22,73 +22,7 @@ use tonic::Request;
 use vectorservice::vector_service_client::VectorServiceClient;
 use vectorservice::CircuitFilesRequest;
 
-async fn send_circuit_files_to_server(
-    el_content: &str,
-    csv_content: &str,
-    json_content: &str,
-) -> Result<f64, Box<dyn std::error::Error>> {
-    let mut client = VectorServiceClient::connect("http://[::1]:50051").await?;
 
-    let request = Request::new(CircuitFilesRequest {
-        el_content: el_content.to_string(),
-        csv_content: csv_content.to_string(),
-        json_content: json_content.to_string(),
-    });
-
-    let response = client.process_circuit_files(request).await?;
-    Ok(response.into_inner().delay)
-}
-
-pub mod vectorservice {
-    tonic::include_proto!("vectorservice");
-}
-
-fn call_abc(eqn_content: &str) -> Result<f32, Box<dyn std::error::Error>> {
-    let mut temp_file = NamedTempFile::new()?;
-    temp_file.write_all(eqn_content.as_bytes())?;
-    let temp_path = temp_file.path().to_str().unwrap();
-
-    let mut abc = Abc::new();
-
-    //println!("Reading equation file...");
-    abc.execute_command(&format!("read_eqn {}", temp_path));
-    //println!("Reading library...");
-    abc.execute_command(&format!("read_lib ../abc/asap7_clean.lib"));
-    //println!("Performing structural hashing...");
-    abc.execute_command(&format!("strash"));
-    //println!("Performing dump the edgelist...");
-    abc.execute_command(&format!("&get; &edgelist  -F src/extract/tmp/opt_1.el -f src/extract/tmp/opt-feats.csv -c src/extract/tmp/opt_1.json; &put"));
-    abc.execute_command(&format!("dch"));
-    //println!("Performing technology mapping...");
-    abc.execute_command(&format!("map"));
-    //println!("Performing post-processing...(topo; gate sizing)");
-    abc.execute_command(&format!("topo"));
-    abc.execute_command(&format!("upsize"));
-    abc.execute_command(&format!("dnsize"));
-
-    //println!("Executing stime command...");
-    let stime_output = abc.execute_command_with_output(&format!("stime -d"));
-
-    if let Some(delay) = parse_delay(&stime_output) {
-        let delay_ns = delay / 1000.0;
-        //println!("Delay in nanoseconds: {} ns", delay_ns);
-        Ok(delay)
-    } else {
-        Err("Failed to parse delay value".into())
-    }
-}
-
-fn parse_delay(output: &str) -> Option<f32> {
-    for line in output.lines() {
-        if line.contains("Delay") {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 3 {
-                return parts[1].parse::<f32>().ok();
-            }
-        }
-    }
-    None
-}
 
 /// A faster bottom up extractor inspired by the faster-greedy-dag extractor.
 /// It should return an extraction result with the same cost as the bottom-up extractor.
@@ -106,6 +40,43 @@ pub struct FasterBottomUpExtractor; // baseline faster bottom-up extractor
 pub struct FasterBottomUpExtractorGRPC; // extraction method based on faster bottom-up
 pub struct FasterBottomUpExtractorRandom; // extraction method based on random extraction
 pub struct FasterBottomUpSimulatedAnnealingExtractor; // extraction method based on SA
+
+enum NeighborSolutionType {
+    Naive,
+    CycleCheck,
+    PropagationCycleCheck,
+}
+
+fn generate_neighbor_solution(
+    current: &ExtractionResult,
+    egraph: &EGraph,
+    solution_type: NeighborSolutionType,
+    sample_size: usize,
+    rng: &mut impl Rng,
+) -> ExtractionResult {
+    match solution_type {
+        NeighborSolutionType::Naive => generate_neighbor_solution_naive(current, egraph, sample_size, rng),
+        NeighborSolutionType::CycleCheck => generate_neighbor_solution_with_cycle_check(current, egraph, sample_size, rng),
+        NeighborSolutionType::PropagationCycleCheck => generate_neighbor_solution_with_propagation_and_cycle_check(current, egraph, sample_size, rng),
+    }
+}
+
+enum InitialSolutionType {
+    Base,
+    Random,
+}
+
+fn generate_initial_solution(
+    egraph: &EGraph,
+    solution_type: InitialSolutionType,
+    cost_function: &str,
+    //rng: &mut impl Rng,
+) -> ExtractionResult {
+    match solution_type {
+        InitialSolutionType::Base => generate_base_solution(egraph, cost_function),
+        InitialSolutionType::Random => generate_random_solution(egraph),
+    }
+}
 
 impl Extractor for FasterBottomUpExtractor {
     fn extract(
@@ -390,7 +361,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         });
 
         // Generate base solution using faster bottom-up
-        let mut base_result = generate_base_solution(egraph, cost_function);
+        let mut base_result = generate_initial_solution(egraph, InitialSolutionType::Base, cost_function);
         update_json_buffers_in_result(&mut base_result, egraph);
         let base_abc_cost = calculate_abc_cost_or_dump(
             &base_result,
@@ -400,7 +371,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         );
 
         // Generate random initial solution for SA
-        let mut current_result = generate_base_solution(egraph, "node_sum_cost"); // TODO: adjust here
+        let mut current_result = generate_initial_solution(egraph, InitialSolutionType::Base, "node_sum_cost"); // TODO: adjust here
         update_json_buffers_in_result(&mut current_result, egraph);
         let mut current_abc_cost = calculate_abc_cost_or_dump(
             &current_result,
@@ -450,9 +421,10 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 
         while temperature > min_temperature {
             for _ in 0..iterations_per_temp {
-                let mut new_result = generate_neighbor_solution_naive(
+                let mut new_result = generate_neighbor_solution(
                     &current_result,
                     egraph,
+                    NeighborSolutionType::PropagationCycleCheck,
                     sample_size,
                     &mut rng,
                 );
@@ -824,4 +796,72 @@ where
         debug_assert_eq!(r, self.set.is_empty());
         r
     }
+}
+
+async fn send_circuit_files_to_server(
+    el_content: &str,
+    csv_content: &str,
+    json_content: &str,
+) -> Result<f64, Box<dyn std::error::Error>> {
+    let mut client = VectorServiceClient::connect("http://[::1]:50051").await?;
+
+    let request = Request::new(CircuitFilesRequest {
+        el_content: el_content.to_string(),
+        csv_content: csv_content.to_string(),
+        json_content: json_content.to_string(),
+    });
+
+    let response = client.process_circuit_files(request).await?;
+    Ok(response.into_inner().delay)
+}
+
+pub mod vectorservice {
+    tonic::include_proto!("vectorservice");
+}
+
+fn call_abc(eqn_content: &str) -> Result<f32, Box<dyn std::error::Error>> {
+    let mut temp_file = NamedTempFile::new()?;
+    temp_file.write_all(eqn_content.as_bytes())?;
+    let temp_path = temp_file.path().to_str().unwrap();
+
+    let mut abc = Abc::new();
+
+    //println!("Reading equation file...");
+    abc.execute_command(&format!("read_eqn {}", temp_path));
+    //println!("Reading library...");
+    abc.execute_command(&format!("read_lib ../abc/asap7_clean.lib"));
+    //println!("Performing structural hashing...");
+    abc.execute_command(&format!("strash"));
+    //println!("Performing dump the edgelist...");
+    abc.execute_command(&format!("&get; &edgelist  -F src/extract/tmp/opt_1.el -f src/extract/tmp/opt-feats.csv -c src/extract/tmp/opt_1.json; &put"));
+    abc.execute_command(&format!("dch"));
+    //println!("Performing technology mapping...");
+    abc.execute_command(&format!("map"));
+    //println!("Performing post-processing...(topo; gate sizing)");
+    abc.execute_command(&format!("topo"));
+    abc.execute_command(&format!("upsize"));
+    abc.execute_command(&format!("dnsize"));
+
+    //println!("Executing stime command...");
+    let stime_output = abc.execute_command_with_output(&format!("stime -d"));
+
+    if let Some(delay) = parse_delay(&stime_output) {
+        let delay_ns = delay / 1000.0;
+        //println!("Delay in nanoseconds: {} ns", delay_ns);
+        Ok(delay)
+    } else {
+        Err("Failed to parse delay value".into())
+    }
+}
+
+fn parse_delay(output: &str) -> Option<f32> {
+    for line in output.lines() {
+        if line.contains("Delay") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                return parts[1].parse::<f32>().ok();
+            }
+        }
+    }
+    None
 }
