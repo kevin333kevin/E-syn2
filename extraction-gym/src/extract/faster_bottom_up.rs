@@ -49,6 +49,7 @@ enum NeighborSolutionType {
     IntermediatePropagation,
     PermutatePendingNodes,
     RandomSkipInf,
+    SmartIntermediatePropagation,
 }
 
 fn generate_neighbor_solution(
@@ -59,6 +60,8 @@ fn generate_neighbor_solution(
     rng: &mut impl Rng,
     cost_function: &str,
     random_prob: f64,
+    temperature: f64,
+    initial_temp: f64,
 ) -> ExtractionResult {
     match solution_type {
         NeighborSolutionType::Naive => {
@@ -83,6 +86,17 @@ fn generate_neighbor_solution(
                 cost_function,
                 random_prob,
                 rng,
+            )
+        }
+        NeighborSolutionType::SmartIntermediatePropagation => {
+            generate_neighbor_solution_smart_intermediate_propagation(
+                current,
+                egraph,
+                cost_function,
+                random_prob,
+                rng,
+                temperature,
+                initial_temp,
             )
         }
         NeighborSolutionType::IntermediatePropagation => {
@@ -482,11 +496,13 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
                 let mut new_result = generate_neighbor_solution(
                     &current_result,
                     egraph,
-                    NeighborSolutionType::RandomExtraction,
+                    NeighborSolutionType::IntermediatePropagation,
                     sample_size,
                     &mut rng,
                     cost_function,
                     0.5,
+                    temperature,
+                    initial_temp,
                 );
                 update_json_buffers_in_result(&mut new_result, egraph);
                 let new_abc_cost = calculate_abc_cost_or_dump(
@@ -970,6 +986,115 @@ fn generate_neighbor_solution_intermediate_propagation(
             if let Some(parent_nodes) = parents.get(class_id) {
                 for parent_id in parent_nodes {
                     analysis_pending.insert(parent_id.clone());
+                }
+            }
+        }
+    }
+
+    result
+}
+
+fn generate_neighbor_solution_smart_intermediate_propagation(
+    current: &ExtractionResult,
+    egraph: &EGraph,
+    cost_function: &str,
+    random_prob: f64,
+    rng: &mut impl Rng,
+    temperature: f64,
+    initial_temp: f64,
+) -> ExtractionResult {
+    let mut result = current.clone();
+    let mut costs = FxHashMap::<ClassId, Cost>::with_capacity_and_hasher(
+        egraph.classes().len(),
+        Default::default(),
+    );
+
+    // Build parent and child relationships
+    let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
+    let mut children = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
+    let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
+
+    for class in egraph.classes().values() {
+        parents.insert(class.id.clone(), Vec::new());
+        children.insert(class.id.clone(), Vec::new());
+        for node in &class.nodes {
+            for c in &egraph[node].children {
+                parents
+                    .entry(n2c(c).clone())
+                    .or_default()
+                    .push(node.clone());
+                children
+                    .entry(class.id.clone())
+                    .or_default()
+                    .push(c.clone());
+            }
+        }
+    }
+
+    // Calculate node depths
+    let mut node_depths = FxHashMap::<ClassId, usize>::default();
+    let mut queue = VecDeque::new();
+    for (class_id, child_nodes) in &children {
+        if child_nodes.is_empty() {
+            queue.push_back((class_id.clone(), 0));
+        }
+    }
+    while let Some((class_id, depth)) = queue.pop_front() {
+        if node_depths.insert(class_id.clone(), depth).is_none() {
+            for parent in &parents[&class_id] {
+                queue.push_back((n2c(parent).clone(), depth + 1));
+            }
+        }
+    }
+
+    // Choose a starting node based on temperature
+    let temp_ratio = temperature / initial_temp;
+    let start_class = if rng.gen::<f64>() < temp_ratio {
+        // Choose a node closer to the root when temperature is high
+        egraph.classes().values()
+            .max_by_key(|class| node_depths.get(&class.id).unwrap_or(&0))
+            .unwrap()
+    } else {
+        // Choose a node closer to the leaves when temperature is low
+        egraph.classes().values()
+            .min_by_key(|class| node_depths.get(&class.id).unwrap_or(&0))
+            .unwrap()
+    };
+    let start_node = start_class.nodes.choose(rng).unwrap();
+
+    // Initialize the analysis queue with the chosen node
+    let mut analysis_pending = UniqueQueue::default();
+    analysis_pending.insert(start_node.clone());
+
+    // Propagate changes from the intermediate node
+    while let Some(node_id) = analysis_pending.pop() {
+        let class_id = n2c(&node_id);
+        let node = &egraph[&node_id];
+        let prev_cost = costs.get(class_id).unwrap_or(&INFINITY);
+
+        // Calculate the cost of the current node
+        let cost = match cost_function {
+            "node_sum_cost" => result.node_sum_cost(egraph, node, &costs),
+            "node_depth_cost" => result.node_depth_cost(egraph, node, &costs),
+            _ => panic!("Unknown cost function: {}", cost_function),
+        };
+
+        let random_value: f64 = rng.gen();
+
+        // Decide whether to update the current choice
+        if prev_cost == &INFINITY || (random_value >= random_prob && cost < *prev_cost) {
+            result.choose(class_id.clone(), node_id.clone());
+            costs.insert(class_id.clone(), cost);
+
+            // Propagate changes to parents and children
+            if let Some(parent_nodes) = parents.get(class_id) {
+                for parent_id in parent_nodes {
+                    analysis_pending.insert(parent_id.clone());
+                }
+            }
+            if let Some(child_nodes) = children.get(class_id) {
+                for child_id in child_nodes {
+                    analysis_pending.insert(child_id.clone());
                 }
             }
         }
