@@ -102,10 +102,10 @@ fn parse_delay(output: &str) -> Option<f32> {
 /// This algorithm instead only visits the nodes whose current cost estimate may change:
 /// it does this by tracking parent-child relationships and storing relevant nodes
 /// in a work list (UniqueQueue).
-pub struct FasterBottomUpExtractor;
-pub struct FasterBottomUpExtractorGRPC;
-pub struct FasterBottomUpExtractorRandom;
-pub struct FasterBottomUpSimulatedAnnealingExtractor;
+pub struct FasterBottomUpExtractor; // baseline faster bottom-up extractor
+pub struct FasterBottomUpExtractorGRPC; // extraction method based on faster bottom-up
+pub struct FasterBottomUpExtractorRandom; // extraction method based on random extraction
+pub struct FasterBottomUpSimulatedAnnealingExtractor; // extraction method based on SA
 
 impl Extractor for FasterBottomUpExtractor {
     fn extract(
@@ -290,13 +290,6 @@ impl AsyncExtractor for FasterBottomUpExtractorGRPC {
                 fs::read_to_string("src/extract/tmp/opt_1.json").expect("Failed to read json file");
 
             // Call the gRPC client function
-            // let delay = match send_circuit_files_to_server(&el_content, &csv_content, &json_content) {
-            //     Ok(d) => d,
-            //     Err(e) => {
-            //         eprintln!("Error sending circuit files to server: {}", e);
-            //         0.0 // Use a default value or handle the error as appropriate
-            //     }
-            // };
             let delay = match send_circuit_files_to_server(&el_content, &csv_content, &json_content)
                 .await
             {
@@ -407,7 +400,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         );
 
         // Generate random initial solution for SA
-        let mut current_result = generate_base_solution(egraph, "node_depth_cost"); // TODO: adjust here
+        let mut current_result = generate_base_solution(egraph, "node_sum_cost"); // TODO: adjust here
         update_json_buffers_in_result(&mut current_result, egraph);
         let mut current_abc_cost = calculate_abc_cost_or_dump(
             &current_result,
@@ -416,22 +409,27 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
             false,
         );
 
-        let initial_temp = 100.0;
-        let cooling_rate = 0.7;
-        let mut temperature = initial_temp;
+        let initial_temp: f64 = 100.0;
+        let cooling_rate: f64 = 0.7;
+        let mut temperature: f64 = initial_temp;
         let sample_size = (egraph.classes().len() as f64 * 0.3).max(1.0) as usize;
-        let max_iterations = 100;
         let iterations_per_temp = 2;
-        let min_temperature = 0.1;
+        let min_temperature: f64 = 0.1;
         let verbose = true;
 
+        // Calculate total iterations using logarithms
+        //let total_iterations = ((initial_temp / min_temperature).ln() / cooling_rate.ln()).ceil() as u64 * iterations_per_temp as u64;
+
+        // let total interation = ceil( (log(min_temp) - log(initial_temp))/log(cooling_rate) ) * iterations_per_temp
+        let total_iterations = ((min_temperature.ln() - initial_temp.ln()) / cooling_rate.ln())
+        .ceil() as u64 * iterations_per_temp as u64;
         let mut best_result = current_result.clone();
         let mut best_abc_cost = current_abc_cost;
 
         let m = MultiProgress::new();
-        let pb = m.add(ProgressBar::new(100));
+        let pb = m.add(ProgressBar::new(total_iterations));
         pb.set_style(ProgressStyle::default_bar()
-            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:.2}/{len:.2} ({eta})")
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")
             .unwrap()
             .progress_chars("#>-"));
 
@@ -448,12 +446,11 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
             base_abc_cost, current_abc_cost
         ));
 
-        // Set the progress bar length to the initial temperature
-        pb.set_length(initial_temp as u64);
+        let mut iteration_count = 0;
 
         while temperature > min_temperature {
             for _ in 0..iterations_per_temp {
-                let mut new_result = generate_neighbor_solution_with_propagation_and_cycle_check(
+                let mut new_result = generate_neighbor_solution_naive(
                     &current_result,
                     egraph,
                     sample_size,
@@ -489,12 +486,11 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
                         ));
                     }
                 }
+                iteration_count += 1;
+                pb.set_position(iteration_count);
             }
 
             temperature *= cooling_rate;
-            // Update the progress bar based on the current temperature
-            let progress = initial_temp - temperature;
-            pb.set_position(progress as u64);
         }
 
         pb.finish_with_message("Simulated Annealing Complete");
