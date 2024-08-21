@@ -502,7 +502,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
                 let mut new_result = generate_neighbor_solution(
                     &current_result,
                     egraph,
-                    NeighborSolutionType::IntermediatePropagation,
+                    NeighborSolutionType::RandomExtraction,
                     sample_size,
                     &mut rng,
                     cost_function,
