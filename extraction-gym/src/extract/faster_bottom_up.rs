@@ -248,7 +248,7 @@ impl AsyncExtractor for FasterBottomUpExtractorGRPC {
 
             // use circuit convertor to conver the json -> processed json -> eqn -> abc rust binding to get the delay
 
-            // first, feed input saturated graph and extracted e-graph to process json
+            // feed input saturated graph and extracted e-graph to process json
             let saturated_graph_path = "input/rewritten_egraph_with_weight_cost_serd.json";
             let prefix_mapping_path = "../e-rewriter/circuit0_opt.eqn";
             let mode = "large";
@@ -363,37 +363,7 @@ impl Extractor for FasterBottomUpExtractorRandom {
             };
             let mut rng = rand::thread_rng();
             let random_value: f64 = rng.gen();
-            // if     (cost < *prev_cost) {
-            //     result.choose(class_id.clone(), node_id.clone());
-            //     costs.insert(class_id.clone(), cost);
-            //     analysis_pending.extend(parents[class_id].iter().cloned());
 
-            // }
-
-            //version1
-            // if ((random_value >= k) && (cost < *prev_cost)) || (*prev_cost == std::f64::INFINITY) {
-            //     result.choose(class_id.clone(), node_id.clone());
-            //     costs.insert(class_id.clone(), cost);
-            //     analysis_pending.extend(parents[class_id].iter().cloned());
-            // }
-
-            //version2
-            //  if      ((random_value >= k) &&(cost < *prev_cost)) {
-            //     result.choose(class_id.clone(), node_id.clone());
-            //     costs.insert(class_id.clone(), cost);
-            //     analysis_pending.extend(parents[class_id].iter().cloned());
-            //     chosen_classes.insert(class_id.clone());
-            // }
-            //     else if chosen_classes.contains(&class_id) {
-            //     continue;}
-            //     else{
-            //         result.choose(class_id.clone(), node_id.clone());
-            //         costs.insert(class_id.clone(), cost);
-            //         analysis_pending.extend(parents[class_id].iter().cloned());
-            //         chosen_classes.insert(class_id.clone());
-            //     }
-
-            //version3
             if prev_cost == &INFINITY && (cost < *prev_cost) {
                 result.choose(class_id.clone(), node_id.clone());
                 costs.insert(class_id.clone(), cost);
@@ -437,7 +407,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
         );
 
         // Generate random initial solution for SA
-        let mut current_result = generate_random_solution(egraph);
+        let mut current_result = generate_base_solution(egraph, "node_depth_cost"); // TODO: adjust here
         update_json_buffers_in_result(&mut current_result, egraph);
         let mut current_abc_cost = calculate_abc_cost_or_dump(
             &current_result,
@@ -474,7 +444,7 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 
         println!("========== Starting Simulated Annealing ==========");
         panel.set_message(format!(
-            "Base solution ABC cost: {:.6}\nInitial random solution ABC cost: {:.6}",
+            "Base solution ABC cost: {:.6}. Initial solution's ABC cost: {:.6}",
             base_abc_cost, current_abc_cost
         ));
 
@@ -483,8 +453,12 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 
         while temperature > min_temperature {
             for _ in 0..iterations_per_temp {
-                let mut new_result =
-                    generate_neighbor_solution(&current_result, egraph, sample_size, &mut rng);
+                let mut new_result = generate_neighbor_solution_with_propagation_and_cycle_check(
+                    &current_result,
+                    egraph,
+                    sample_size,
+                    &mut rng,
+                );
                 update_json_buffers_in_result(&mut new_result, egraph);
                 let new_abc_cost = calculate_abc_cost_or_dump(
                     &new_result,
@@ -555,9 +529,18 @@ impl Extractor for FasterBottomUpSimulatedAnnealingExtractor {
 }
 
 // ========================== Helper Functions For SA-based faster bottom-up ==========================
-// Generate random solution for SA
+// Save best result to file
 // ========================== Helper Functions For SA-based faster bottom-up ==========================
 
+// fn save_best_result_to_file(
+//     pass;
+// }
+
+// ========================== Helper Functions For SA-based faster bottom-up ==========================
+// Generate initial or base solution for SA
+// ========================== Helper Functions For SA-based faster bottom-up ==========================
+
+// Generate random initial solution for SA
 fn generate_random_solution(egraph: &EGraph) -> ExtractionResult {
     let mut rng = thread_rng();
     let mut result = ExtractionResult::default();
@@ -571,17 +554,7 @@ fn generate_random_solution(egraph: &EGraph) -> ExtractionResult {
     result
 }
 
-// ========================== Helper Functions For SA-based faster bottom-up ==========================
-// Save best result to file
-// ========================== Helper Functions For SA-based faster bottom-up ==========================
-
-// fn save_best_result_to_file(
-//     pass;
-// }
-
-// ========================== Helper Functions For SA-based faster bottom-up ==========================
 // Generate base solution for Simulated Annealing
-// ========================== Helper Functions For SA-based faster bottom-up ==========================
 
 fn generate_base_solution(egraph: &EGraph, cost_function: &str) -> ExtractionResult {
     let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
@@ -632,7 +605,9 @@ fn generate_base_solution(egraph: &EGraph, cost_function: &str) -> ExtractionRes
 // Generate neighbor solution relate to domain structure
 // ========================== Helper Functions For SA-based faster bottom-up ==========================
 
-fn generate_neighbor_solution(
+// easy one
+
+fn generate_neighbor_solution_naive(
     current: &ExtractionResult,
     egraph: &EGraph,
     sample_size: usize,
@@ -644,6 +619,95 @@ fn generate_neighbor_solution(
     for class in sampled_classes {
         if let Some(neighbor_node) = class.nodes.choose(rng) {
             new_result.choose(class.id.clone(), neighbor_node.clone());
+        }
+    }
+
+    new_result
+}
+
+//with cycle check
+
+fn generate_neighbor_solution_with_cycle_check(
+    current: &ExtractionResult,
+    egraph: &EGraph,
+    sample_size: usize,
+    rng: &mut impl Rng,
+) -> ExtractionResult {
+    let mut new_result = current.clone();
+    let sampled_classes: Vec<_> = egraph.classes().values().choose_multiple(rng, sample_size);
+
+    let mut proposed_changes = Vec::new();
+
+    for class in sampled_classes {
+        if let Some(neighbor_node) = class.nodes.choose(rng) {
+            proposed_changes.push((class.id.clone(), neighbor_node.clone()));
+        }
+    }
+
+    // Apply changes sequentially and check for cycles
+    let mut temp_result = new_result.clone();
+
+    for (class_id, node_id) in proposed_changes {
+        temp_result.choose(class_id.clone(), node_id.clone());
+        let cycles = temp_result.find_cycles(egraph, &egraph.root_eclasses);
+
+        if cycles.is_empty() {
+            new_result.choose(class_id, node_id);
+        } else {
+            // Revert the change if it introduces a cycle
+            temp_result = new_result.clone();
+        }
+    }
+
+    new_result
+}
+
+// idea from random extraction
+
+fn generate_neighbor_solution_with_propagation_and_cycle_check(
+    current: &ExtractionResult,
+    egraph: &EGraph,
+    sample_size: usize,
+    rng: &mut impl Rng,
+) -> ExtractionResult {
+    let mut new_result = current.clone();
+    let mut parents = IndexMap::<ClassId, Vec<NodeId>>::with_capacity(egraph.classes().len());
+    let n2c = |nid: &NodeId| egraph.nid_to_cid(nid);
+    let mut analysis_pending = UniqueQueue::default();
+
+    // Build parent relationships
+    for class in egraph.classes().values() {
+        parents.insert(class.id.clone(), Vec::new());
+    }
+
+    for class in egraph.classes().values() {
+        for node in &class.nodes {
+            for c in &egraph[node].children {
+                parents[n2c(c)].push(node.clone());
+            }
+            if egraph[node].is_leaf() {
+                analysis_pending.insert(node.clone());
+            }
+        }
+    }
+
+    // Sample nodes
+    let sampled_nodes: Vec<_> = analysis_pending.queue.iter().cloned().choose_multiple(rng, sample_size);
+
+    // Process sampled nodes and propagate changes
+    let mut nodes_to_process = sampled_nodes;
+    while let Some(node_id) = nodes_to_process.pop() {
+        let class_id = n2c(&node_id);
+        
+        if let Some(new_node) = egraph[class_id].nodes.choose(rng) {
+            let mut temp_result = new_result.clone();
+            temp_result.choose(class_id.clone(), new_node.clone());
+            
+            // Check for cycles
+            if temp_result.find_cycles(egraph, &egraph.root_eclasses).is_empty() {
+                new_result = temp_result;
+                nodes_to_process.extend(parents[class_id].iter().cloned());
+            }
         }
     }
 
@@ -674,7 +738,7 @@ fn calculate_abc_cost_or_dump(
     };
     // dump file mode
     if dump_to_file {
-        if let Err(e) = std::fs::write("src/extract/tmp/best_result.eqn", &eqn_content) {
+        if let Err(e) = std::fs::write("src/extract/tmp/output.eqn", &eqn_content) {
             eprintln!("Error writing to file: {}", e);
             // Handle the error appropriately
         }
