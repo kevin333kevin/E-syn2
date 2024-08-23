@@ -103,7 +103,7 @@ extract_dag() {
 run_abc() {
     echo -e "${YELLOW}<-----------------------------Process 3: Run ABC------------------------------>${RESET}"
     copy_file "e-rewriter/circuit0.eqn" "abc/ori.eqn"
-    copy_file "extraction-gym/src/extract/tmp/best_result.eqn" "abc/opt.eqn"
+    copy_file "extraction-gym/src/extract/tmp/output.eqn" "abc/opt.eqn"
     change_dir "abc"
 
     # baline - single operator - if -g
@@ -129,7 +129,7 @@ report_runtime() {
 }
 
 # Main script
-feature_cmd="./target/x86_64-unknown-linux-musl/release/e-rewriter"
+feature_cmd="./target/release/e-rewriter"
 echo -e "${YELLOW}Using feature label: ${feature}${RESET}"
 
 setup_directories

@@ -3,7 +3,7 @@ use crate::extract::circuit_conversion::process_circuit_conversion;
 use rand::prelude::*;
 use rayon::prelude::*;
 use rustc_hash::{FxHashMap, FxHashSet};
-
+use std::path::Path;
 use std::env;
 use std::process;
 use tokio::runtime::Runtime;
@@ -297,6 +297,40 @@ impl AsyncExtractor for FasterBottomUpExtractorGRPC {
             //         0.0 // Use a default value or handle the error as appropriate
             //     }
             // };
+
+            
+            // let count = 0;
+            // let temp_graphdata_4_ml = format!("../HOGA/dataset_4_test/temp_graphdata_4_ml_{}", count);
+            // println!("temp_graphdata_4_ml: {}", temp_graphdata_4_ml);
+            // let edgelist_dir = format!("{}/edgelist", temp_graphdata_4_ml);
+            // let feature_dir = format!("{}/feature", temp_graphdata_4_ml);
+            
+            // if !Path::new(&temp_graphdata_4_ml).exists() {
+            //     fs::create_dir_all(&temp_graphdata_4_ml).expect("Failed to create directory");
+            // }
+            // if !Path::new(&edgelist_dir).exists() {
+            //     fs::create_dir(&edgelist_dir).expect("Failed to create directory");
+            // }
+            // if !Path::new(&feature_dir).exists() {
+            //     fs::create_dir(&feature_dir).expect("Failed to create directory");
+            // }
+            
+            // for entry in fs::read_dir(&edgelist_dir).expect("Failed to read directory") {
+            //     let entry = entry.expect("Failed to get directory entry");
+            //     fs::remove_file(entry.path()).expect("Failed to remove file");
+            // }
+            // for entry in fs::read_dir(&feature_dir).expect("Failed to read directory") {
+            //     let entry = entry.expect("Failed to get directory entry");
+            //     fs::remove_file(entry.path()).expect("Failed to remove file");
+            // }
+            
+            // fs::copy("src/extract/tmp/opt_1.el", format!("{}/opt_1.el", edgelist_dir))
+            //     .expect("Failed to copy file");
+            // fs::copy("src/extract/tmp/opt-feats.csv", format!("{}/opt-feats.csv", feature_dir))
+            //     .expect("Failed to copy file");
+            println!("waiting for server response...");
+            
+
             let delay = match send_circuit_files_to_server(&el_content, &csv_content, &json_content)
                 .await
             {
@@ -306,7 +340,7 @@ impl AsyncExtractor for FasterBottomUpExtractorGRPC {
                     0.0 // Use a default value or handle the error as appropriate
                 }
             };
-
+           
             println!("Received delay from ML server: {} ns", delay);
 
             result
