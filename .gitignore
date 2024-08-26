@@ -77,3 +77,7 @@ extraction-gym/src/logic-form
 extraction-gym/abc
 *.el
 *.pyc
+*.pt
+*.png
+*.gz
+*.pkl
