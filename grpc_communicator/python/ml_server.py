@@ -10,7 +10,7 @@ import os
 import shutil
 import re
 import gzip
-sys.path.append("/data/cchen/esynturbo/E-syn2/HOGA")
+sys.path.append("/data/cchen/esynturbo_grpc/E-syn2/HOGA")
 from model import SynthNet
 from main_qor_predict import  MyOwnDataset_4test
 from torch_geometric.data import Dataset, Data
@@ -33,7 +33,7 @@ class VectorServiceServicer(service_pb2_grpc.VectorServiceServicer):
         el_content = request.el_content
         csv_content = request.csv_content
         json_content = request.json_content
-        print("start server")
+        # print("start server")
         root_path = os.path.abspath(os.path.join(os.getcwd(), "..", "..", "HOGA", "dataset_4_test"))
         print("root_path: ",root_path)
         target_path = os.path.abspath(os.path.join(os.getcwd(), "..", "..", "HOGA", "dataset_4_test_process"))
@@ -48,7 +48,7 @@ class VectorServiceServicer(service_pb2_grpc.VectorServiceServicer):
         pred = evaluate_4_test(self.model, self.device, dataset)
         pred = float(pred[0])
         print(f"pred: {pred}")      
-        delay =1
+        delay = pred
         return service_pb2.CircuitProcessingResponse(delay=delay)
 
 
@@ -162,6 +162,7 @@ def count_lines(file_path):
 
 
 def serve():
+    print("hello grpc")
     parser = argparse.ArgumentParser(description='mult16')
     parser.add_argument('--bits', type=int, default=8)
     parser.add_argument('--bits_test', type=int, default=64)
@@ -188,30 +189,56 @@ def serve():
     parser.add_argument('--gnn_embedding_dim', type=int, default=128)
     parser.add_argument('--num_epochs', type=int, default=80)
     parser.add_argument('--feature_size', type=int, default=4)
-    args = parser.parse_args()
-    device = f'cuda:{args.device}' if torch.cuda.is_available() else 'cpu'
+    args = parser.parse_args([
+        '--bits', '8',
+        '--bits_test', '64',
+        '--device', '0',
+        '--log_steps', '1',
+        '--num_layers', '1',
+        '--hidden_channels', '256',
+        '--heads', '8',
+        '--dropout', '0.5',
+        '--weight_decay', '5e-5',
+        '--lr', '5e-4',
+        '--epochs', '500',
+        '--batch_size', '64',
+        '--num_hops', '5',
+        '--runs', '1',
+        '--mapped', '0',
+        '--lda1', '5',
+        '--lda2', '1',
+        '--root_dir', 'data_ml',
+        '--directed',
+        '--test_all_bits',
+        '--save_model',
+        '--num_fc_layer', '2',
+        '--gnn_embedding_dim', '128',
+        '--num_epochs', '80',
+        '--feature_size', '4'
+    ])
+    device = f'cuda:{0}' if torch.cuda.is_available() else 'cpu'
     model = SynthNet(args).to(device)
     model.load_state_dict(torch.load('/data/cchen/esynturbo/E-syn2/HOGA/dump/hoga-epoch-74-val_loss-308515.542.pt'))
 
-    start_time = time.time()
-    root_path = os.path.abspath(os.path.join(os.getcwd(), "..", "..", "HOGA", "dataset_4_test"))
-    print("root_path: ",root_path)
-    target_path = os.path.abspath(os.path.join(os.getcwd(), "..", "..", "HOGA", "dataset_4_test_process"))
-    if not os.path.exists(target_path):
-        os.makedirs(target_path)
-    copy_files(root_path, target_path)
-    process_dataset(target_path)
-    processed_dir1 = os.path.join(target_path, 'processed')
-    if not os.path.exists(processed_dir1):
-       os.makedirs(processed_dir1, exist_ok=True)    
-    dataset = MyOwnDataset_4test(root=target_path)
-    pred = evaluate_4_test(self.model, self.device, dataset)
-    pred = float(pred[0])
-    print(f"pred: {pred}")      
+    # start_time = time.time()
+    # root_path = os.path.abspath(os.path.join(os.getcwd(), "..", "..", "HOGA", "dataset_4_test"))
+    # print("root_path: ",root_path)
+    # target_path = os.path.abspath(os.path.join(os.getcwd(), "..", "..", "HOGA", "dataset_4_test_process"))
+    # if not os.path.exists(target_path):
+    #     os.makedirs(target_path)
+    # copy_files(root_path, target_path)
+    # process_dataset(target_path)
+    # processed_dir1 = os.path.join(target_path, 'processed')
+    # if not os.path.exists(processed_dir1):
+    #    os.makedirs(processed_dir1, exist_ok=True)    
+    # dataset = MyOwnDataset_4test(root=target_path)
+    # pred = evaluate_4_test(model, device, dataset)
+    # pred = float(pred[0])
+    # print(f"pred: {pred}")      
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     service_pb2_grpc.add_VectorServiceServicer_to_server(VectorServiceServicer(model, device), server)
     #service_pb2_grpc.add_VectorServiceServicer_to_server(VectorServiceServicer(), server)
-    server.add_insecure_port('[::]:50051')
+    server.add_insecure_port('[::]:50052')
     server.start()
     server.wait_for_termination()
 

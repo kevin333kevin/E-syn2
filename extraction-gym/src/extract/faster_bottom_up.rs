@@ -27,7 +27,7 @@ async fn send_circuit_files_to_server(
     csv_content: &str,
     json_content: &str,
 ) -> Result<f64, Box<dyn std::error::Error>> {
-    let mut client = VectorServiceClient::connect("http://[::1]:50051").await?;
+    let mut client = VectorServiceClient::connect("http://[::1]:50052").await?;
 
     let request = Request::new(CircuitFilesRequest {
         el_content: el_content.to_string(),
