@@ -67,6 +67,11 @@ extraction-gym/*.dot
 abc/opt.eqn
 abc/circuit0_opt.eqn
 abc/ori.eqn
+abc_old/abc1
+abc_old/abc
+abc_old/*.v
+abc_old/*.eqn
+abc_old/*.blif
 e-rewriter/circuit0_opt.eqn
 e-rewriter/modified_circuit0_opt.eqn.json
 e-rewriter/circuit0_opt.eqn.json
