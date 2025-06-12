@@ -173,11 +173,13 @@ impl Extractor for GlobalGreedyDagExtractor {
                     let child_cid = egraph.nid_to_cid(child);
                     if let Some(best) = best_in_class.get(child_cid) {
                         children.push(*best);
+                       
                     } else {
                         continue 'node_loop;
                     }
                 }
-
+                //找到best in class 里对应的best Term 
+                //且计算 termdag.total_cost(Term) 计算该term的total_cost
                 let old_cost = best_in_class
                     .get(&node.eclass)
                     .map(|id| termdag.total_cost(*id))

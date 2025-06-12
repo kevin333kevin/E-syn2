@@ -243,6 +243,7 @@ static int Abc_CommandDc2                    ( Abc_Frame_t * pAbc, int argc, cha
 static int Abc_CommandDChoice                ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandDch                    ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandDrwsat                 ( Abc_Frame_t * pAbc, int argc, char ** argv );
+static int Abc_Commandsynscriptindch         ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandIRewriteSeq            ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandIResyn                 ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandISat                   ( Abc_Frame_t * pAbc, int argc, char ** argv );
@@ -1106,6 +1107,7 @@ void Abc_Init( Abc_Frame_t * pAbc )
     Cmd_CommandAdd( pAbc, "Verification", "bmc3",          Abc_CommandBmc3,             1 );
     Cmd_CommandAdd( pAbc, "Verification", "int",           Abc_CommandBmcInter,         1 );
     Cmd_CommandAdd( pAbc, "Verification", "indcut",        Abc_CommandIndcut,           0 );
+    Cmd_CommandAdd( pAbc, "New AIG",      "dchsyn",        Abc_Commandsynscriptindch,   1 );
     Cmd_CommandAdd( pAbc, "Verification", "enlarge",       Abc_CommandEnlarge,          1 );
     Cmd_CommandAdd( pAbc, "Verification", "tempor",        Abc_CommandTempor,           1 );
     Cmd_CommandAdd( pAbc, "Verification", "ind",           Abc_CommandInduction,        0 );
@@ -17183,7 +17185,118 @@ usage:
     Abc_Print( -2, "\t-h    : print the command usage\n");
     return 1;
 }
+int Abc_Commandsynscriptindch( Abc_Frame_t * pAbc, int argc, char ** argv )
+{   Abc_Ntk_t * pNtk, * pNtkRes;
+    Aig_Man_t * pAig, * pAignew;
+    Dar_RwrPar_t Pars, * pPars = &Pars;
+    int c;
 
+    extern Aig_Man_t * Dar_NewCompress2( Aig_Man_t * pAig, int fBalance, int fUpdateLevel, int fFanout, int fPower, int fLightSynth, int fVerbose );
+    extern Abc_Ntk_t * Abc_NtkFromDar( Abc_Ntk_t * pNtkOld, Aig_Man_t * pMan );
+    pNtk = Abc_FrameReadNtk(pAbc);
+    // set defaults
+    Dar_ManDefaultRwrParams( pPars );
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "CNMflzrvwh" ) ) != EOF )
+    {
+        switch ( c )
+        {
+        case 'C':
+            if ( globalUtilOptind >= argc )
+            {
+                Abc_Print( -1, "Command line switch \"-C\" should be followed by an integer.\n" );
+                goto usage;
+            }
+            pPars->nCutsMax = atoi(argv[globalUtilOptind]);
+            globalUtilOptind++;
+            if ( pPars->nCutsMax < 0 )
+                goto usage;
+            break;
+        case 'N':
+            if ( globalUtilOptind >= argc )
+            {
+                Abc_Print( -1, "Command line switch \"-N\" should be followed by an integer.\n" );
+                goto usage;
+            }
+            pPars->nSubgMax = atoi(argv[globalUtilOptind]);
+            globalUtilOptind++;
+            if ( pPars->nSubgMax < 0 )
+                goto usage;
+            break;
+        case 'M':
+            if ( globalUtilOptind >= argc )
+            {
+                Abc_Print( -1, "Command line switch \"-M\" should be followed by an integer.\n" );
+                goto usage;
+            }
+            break;
+        case 'f':
+            pPars->fFanout ^= 1;
+            break;
+        case 'l':
+            pPars->fUpdateLevel ^= 1;
+            break;
+        case 'z':
+            pPars->fUseZeros ^= 1;
+            break;
+        case 'r':
+            pPars->fRecycle ^= 1;
+            break;
+        case 'v':
+            pPars->fVerbose ^= 1;
+            break;
+        case 'w':
+            pPars->fVeryVerbose ^= 1;
+            break;
+        case 'h':
+            goto usage;
+        default:
+            goto usage;
+        }
+    }
+
+    if ( pNtk == NULL )
+    {
+        Abc_Print( -1, "Empty network.\n" );
+        return 1;
+    }
+    if ( !Abc_NtkIsStrash(pNtk) )
+    {
+        Abc_Print( -1, "This command works only for strashed networks.\n" );
+        return 1;
+    }
+
+    pAig = Abc_NtkToDar( pNtk, 0, 0 );
+    if ( pAig == NULL )
+        return 1;
+
+    pAignew =  Dar_NewCompress2(pAig, 1,1,1,0,0,pPars->fVerbose);
+
+    pNtkRes = Abc_NtkFromDar( pNtk, pAignew );
+    //Aig_ManStop( pNtkRes );
+    if ( pNtkRes == NULL )
+    {
+        Abc_Print( -1, "Command has failed.\n" );
+        return 0;
+    }
+    // replace the current network
+    Abc_FrameReplaceCurrentNetwork( pAbc, pNtkRes );
+    return 0;
+
+usage:
+    Abc_Print( -2, "usage: dchsynscript [-C num] [-NM num] [-lfzrvwh]\n" );
+    Abc_Print( -2, "\t         performs combinational AIG rewriting\n" );
+    Abc_Print( -2, "\t-C num : the max number of cuts at a node [default = %d]\n", pPars->nCutsMax );
+    Abc_Print( -2, "\t-N num : the max number of subgraphs tried [default = %d]\n", pPars->nSubgMax );
+    Abc_Print( -2, "\t-l     : toggle preserving the number of levels [default = %s]\n", pPars->fUpdateLevel? "yes": "no" );
+    Abc_Print( -2, "\t-f     : toggle representing fanouts [default = %s]\n", pPars->fFanout? "yes": "no" );
+    Abc_Print( -2, "\t-z     : toggle using zero-cost replacements [default = %s]\n", pPars->fUseZeros? "yes": "no" );
+    Abc_Print( -2, "\t-r     : toggle using cut recycling [default = %s]\n", pPars->fRecycle? "yes": "no" );
+    Abc_Print( -2, "\t-v     : toggle verbose printout [default = %s]\n", pPars->fVerbose? "yes": "no" );
+    Abc_Print( -2, "\t-w     : toggle very verbose printout [default = %s]\n", pPars->fVeryVerbose? "yes": "no" );
+    Abc_Print( -2, "\t-h     : print the command usage\n");
+    return 1;
+}
 /**Function*************************************************************
 
   Synopsis    []

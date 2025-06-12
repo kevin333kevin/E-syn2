@@ -64,8 +64,8 @@ impl CostFunction<Prop> for wight_size{
         let op = enode.to_string();
         let op_cost   = match op.as_str() {
             "!" => 1 ,
-            "+" => 3,
-            "*"=> 5,
+            "+" => 2,
+            "*"=> 6,
             //"&" => 0.0 as  f32,
             _=> 1 
         };

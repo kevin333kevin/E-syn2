@@ -10,6 +10,7 @@ ilp-cbc = ["coin_cbc"]
 #serde-1 = ["serde"]
 
 [dependencies]
+egg = {version = "0.9.5", features = ["serde-1"] }
 rand = "0.8"
 env_logger = { version = "0.10.0", default-features = false }
 indexmap = "2.0.0"
@@ -23,7 +24,7 @@ im-rc = "15.1.0"
 rustc-hash = "1.1.0"
 serde = "1.0"
 rpds = "1.1.0"
-rayon = "1.7"
+rayon = "1.9.2"
 egraph-serialize = { path = "src/egraph-serialize/" }
 #[dependencies.egraph-serialize]
 #git = "https://github.com/egraphs-good/egraph-serialize"

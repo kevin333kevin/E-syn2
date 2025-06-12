@@ -20,6 +20,8 @@ use std::io;
 use std::io::{BufWriter, Write};
 use rayon::prelude::*;
 
+// use crate::ConstantFold;
+use crate::Prop;
 #[derive(Debug, Deserialize, Serialize, Clone)]
 struct Node {
     op: String,
@@ -160,9 +162,12 @@ pub fn process_json_prop_cost(json_str: &str) -> String {
             let cost = node["cost"].as_f64().unwrap();
 
             let new_cost = match op {
-                "+" => 6.0,
+                "+" => 3.0,
                 "!" => 2.0,
                 "*" => 4.0,
+                // "+" => 1.0,
+                // "!" => 1.0,
+                // "*" => 1.0,
                 _ => cost,
             };
 
@@ -289,9 +294,12 @@ pub fn process_file(file_name: &str) -> (egg::Id, Vec<Id>, i32) {
         element
     } else {
         one_out_sig = 1;
-        let mut id: Id = id2concat.pop().unwrap().into();
+        let id: Id = id2concat.pop().unwrap().into();
         vars.insert(out.keys().next().unwrap().to_string(), id.into());
+        println!("one_out_id: {}", id) ;   
         id
+        //print id
+   
     };
     egraph.rebuild();
     let json_str = serde_json::to_string_pretty(&egraph).unwrap();
@@ -309,7 +317,139 @@ pub fn process_file(file_name: &str) -> (egg::Id, Vec<Id>, i32) {
     (last_element, input_id, one_out_sig)
 }
 
+// pub fn process_file_new(file_name: &str) -> (egg::EGraph<Prop,ConstantFold>,egg::Id, Vec<Id>, i32) {
+//     let file = File::open(file_name).expect("Unable to open the eqn file");
+//     let reader = BufReader::new(file);
+//     let mut egraph: egg::EGraph<Prop,ConstantFold > = EGraph::default();
+//     let mut vars = HashMap::new();
+//     let mut out = HashMap::new();
+//     let mut count_out = 0;
+//     let mut id2concat = Vec::new();
+//     let mut input_id: Vec<Id> = Vec::new();
+//     let mut one_out_sig = 0;
+//     fn string_to_unique_id(s: &str) -> u64 {
+//         let mut hasher = DefaultHasher::new();
+//         s.hash(&mut hasher);
+//         hasher.finish()
+//     }
 
+//     let id0 = egraph.add(Prop::from_op("false",vec![]).expect("REASON"));
+//     vars.insert("0".to_string(), id0);
+//     let id1 = egraph.add(Prop::from_op("true",vec![]).expect("REASON"));
+//     vars.insert("1".to_string(), id1);
+//     for line in reader.lines() {
+//         let line = line.expect("Unable to read line");
+//         let line = line.trim().trim_end_matches(';');
+//         //print!("line:  {}\n",line);
+//         if line.starts_with('#') || line.is_empty() {
+//             continue;
+//         } else if line.starts_with("INORDER") {
+//             let inputs = line.trim_start_matches("INORDER = ").split_whitespace();
+//             for input in inputs {
+//                 let id = egraph.add(Prop::from_op(input, vec![]).expect("REASON"));
+//                 vars.insert(input.to_string(), id);
+//                 input_id.push(id);
+//             }
+//         } else if line.starts_with("OUTORDER") {
+//             let output = line.trim_start_matches("OUTORDER = ").trim();
+//             for output in output.split_whitespace() {
+//                 let id_u64 = string_to_unique_id(output);
+//                 out.insert(output.to_string(), id_u64);
+//             }
+//         } else {
+//             let parts: Vec<&str> = line.split('=').map(str::trim).collect();
+//             let left = parts[0];
+//             let right = parts[1];
+//             // print!("right {}\n",right);
+//             let id = if right.contains('+') {
+//                 let operands: Vec<&str> = right.split('+').map(str::trim).collect();
+//                 let lhs = if operands[0].starts_with('!') {
+//                     let var = &operands[0][1..];
+//                     let id = vars[var];
+//                     egraph.add(Prop::from_op("!", vec![id]).expect("REASON"))
+//                 } else {
+//                     vars[operands[0]]
+//                 };
+//                 let rhs = if operands[1].starts_with('!') {
+//                     let var = &operands[1][1..];
+//                     let id = vars[var];
+//                     egraph.add(Prop::from_op("!", vec![id]).expect("REASON"))
+//                 } else {
+//                     vars[operands[1]]
+//                 };
+//                 egraph.add(Prop::from_op("+", vec![lhs, rhs]).expect("REASON"))
+//             } else if right.contains('*') {
+//                 let operands: Vec<&str> = right.split('*').map(str::trim).collect();
+//                 let lhs = if operands[0].starts_with('!') {
+//                     let var = &operands[0][1..];
+//                     let id = vars[var];
+//                     egraph.add(Prop::from_op("!", vec![id]).expect("REASON"))
+//                 } else {
+//                     vars[operands[0]]
+//                 };
+//                 let rhs = if operands[1].starts_with('!') {
+//                     let var = &operands[1][1..];
+//                     let id = vars[var];
+//                     egraph.add(Prop::from_op("!", vec![id]).expect("REASON"))
+//                 } else {
+//                     vars[operands[1]]
+//                 };
+
+//                 egraph.add(Prop::from_op("*", vec![lhs, rhs]).expect("REASON"))
+//             } else if right.starts_with('!') {
+//                 let var = &right[1..];
+//                 let id = vars[var];
+//                 egraph.add(Prop::from_op("!", vec![id]).expect("REASON"))
+//             } else {
+//                 vars[right]
+//             };
+
+//             if out.contains_key(left) {
+//                 id2concat.push(id);
+//                 count_out += 1;
+//             }
+//             vars.insert(left.to_string(), id);
+//         }
+//     }
+
+//     let mut concat = Vec::new();
+
+//     for i in 0..count_out - 1 {
+//         if i == 0 {
+            
+//             let id = egraph.add(Prop::from_op("&", vec![id2concat[i as usize], id2concat[(i + 1) as usize]]).expect("REASON"));
+//             concat.push(id);
+//         } else {
+//             let id = egraph.add(Prop::from_op("&", vec![concat[(i - 1) as usize], id2concat[(i + 1) as usize]]).expect("REASON"));
+//             concat.push(id);
+//         }
+//     }
+//     let last_element: Id = if let Some(element) = concat.pop() {
+//         element
+//     } else {
+//         one_out_sig = 1;
+//         let id: Id = id2concat.pop().unwrap().into();
+//         vars.insert(out.keys().next().unwrap().to_string(), id.into());
+//         println!("one_out_id: {}", id) ;   
+//         id
+//         //print id
+   
+//     };
+//     egraph.rebuild();
+//     let json_str = serde_json::to_string_pretty(&egraph).unwrap();
+
+//     let output_dir = Path::new(file_name).parent().unwrap_or(Path::new(""));
+//     let output_file = format!(
+//         "{}.json",
+//         PathBuf::from(file_name)
+//             .file_name()
+//             .unwrap()
+//             .to_string_lossy()
+//     );
+//     let output_path = output_dir.join(output_file);
+//     fs::write(output_path, json_str).expect("Failed to write JSON file");
+//     (egraph,last_element, input_id, one_out_sig)
+// }
 
 pub fn preprocess_file_concat(file_name: &str) -> Result<(), io::Error> {
     // Open the file for reading
@@ -389,16 +529,14 @@ pub fn preprocess_file_order(file_name: &str) -> Result<(), io::Error> {
 
     // Search for the first line starting with "new_"
     let mut variables = Vec::new();
-    let mut found_new = false;
-
     for line in reader.lines() {
         let line = line?;
-        if found_new && !line.starts_with("new_") {
+        if  !line.starts_with("OUTORDER")&&!line.starts_with("INORDER")&&!line.starts_with("new_") &&!line.starts_with("# Equations") {
             let variable = line.split('=').next().unwrap().trim().to_string();
-            variables.push(variable);
-        } else if line.starts_with("new_") {
-            found_new = true;
-        }
+            variables.push(variable.clone());
+            //print varibale
+           // println!("variable: {}", variable);
+        } 
     }
 
     // Generate new OUTORDER line

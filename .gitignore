@@ -75,6 +75,7 @@ extraction-gym/src/aig-rs
 extraction-gym/src/giputils
 extraction-gym/src/logic-form
 extraction-gym/abc
+extraction-gym/*.v
 *.el
 *.pyc
 *.pt

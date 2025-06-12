@@ -111,7 +111,6 @@ define_language! {
 }
 
 
-
 pub fn make_rules_simplify() -> Vec<Rewrite<Prop, ()>> {
     vec![
         //version 1

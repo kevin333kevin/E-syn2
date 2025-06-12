@@ -15,12 +15,14 @@ chmod +x ./run.sh && ./run.sh
 quick start:
 
 ```bash
-echo -e "5\ndelay\nfaster-bottom-up\n" | bash run.sh    
+echo -e "5\ndelay\nfaster-bottom-up\n" | bash run.sh
+echo -e "5\ndelay\nfaster-bottom-up\n" | bash run_or_replace.sh        
 ```
 
 run with randomized extraction experiments:
 
 ```bash
+echo -e "10\narea\nrandom-based-faster-bottom-up\n10\n0.8\n" | bash run.sh 
 echo -e "60\narea\nrandom-based-faster-bottom-up\n40\n0.8\n" | bash run.sh 
 ```
 

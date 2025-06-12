@@ -10,8 +10,8 @@ pub use extract::*;
 use egraph_serialize::*;
 
 use crate::faster_bottom_up::FasterBottomUpExtractorRandom;
-use crate::faster_bottom_up::FasterBottomUpSimulatedAnnealingExtractor;
-use crate::bottom_up::SimulatedAnnealingExtractor;
+use crate::faster_bottom_up::FasterBottomUpFastSimulatedAnnealingExtractorParallel;
+use crate::faster_bottom_up::FasterBottomUpExtractorRandomIncremental; 
 use anyhow::Context;
 use im_rc::iter;
 use indexmap::IndexMap;
@@ -27,6 +27,8 @@ use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use crate::cost_conversion::*;
+use crate::faster_bottom_up::run_random_based_extraction;
 // Define a type alias for the cost value
 pub type Cost = NotNan<f64>;
 
@@ -41,29 +43,15 @@ pub mod vectorservice {
 // Returns: An `IndexMap` mapping extractor names to their corresponding `Extractor` implementations
 fn get_fast_extractors() -> IndexMap<&'static str, Box<dyn Extractor>> {
     [
-        ("bottom-up", extract::bottom_up::BottomUpExtractor.boxed()),
-        ("sim-ann-based-bottom-up", extract::bottom_up::SimulatedAnnealingExtractor.boxed()),
-        ("sim-ann-based-faster-bottom-up", extract::faster_bottom_up::FasterBottomUpSimulatedAnnealingExtractor.boxed()),
+
         (
-            "faster-bottom-up-grpc",
-            extract::faster_bottom_up::FasterBottomUpExtractorGRPC.boxed(),
+            "random-sim-ann-based-faster-bottom-up-fast-par",
+            FasterBottomUpFastSimulatedAnnealingExtractorParallel::new(
+                FasterBottomUpExtractorRandomIncremental {},   // ← 这里换成你想要的底层算法
+            )
+            .boxed(),
         ),
-        (
-            "faster-bottom-up",
-            extract::faster_bottom_up::FasterBottomUpExtractor.boxed(),
-        ),
-        (
-            "greedy-dag",
-            extract::greedy_dag::GreedyDagExtractor.boxed(),
-        ),
-        (
-            "faster-greedy-dag",
-            extract::faster_greedy_dag::FasterGreedyDagExtractor.boxed(),
-        ),
-        (
-            "global-greedy-dag",
-            extract::global_greedy_dag::GlobalGreedyDagExtractor.boxed(),
-        ),
+     
         (
             "random-based-faster-bottom-up",
             extract::faster_bottom_up::FasterBottomUpExtractorRandom.boxed(),
@@ -198,6 +186,18 @@ fn extract_result(
     extractor.extract(egraph, root_eclasses, cost_function, 0.0) // 0.0 here prohibits randomness
 }
 
+
+fn extract_result_par(
+    extractor: &Arc<dyn Extractor + Send + Sync>,
+    egraph: &EGraph,
+    root_eclasses: &[ClassId],
+    cost_function: &str,
+    random_prob:f64 ,
+    num_samples:u32,
+) -> ExtractionResult {
+
+    extractor.extract_par(egraph, root_eclasses, cost_function, random_prob,num_samples) // 0.0 here prohibits randomness
+}
 // Function to print the DAG cost
 // Input: The DAG cost as a `Cost` value
 fn print_dag_cost(dag_cost: Cost) {
@@ -261,31 +261,7 @@ fn get_iteration(args: &mut pico_args::Arguments) -> u32 {
         .unwrap_or_else(|| 1)
 }
 
-fn run_extract_result_parallel(
-    extractor: Arc<dyn Extractor + Send + Sync>,
-    egraph: Arc<EGraph>,
-    roots: Arc<[ClassId]>,
-    cost_function: Arc<str>,
-    k: f64, // random probability parameter
-    num_samples: u32, // number of samples to take
-    result_channel: Sender<ExtractionResult>,
-) {
-    // print the parameters of random sampling
-    println!("num samples: {}, random probability: {}", num_samples, k);
-    let num_runs = num_samples;
-    let pool = ThreadPoolBuilder::new().num_threads(64).build().unwrap();
-    for _ in 0..num_runs {
-        let extractor = Arc::clone(&extractor);
-        let egraph = Arc::clone(&egraph);
-        let roots = Arc::clone(&roots);
-        let cost_function = Arc::clone(&cost_function);
-        let result_channel = result_channel.clone();
-        pool.spawn(move || {
-            let result = extractor.extract(&egraph, &roots, &cost_function, k);
-            result_channel.send(result).unwrap();
-        });
-    }
-}
+
 
 // Main function
 fn main() {
@@ -346,56 +322,62 @@ fn main() {
     let start_time = std::time::Instant::now();
 
     // if the extractor is not random
-    if extractor_name != "random-based-faster-bottom-up"  { // && extractor_name != "sim_ann_based_bottom-up"
-        // Extract the result using the selected extractor
+    if extractor_name == "random-based-faster-bottom-up" {
+        let extractor: Arc<dyn Extractor + Send + Sync> = Arc::new(FasterBottomUpExtractorRandom);
+        let cost_function: Arc<str> = Arc::from(cost_function);
+        println!(
+            "Running extract_result_par with random_prob: {}, num_samples: {}",
+            random_prob, num_samples
+        );
+run_random_based_extraction(
+    extractor,
+    Arc::new(egraph.clone()),
+    Arc::from(egraph.root_eclasses.clone()),
+    cost_function,
+    random_prob,
+    num_samples,
+    &modified_name_for_dag_cost,
+);
+    } 
+    
+    else if extractor_name == "random-sim-ann-based-faster-bottom-up-fast-par" {
+        println!(
+            "Running extract_result_par with random_prob: {}, num_samples: {}",
+            random_prob, num_samples
+        );
+        let extractor: Arc<dyn Extractor + Send + Sync> = Arc::new(FasterBottomUpFastSimulatedAnnealingExtractorParallel::new(FasterBottomUpExtractorRandomIncremental));
+        let cost_function: Arc<str> = Arc::from(cost_function);
+        let tree_cost_extraction_result =
+            extract_result_par(&extractor, &egraph, &egraph.root_eclasses, &cost_function,random_prob,num_samples);
+
+    } 
+    
+    
+    else {
+
         let tree_cost_extraction_result =
             extract_result(extractor, &egraph, &egraph.root_eclasses, &cost_function);
-
+    
         // Calculate the elapsed time in microseconds
         let us = start_time.elapsed().as_micros();
-
+    
         // print cycles if any
         let cycles = tree_cost_extraction_result
             .find_cycles(&egraph, &egraph.root_eclasses);
         println!("Cycles: {:?}", cycles);
-        // Assert that the result has no cycles
-        // assert!(tree_cost_extraction_result
-        //     .find_cycles(&egraph, &egraph.root_eclasses)
-        //     .is_empty());
         assert!(cycles.is_empty());
-
-        // parse extracted egraph
-        // let egraph_extracted = parse_egraph(&to_string_pretty(&tree_cost_extraction_result).unwrap());
-        // egraph_extracted.to_dot_file("egraph_extracted.dot").unwrap();
-
-        // save extract egraph as dot
-        //egraph.to_dot_file("egraph_extracted.dot").unwrap();
-
-        // save the extracted egraph as dot 
-        // let mut egraph_extracted = tree_cost_extraction_result.get_extracted_egraph(&egraph);
-        // egraph_extracted.to_dot_file("egraph_extracted.dot").unwrap();
-
+    
         // Calculate the DAG cost and the DAG cost with extraction result
         let (dag_cost, dag_cost_extraction_result) = tree_cost_extraction_result
             .calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
-        // Print the DAG cost
         print_dag_cost(dag_cost);
-
-        // Record random costs based on the extraction result
-        // tree_cost_extraction_result.record_costs_random(
-        //     10,
-        //     0.5,
-        //     &egraph,
-        //     &dag_cost_extraction_result,
-        // );
-
+    
         // Write the JSON result to files
         write_json_result(&modified_name_for_tree_cost, &tree_cost_extraction_result);
         write_json_result(&modified_name_for_dag_cost, &dag_cost_extraction_result);
-
+    
         // Log the result
         log_result(&filename, &extractor_name, dag_cost, us);
-        // Write the result to the output file (log file)
         write_output_file(
             &mut out_file,
             &filename,
@@ -404,59 +386,11 @@ fn main() {
             dag_cost,
             us,
         );
-
+    
         // print time consumption of tree-based extraction as seconds
         println!(
             "Time consumption of tree-based extraction: {} seconds",
             us as f64 / 1000000.0
         );
-    } else { // extractor is random-based-faster-bottom-up
-        // if the extractor is random
-        let extractor: Arc<dyn Extractor + Send + Sync> = Arc::new(FasterBottomUpExtractorRandom);
-        let (result_sender, result_receiver) = channel();
-        let cost_function: Arc<str> = Arc::from(cost_function);
-
-        // Extract the result using the selected extractor
-        //  let tree_cost_extraction_result = extract_result(extractor, &egraph, &egraph.root_eclasses, &cost_function);
-
-        run_extract_result_parallel(
-            extractor,
-            Arc::new(egraph.clone()),
-            Arc::from(egraph.root_eclasses.clone()),
-            cost_function,
-            //0.1, // random probability parameter
-            //30, // number of samples to take
-            random_prob,
-            num_samples,
-            result_sender,
-        );
-        //let extraction_result = result_receiver.recv().unwrap();
-        let mut extraction_results = Vec::new();
-        loop {
-            match result_receiver.recv() {
-                Ok(extraction_result) => {
-                    extraction_results.push(extraction_result);
-                }
-                Err(_) => break,
-            }
-        }
-
-        // modify `modified_name_for_dag_cost`, replace `out_` with `random_`
-        let modified_name_for_dag_cost = modify_filename(
-            &modified_name_for_dag_cost,
-            "out_dag_json/",
-            "random_out_dag_json/",
-        );
-        for (i, extraction_result) in extraction_results.iter().enumerate() {
-            let (dag_cost, dag_cost_extraction_result_depth) = extraction_result
-                .calculate_dag_cost_with_extraction_result(&egraph, &egraph.root_eclasses);
-            //let dag_cost_file_name = format!("{}{}", modified_name_for_dag_cost, i + 1);
-            let dag_cost_file_name = modify_filename(
-                &modified_name_for_dag_cost,
-                ".json",
-                &format!("_{}.json", i),
-            );
-            write_json_result(&dag_cost_file_name, &dag_cost_extraction_result_depth);
-        }
     }
 }

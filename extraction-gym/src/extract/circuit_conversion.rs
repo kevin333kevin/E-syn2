@@ -8,7 +8,8 @@ use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use rayon::prelude::*;
-
+use serde_json::json;
+use crate::ExtractionResult;
 //==================================================
 //Data Structures
 //==================================================
@@ -31,6 +32,48 @@ struct Node {
 // ==================================================
 // Step 1: Process JSON with Choices
 // ==================================================
+pub fn process_circuit_conversion(
+    extraction_result: &crate::ExtractionResult,
+    saturated_graph_json: &str,
+    prefix_mapping_path: &str,
+    is_large: bool,
+) -> Result<String, Box<dyn StdError>> {
+    let dag_cost_json = extraction_result.dag_cost_json.as_ref()
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "DAG cost JSON not found"))?;
+
+    extraction_result_to_eqn(dag_cost_json, saturated_graph_json, prefix_mapping_path, is_large)
+}
+
+
+
+/// Converts extraction result to equation format
+pub fn extraction_result_to_eqn(
+    dag_cost_json: &str,
+    saturated_graph_json: &str,
+    prefix_mapping_path: &str,
+    is_large: bool,
+) -> Result<String, Box<dyn StdError>> {
+    let processed_json = process_json_with_choices(dag_cost_json, saturated_graph_json)?;
+    let simplified_json = process_json_simplify_keys(&processed_json)?;
+    let final_json = update_root_eclasses(saturated_graph_json, &simplified_json)?;
+    json_to_eqn(&final_json, prefix_mapping_path, is_large)
+}
+
+
+// pub fn process_circuit_conversion_extraction_json(
+//     extraction_result: &crate::ExtractionResult,
+//     saturated_graph_json: &str,
+//     prefix_mapping_path: &str,
+//     is_large: bool,
+// ) -> Result<(String, String), Box<dyn StdError>> {
+//     // 获取 DAG Cost JSON
+//     build_final_json_and_eqn(
+//         extraction_result,
+//         saturated_graph_json,
+//         prefix_mapping_path,
+//         is_large,
+//     )
+// }
 
 /// Processes JSON with choices to filter nodes
 fn process_json_with_choices(
@@ -133,6 +176,102 @@ fn json_to_eqn(json_str: &str, prefix_mapping_path: &str, is_large: bool) -> Res
     Ok(final_content)
 }
 
+
+fn stage1_choices(dag_cost_json: &str, saturated: &str) -> Result<String, Box<dyn StdError>> {
+    process_json_with_choices(dag_cost_json, saturated)
+}
+
+fn stage2_simplify(json1: &str) -> Result<String, Box<dyn StdError>> {
+    process_json_simplify_keys(json1)
+}
+
+fn stage3_add_roots(saturated: &str, json2: &str) -> Result<String, Box<dyn StdError>> {
+    update_root_eclasses(saturated, json2)
+}
+
+fn stage4_to_eqn(json3: &str, map_path: &str, is_large: bool)
+    -> Result<String, Box<dyn StdError>> {
+    json_to_eqn(json3, map_path, is_large)
+}
+// ------------------------------------------------------------
+
+pub fn build_eqns_pipeline(
+    extractions: Vec<ExtractionResult>,
+    saturated_graph_json: &str,
+    prefix_mapping_path: &str,
+    is_large: bool,
+    dump_intermediate: bool,
+) -> Result<Vec<(String, String)>, String> {
+    // -------- 阶段 0：准备 DAG JSON ---------------------------------
+    let p0: Vec<&str> = extractions
+        .iter()
+        .enumerate()
+        .map(|(idx, e)| {
+            e.dag_cost_json
+                .as_deref()
+                .ok_or_else(|| format!("[{idx}] missing dag_cost_json"))
+        })
+        .collect::<Result<_, _>>()?; // 主线程收集 Result
+
+    // -------- 阶段 1：并行 choices ----------------------------------
+    let p1: Vec<String> = p0
+        .par_iter()
+        .map(|dag_json| {
+            stage1_choices(dag_json, saturated_graph_json)
+                .map_err(|e: Box<dyn StdError>| e.to_string())
+        })
+        .collect::<Vec<_>>()              // Vec<Result<String, String>>
+        .into_iter()
+        .collect::<Result<_, _>>()?;      // 折叠到 Result<Vec<_>, String>
+
+    if dump_intermediate {
+        p1.iter()
+            .enumerate()
+            .for_each(|(i, s)| std::fs::write(format!("tmp/1_choices_{i}.json"), s).unwrap());
+    }
+
+    // -------- 阶段 2：并行 simplify ---------------------------------
+    let p2: Vec<String> = p1
+        .par_iter()
+        .map(|j1| stage2_simplify(j1).map_err(|e| e.to_string()))
+        .collect::<Vec<_>>()
+        .into_iter()
+        .collect::<Result<_, _>>()?;
+
+    if dump_intermediate {
+        p2.iter()
+            .enumerate()
+            .for_each(|(i, s)| std::fs::write(format!("tmp/2_simpl_{i}.json"), s).unwrap());
+    }
+
+    // -------- 阶段 3：并行 add roots --------------------------------
+    let p3: Vec<String> = p2
+        .par_iter()
+        .map(|j2| stage3_add_roots(saturated_graph_json, j2).map_err(|e| e.to_string()))
+        .collect::<Vec<_>>()
+        .into_iter()
+        .collect::<Result<_, _>>()?;
+
+    if dump_intermediate {
+        p3.iter()
+            .enumerate()
+            .for_each(|(i, s)| std::fs::write(format!("tmp/3_roots_{i}.json"), s).unwrap());
+    }
+
+    // -------- 阶段 4：并行 to .eqn ---------------------------------
+    let pairs: Vec<(String, String)> = p3
+        .par_iter()
+        .map(|j3| {
+            stage4_to_eqn(j3, prefix_mapping_path, is_large)
+                .map(|eqn| (j3.clone(), eqn))
+                .map_err(|e| e.to_string())
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .collect::<Result<_, _>>()?;
+
+    Ok(pairs) // 与输入顺序一致
+}
 // ===================================================
 // Helper functions for JSON to Equation Conversion
 // ===================================================
@@ -322,33 +461,4 @@ fn generate_eqn_content(
     content
 }
 
-// ==================================================
-// Main Process: Circuit Conversion
-// ==================================================
-
-/// Processes the circuit conversion
-pub fn process_circuit_conversion(
-    extraction_result: &crate::ExtractionResult,
-    saturated_graph_json: &str,
-    prefix_mapping_path: &str,
-    is_large: bool,
-) -> Result<String, Box<dyn StdError>> {
-    let dag_cost_json = extraction_result.dag_cost_json.as_ref()
-        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "DAG cost JSON not found"))?;
-
-    extraction_result_to_eqn(dag_cost_json, saturated_graph_json, prefix_mapping_path, is_large)
-}
-
-/// Converts extraction result to equation format
-pub fn extraction_result_to_eqn(
-    dag_cost_json: &str,
-    saturated_graph_json: &str,
-    prefix_mapping_path: &str,
-    is_large: bool,
-) -> Result<String, Box<dyn StdError>> {
-    let processed_json = process_json_with_choices(dag_cost_json, saturated_graph_json)?;
-    let simplified_json = process_json_simplify_keys(&processed_json)?;
-    let final_json = update_root_eclasses(saturated_graph_json, &simplified_json)?;
-    json_to_eqn(&final_json, prefix_mapping_path, is_large)
-}
 

@@ -77,7 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (root_id, input_vec_id, input_vec_symbol) = process_file(input_path);
 
     println!("root: {:?}", root_id);
-
+    println!("input_vec_symbol: {:?}", input_vec_symbol);
     let duration_eqn2egraph_initial = start.elapsed();
     println!("eqn2egraph initially finished in: {:?}.", duration_eqn2egraph_initial);
 

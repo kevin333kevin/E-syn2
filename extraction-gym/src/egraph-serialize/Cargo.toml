@@ -24,7 +24,7 @@ default-features = false
 features = ["derive", "alloc", "rc"]
 optional = true
 version = "1.0.166"
-
+egraph-serialize = { path = "../extraction-gym/src/egraph-serialize/" }
 [dependencies.serde_json]
 features = ["preserve_order"]
 optional = true

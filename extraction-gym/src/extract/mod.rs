@@ -9,7 +9,9 @@ use rustc_hash::FxHashMap;
 use core::num;
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
+pub static VERILOG_COUNTER: AtomicUsize = AtomicUsize::new(0);
 pub use crate::*;
 
 pub mod bottom_up;
@@ -17,6 +19,7 @@ pub mod faster_bottom_up;
 pub mod faster_greedy_dag;
 pub mod global_greedy_dag;
 pub mod greedy_dag;
+pub mod cost_conversion;
 mod circuit_conversion;
 mod lib;
 mod demo;
@@ -37,11 +40,48 @@ use std::future::Future;
 
 // Extractor trait defines the interface for extracting a result from an EGraph
 pub trait Extractor: Sync {
-    // extract method takes an EGraph, roots, and cost_function as input
-    // and returns an ExtractionResult
-    fn extract(&self, egraph: &EGraph, roots: &[ClassId], cost_function: &str, random_prob: f64) -> ExtractionResult;
+    /* ---------- 现有接口 ---------- */
 
-    // boxed method allows creating a boxed instance of the Extractor trait
+    fn extract(
+        &self,
+        egraph: &EGraph,
+        roots: &[ClassId],
+        cost_function: &str,
+        random_prob: f64,
+    ) -> ExtractionResult {
+        // 默认实现：退化成 extract_par，num_samples = 1
+        self.extract_par(egraph, roots, cost_function, random_prob, 1)
+    }
+
+    fn extract_par(
+        &self,
+        egraph: &EGraph,
+        roots: &[ClassId],
+        cost_function: &str,
+        random_prob: f64,
+        num_samples: u32,
+    ) -> ExtractionResult {
+        // 默认实现：退化成 extract
+        self.extract(egraph, roots, cost_function, random_prob)
+    }
+
+    /* ---------- 新增接口 ---------- */
+    /// 在上一轮 `ExtractionResult` 的基础上做增量搜索。
+    /// 默认实现直接忽略 `prev`，退化成一次普通 extract，
+    /// 这样旧的实现者 **不需要** 改代码就能继续编译。
+    fn extract_incremental(
+        &self,
+        egraph: &EGraph,
+        roots: &[ClassId],
+        cost_function: &str,
+        random_prob: f64,
+        prev: &ExtractionResult,
+    ) -> ExtractionResult {
+        // 默认退化：完全重新提取
+        self.extract(egraph, roots, cost_function, random_prob)
+    }
+
+    /* ---------- 工具函数保持不变 ---------- */
     fn boxed(self) -> Box<dyn Extractor>
     where
         Self: Sized + 'static,

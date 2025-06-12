@@ -280,7 +280,7 @@ fn main() {
     
     let file_path = &args[1];
     let output_path = &args[2];
-    let mode = if args.len() >= 4 { &args[3] } else { "large" };
+    let mode = if args.len() >= 4 { &args[3] } else { "small" };
     let check_cyclic = args.len() >= 5 && args[4] == "1";
 
     let mut file = File::open(file_path).expect("Unable to open file");
