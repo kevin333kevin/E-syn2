@@ -1,5 +1,9 @@
 # E-syn2
 
+Main branch contains the early-stage implementation of E-Morphic. You can test the tool by following the instructions below. Random sampling is implemented as the basic workflow, it works and still can achieving good result, which can be deemed as a strong baseline. 
+
+For reproducing the experiment result in our [paper](https://arxiv.org/abs/2504.11574), check [SA-golden-model-delaytuning](https://github.com/Gy-Hu/E-syn2/tree/SA-golden-model-delaytuning) branch.
+
 ## Prequisites  
 
 - Rust environment
